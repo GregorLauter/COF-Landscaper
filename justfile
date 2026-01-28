@@ -52,8 +52,8 @@ build:
 
 # Initialize the repo.
 init repo-name:
-  for FILE in $(rg --files-with-matches millie); \
+  for FILE in $(rg --files-with-matches gs); \
   do \
-    sd millie {{repo-name}} $FILE; \
+    sd gs {{repo-name}} $FILE; \
   done
-  mv src/millie src/{{repo-name}}
+  mv src/gs src/{{repo-name}}

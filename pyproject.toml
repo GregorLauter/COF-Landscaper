@@ -10,6 +10,7 @@ maintainers = [
 
 dependencies = [
     "ase>=3.27.0",
+    "mace-torch>=0.3.14",
     "numpy<2.0",
     "pormake>=0.2.2",
     "rdkit>=2025.9.3",

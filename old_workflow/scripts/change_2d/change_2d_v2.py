@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# NOTE: Modes have been moved into gs._internal classes (e.g., CheckIld, ChangeIld, Supercell, etc.).
+
 import os
 import glob
 import math

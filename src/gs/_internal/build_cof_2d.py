@@ -1,8 +1,89 @@
 import os
 import tempfile
 import glob
-import pormake as pm
+import multiprocessing as mp
 from pymatgen.core import Structure
+from contextlib import contextmanager
+import sys
+
+def _build_one_pair(topo, node_name, node_path, linker_name, linker_path, output_folder, ild_guess):
+    import pormake as pm
+    database = pm.Database()
+    topo_initial = database.get_topo(f"{topo}_initial")
+
+    builder = pm.Builder()
+    edgetype_raw = topo_initial.edge_types
+    filtered_edge = edgetype_raw[(edgetype_raw != -1).any(axis=1)]
+    unique_pairs = set()
+    edgetype_filtered = []
+    for pair in filtered_edge:
+        if tuple(pair) not in unique_pairs:
+            unique_pairs.add(tuple(pair))
+            edgetype_filtered.append(tuple(pair))
+
+    node = pm.BuildingBlock(node_path)
+    linker = pm.BuildingBlock(linker_path)
+    node_bbs = {0: node}
+    edge_bbs = {pair: linker for pair in edgetype_filtered}
+
+    cof = builder.build_by_type(
+        topology=topo_initial,
+        node_bbs=node_bbs,
+        edge_bbs=edge_bbs,
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".cif", delete=False) as tmp:
+        tmp_path = tmp.name
+    cof.write_cif(tmp_path)
+    structure = Structure.from_file(tmp_path)
+    a = structure.lattice.a
+    os.remove(tmp_path)
+
+    alpha = 1.73205 if topo == "hcb" else 1.0
+    gamma = (alpha * ild_guess) / a
+
+    base = os.path.join(os.path.dirname(pm.__file__), "database", "topologies")
+    pickle_path = os.path.join(base, f"{topo}_modified.pickle")
+    cgd_path = os.path.join(base, f"{topo}_modified.cgd")
+    if os.path.exists(pickle_path):
+        os.remove(pickle_path)
+
+    with open(cgd_path, "r") as file:
+        lines = file.readlines()
+    line_parts = lines[3].split()
+    line_parts[3] = f"{float(gamma):.5f}"
+    lines[3] = "  ".join(line_parts) + "\n"
+    with open(cgd_path, "w") as file:
+        file.writelines(lines)
+
+    topo_modified = database.get_topo(f"{topo}_modified")
+    cof = builder.build_by_type(
+        topology=topo_modified,
+        node_bbs=node_bbs,
+        edge_bbs=edge_bbs,
+    )
+
+    output_filename = os.path.join(output_folder, f"{node_name}_{linker_name}.cif")
+    cof.write_cif(output_filename)
+    return output_filename
+
+def _build_one_pair_quiet(args, queue):
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_out = os.dup(1)
+    old_err = os.dup(2)
+    try:
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
+        output = _build_one_pair(*args)
+        queue.put(("ok", output))
+    except Exception as e:
+        queue.put(("err", f"{type(e).__name__}: {e}"))
+    finally:
+        os.dup2(old_out, 1)
+        os.dup2(old_err, 2)
+        os.close(old_out)
+        os.close(old_err)
+        os.close(devnull)
 
 
 class BuildCOF2D:
@@ -52,9 +133,6 @@ class BuildCOF2D:
         nodename: str | None = None,
         linkername: str | None = None,
     ):
-        database = pm.Database()
-        topo_initial = database.get_topo(f"{topo}_initial")
-
         if nodename:
             nodes = [(nodename, os.path.join(nodes_dir, f"{nodename}.xyz"))]
         else:
@@ -65,52 +143,26 @@ class BuildCOF2D:
         else:
             linkers = self._list_xyz(linker_dir)
 
-        builder = pm.Builder()
-        edgetype_raw = topo_initial.edge_types
-        filtered_edge = edgetype_raw[(edgetype_raw != -1).any(axis=1)]
-        unique_pairs = set()
-        edgetype_filtered = []
-        for pair in filtered_edge:
-            if tuple(pair) not in unique_pairs:
-                unique_pairs.add(tuple(pair))
-                edgetype_filtered.append(tuple(pair))
-
         os.makedirs(output_folder, exist_ok=True)
         outputs = []
+        ctx = mp.get_context("spawn")
 
         for node_name, node_path in nodes:
             for linker_name, linker_path in linkers:
-                node = pm.BuildingBlock(node_path)
-                linker = pm.BuildingBlock(linker_path)
-
-                node_bbs = {0: node}
-                edge_bbs = {pair: linker for pair in edgetype_filtered}
-
-                cof = builder.build_by_type(
-                    topology=topo_initial,
-                    node_bbs=node_bbs,
-                    edge_bbs=edge_bbs,
+                q = ctx.Queue()
+                p = ctx.Process(
+                    target=_build_one_pair_quiet,
+                    args=((topo, node_name, node_path, linker_name, linker_path, output_folder, self.ild_guess), q),
                 )
-
-                with tempfile.NamedTemporaryFile(suffix=".cif", delete=False) as tmp:
-                    tmp_path = tmp.name
-                cof.write_cif(tmp_path)
-                a, b, c = self.extract_cell_lengths(tmp_path)
-                os.remove(tmp_path)
-
-                gamma = self.calculate_gamma(a, topo)
-                self.update_cgd_file(gamma, topo)
-
-                topo_modified = database.get_topo(f"{topo}_modified")
-                cof = builder.build_by_type(
-                    topology=topo_modified,
-                    node_bbs=node_bbs,
-                    edge_bbs=edge_bbs,
-                )
-
-                output_filename = os.path.join(output_folder, f"{node_name}_{linker_name}.cif")
-                cof.write_cif(output_filename)
-                outputs.append(output_filename)
+                p.start()
+                p.join()
+                if not q.empty():
+                    status, payload = q.get()
+                else:
+                    status, payload = "err", "No result from subprocess"
+                if status != "ok":
+                    raise RuntimeError(payload)
+                outputs.append(payload)
 
         return outputs
 
