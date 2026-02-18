@@ -23,6 +23,32 @@ from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
 
 
+def _disable_pormake_file_logging() -> None:
+    """Disable pormake file logging and remove runtime.log if present."""
+    try:
+        from pormake import log as pmlog
+
+        try:
+            pmlog.logger.removeHandler(pmlog.file_log_handler)
+        except Exception:
+            pass
+        try:
+            pmlog.file_log_handler.close()
+        except Exception:
+            pass
+    except Exception:
+        return
+
+    try:
+        if os.path.exists("runtime.log"):
+            os.remove("runtime.log")
+    except Exception:
+        pass
+
+
+_disable_pormake_file_logging()
+
+
 
 def _replace_atoms(atoms: Atoms, from_symbol: str, to_symbol: str) -> tuple[str, list[int]]:
     """Replace atom symbols and return XYZ block and replaced indices.
@@ -390,6 +416,7 @@ class BuildCOF2D:
             scaling_factor: Scale applied to X-atom displacement.
             cof_name: COF name used for output folder and filename.
         """
+        _disable_pormake_file_logging()
         with ExitStack() as stack:
             if bond_type:
                 nodes_dir_used = stack.enter_context(tempfile.TemporaryDirectory())

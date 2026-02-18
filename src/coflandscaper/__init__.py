@@ -8,8 +8,7 @@ from ._internal.remove_layer import RemoveLayer
 from ._internal.calc_ils_sl import CalcIlsSl
 from ._internal.calc_ils_dl import CalcIlsDl
 from ._internal.mace import Mace, MaceFullOpt, MacePreopt, MaceSP, OptMACE
-from ._internal.landscape import Landscape
-from ._internal.select_cofs import SelectCofs
+from ._internal.landscape import Landscape, SelectCofs
 from ._internal.visualize import VisualizeCOF, visualize_cof
 
 

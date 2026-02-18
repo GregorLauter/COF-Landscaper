@@ -154,8 +154,6 @@ class MaceSP(Mace):
         csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
         os.makedirs(csv_dir, exist_ok=True)
 
-        energies_csv_path = csv_dir / f"{cof_name}_energies_{mode_tag}.csv"
-
         cif_files = sorted(input_path.glob("*.cif"))
         if not cif_files:
             raise FileNotFoundError(f"No .cif files found in: {input_path.resolve()}")
@@ -166,6 +164,9 @@ class MaceSP(Mace):
             head=head,
             dispersion=dispersion,
         )
+
+        model_suffix = f"mace-mh-1-{head}"
+        energies_csv_path = csv_dir / f"{cof_name}_energies_{mode_tag}_{model_suffix}.csv"
 
         calc = self._make_calc(device, dtype, head, dispersion)
 
