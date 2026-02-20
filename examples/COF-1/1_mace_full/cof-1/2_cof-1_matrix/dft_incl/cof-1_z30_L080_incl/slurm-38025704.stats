@@ -1,0 +1,28 @@
++--------------------------------------------------------------------------+
+| Job on the BlueBEAR cluster:
+| Starting at Thu Feb 19 17:47:42 2026 for gjl342(890170)
+| Identity jobid 38025704 jobname cof-1_z30_L080_incl
+| Running against project grynovag-cof-models and in partition emerald-shared
+| Requested cpu=32,mem=128G,node=1,billing=32 - 02:00:00 walltime
+| Allocated cpu=32,mem=128G,node=1,billing=32
+| Assigned to nodes bear-pg0201u13a
+| Command /rds/homes/g/gjl342/tools/scripts/runCrystal.job
+| WorkDir /rds/projects/g/grynovag-cof-models/eva/crystal/4_crystal_sp/cof-1/dft_incl/cof-1_z30_L080_incl
++--------------------------------------------------------------------------+
++--------------------------------------------------------------------------+
+| Finished at Thu Feb 19 17:50:03 2026 for gjl342(890170) on the BlueBEAR Cluster
+| Required (01:03:34 cputime, 770242K memory used) - 00:02:23 walltime
+| JobState COMPLETING - Reason None
+| Exitcode 0:0
++--------------------------------------------------------------------------+
+Job efficiency stats from seff for Job ID: 38025704
+Cluster: paddington
+User/Group: gjl342/users
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 32
+CPU Utilized: 01:03:35
+CPU Efficiency: 83.37% of 01:16:16 core-walltime
+Job Wall-clock time: 00:02:23
+Memory Utilized: 752.19 MB
+Memory Efficiency: 0.57% of 128.00 GB

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from .ild_ils_matrix import get_mode_folders
+from .ild_ils_utils import get_mode_folders
 
 EH_TO_KJMOL = 2625.5
 
@@ -31,13 +31,13 @@ class Landscape:
             cof_name = None
             folder_tag = None
             lot_suffix = None
-            match = re.match(r"(.+)_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name)
+            match = re.match(r"(.+)_sp_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name)
             if match:
                 cof_name = match.group(1)
                 folder_tag = match.group(2)
                 lot_suffix = match.group(3)
             else:
-                match = re.match(r"(.+)_energies_(serr|incl)(?:\.csv)?$", csv_path.name)
+                match = re.match(r"(.+)_sp_energies_(serr|incl)(?:\.csv)?$", csv_path.name)
                 if match:
                     cof_name = match.group(1)
                     folder_tag = match.group(2)
@@ -49,18 +49,18 @@ class Landscape:
             if input_path.parent.name.endswith("_matrix"):
                 cof_name = input_path.parents[1].name
                 csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
-                csv_matches = list(csv_dir.glob(f"{cof_name}_energies_{folder_tag}_*.csv"))
+                csv_matches = list(csv_dir.glob(f"{cof_name}_sp_energies_{folder_tag}_*.csv"))
                 if csv_matches:
                     csv_path = max(csv_matches, key=lambda p: p.stat().st_mtime)
                 else:
-                    csv_path = csv_dir / f"{cof_name}_energies_{folder_tag}.csv"
+                    csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
             else:
                 csv_dir = Path(f"csvs/{folder_tag}")
                 csv_path = csv_dir / "energy_absolute.csv"
             if not csv_path.exists():
                 raise FileNotFoundError(f"CSV not found: {csv_path}")
             lot_suffix = None
-            match = re.match(r"(.+)_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name)
+            match = re.match(r"(.+)_sp_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name)
             if match:
                 lot_suffix = match.group(3)
 
@@ -132,7 +132,22 @@ class Landscape:
             plt.xlabel("Inter Layer Slipping [Å]", fontsize=12)
             plt.ylabel("Inter Layer Distance [Å]", fontsize=12)
             title_name = cof_name or "COF"
-            plt.title(f"Potential Energy Landscape - {title_name}", fontsize=14, pad=27)
+            plt.title(f"Potential Energy Landscape - {title_name}", fontsize=14, pad=36)
+            mode_label = None
+            if folder_tag == "serr":
+                mode_label = "Serrated"
+            elif folder_tag == "incl":
+                mode_label = "Inclined"
+            if mode_label:
+                plt.text(
+                    0.5,
+                    1.06,
+                    f"Stacking Mode: {mode_label}",
+                    transform=plt.gca().transAxes,
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                )
             if lot_suffix:
                 plt.text(
                     0.5,
@@ -250,11 +265,11 @@ class Landscape:
         for folder in get_mode_folders(cof_name, mode):
             folder_tag = Path(folder).name
             csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
-            matches = list(csv_dir.glob(f"{cof_name}_energies_{folder_tag}_*.csv"))
+            matches = list(csv_dir.glob(f"{cof_name}_sp_energies_{folder_tag}_*.csv"))
             if matches:
                 csv_path = max(matches, key=lambda p: p.stat().st_mtime)
             else:
-                csv_path = csv_dir / f"{cof_name}_energies_{folder_tag}.csv"
+                csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
             heatmaps.append(
                 self.run(
                     input_csv=str(csv_path),
@@ -436,15 +451,15 @@ class SelectCofs:
         """
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
-            out_folder = f"{cof_name}/4_{cof_name}_final_structures/{mode_tag}/input"
+            out_folder = f"{cof_name}/3_{cof_name}_landscape/selection/{mode_tag}"
             mode_selections: list[tuple[float, float]] = []
             if include_minima:
                 csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
-                matches = list(csv_dir.glob(f"{cof_name}_energies_{mode_tag}_*.csv"))
+                matches = list(csv_dir.glob(f"{cof_name}_sp_energies_{mode_tag}_*.csv"))
                 if matches:
                     csv_path = max(matches, key=lambda p: p.stat().st_mtime)
                 else:
-                    csv_path = csv_dir / f"{cof_name}_energies_{mode_tag}.csv"
+                    csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
                 mode_selections.extend(self._local_minima_from_csv(csv_path))
 
             if selections:

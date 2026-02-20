@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import numpy as np
 from pymatgen.core import Lattice, Structure
-from .change_2d_utils import (
+from .ild_ils_utils import (
     _calculate_ild,
     _generate_values,
     _slug,
@@ -441,30 +441,3 @@ class CreateMatrix:
                 )
 
     __call__ = run
-
-
-def get_mode_folders(cof_name: str, mode: str) -> list[str]:
-    """Return output folders for the selected stacking mode(s).
-
-    Args:
-        cof_name: COF name used for folder naming.
-        mode: "incl", "serr", or "both".
-
-    Returns:
-        List of folder paths to process.
-
-    Raises:
-        ValueError: If `mode` is not one of "incl", "serr", or "both".
-    """
-    mode = mode.lower()
-    if mode not in {"incl", "serr", "both"}:
-        raise ValueError("mode must be 'incl', 'serr', or 'both'.")
-
-    incl = f"{cof_name}/2_{cof_name}_matrix/incl"
-    serr = f"{cof_name}/2_{cof_name}_matrix/serr"
-
-    if mode == "incl":
-        return [incl]
-    if mode == "serr":
-        return [serr]
-    return [serr, incl]

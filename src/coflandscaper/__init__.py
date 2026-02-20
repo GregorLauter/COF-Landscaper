@@ -1,15 +1,11 @@
 from ._internal.build_cof_2d import BuildCOF2D
-from ._internal.check_ild import CheckIld
-from ._internal.ild_ils_matrix import ChangeIld, CreateMatrix, IlsIncl, IlsSerr, get_mode_folders
-from ._internal.supercell import Supercell
-from ._internal.set_vacuum import SetVacuum
-from ._internal.center_z import CenterZ
-from ._internal.remove_layer import RemoveLayer
-from ._internal.calc_ils_sl import CalcIlsSl
-from ._internal.calc_ils_dl import CalcIlsDl
+from ._internal.analyze import Analyze, analyze, visualizecof, CheckIld, CalcIlsSl, CalcIlsDl, VisualizeCOF, visualize_cof
+from ._internal.ild_ils_matrix import ChangeIld, CreateMatrix, IlsIncl, IlsSerr
+from ._internal.ild_ils_utils import get_mode_folders
+from ._internal.helpers import Supercell, SetVacuum, CenterZ, RemoveLayer
 from ._internal.mace import Mace, MaceFullOpt, MacePreopt, MaceSP, OptMACE
 from ._internal.landscape import Landscape, SelectCofs
-from ._internal.visualize import VisualizeCOF, visualize_cof
+from ._internal.dft import Crystal, CrystalSP, CrystalOpt
 
 
 __all__ = [
@@ -20,6 +16,9 @@ __all__ = [
     "MaceSP",
     "OptMACE",
     "CheckIld",
+    "Analyze",
+    "analyze",
+    "visualizecof",
     "ChangeIld",
     "CreateMatrix",
     "Supercell",
@@ -35,4 +34,7 @@ __all__ = [
     "SelectCofs",
     "VisualizeCOF",
     "visualize_cof",
+    "Crystal",
+    "CrystalSP",
+    "CrystalOpt",
 ]

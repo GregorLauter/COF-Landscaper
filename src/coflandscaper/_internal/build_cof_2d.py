@@ -45,10 +45,7 @@ def _disable_pormake_file_logging() -> None:
     except Exception:
         pass
 
-
 _disable_pormake_file_logging()
-
-
 
 def _replace_atoms(atoms: Atoms, from_symbol: str, to_symbol: str) -> tuple[str, list[int]]:
     """Replace atom symbols and return XYZ block and replaced indices.
@@ -210,8 +207,6 @@ def _prepare_xyz(
         _write_xyz_with_bonds(mol, out_path, scaling_factor)
 
     return xyz_files
-
-
 
 def _normalize_edge_pair(pair: Sequence[int] | np.ndarray) -> tuple[int, int]:
     """Normalize an edge pair into a 2-tuple of ints.

@@ -165,8 +165,7 @@ class MaceSP(Mace):
             dispersion=dispersion,
         )
 
-        model_suffix = f"mace-mh-1-{head}"
-        energies_csv_path = csv_dir / f"{cof_name}_energies_{mode_tag}_{model_suffix}.csv"
+        energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
 
         calc = self._make_calc(device, dtype, head, dispersion)
 
@@ -234,7 +233,7 @@ class MaceSP(Mace):
         Returns:
             List of CSV paths written.
         """
-        from .ild_ils_matrix import get_mode_folders
+        from .ild_ils_utils import get_mode_folders
 
         csv_paths: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
@@ -306,6 +305,39 @@ class OptMACE(Mace):
                 input_path = os.path.join(input_folder, file_name)
                 output_path = os.path.join(output_folder, file_name)
                 self.optimize_cof(input_path, output_path)
+
+    def run(self, input_folder: str, output_folder: str) -> None:
+        """Alias for batch optimization over a folder of CIFs."""
+        self.process_cifs(input_folder=input_folder, output_folder=output_folder)
+
+    def run_mode(
+        self,
+        cof_name: str,
+        mode: str,
+        output_base: str | None = None,
+        input_base: str | None = None,
+    ) -> None:
+        """Optimize CIFs for stacking modes and write to {output_base}_{mode} folders.
+
+        Args:
+            cof_name: COF name used for folder naming.
+            mode: "incl", "serr", or "both".
+            output_base: Base folder for outputs (relative to cof_name).
+            input_base: Optional base folder containing per-mode input subfolders.
+        """
+        from .ild_ils_utils import get_mode_folders
+
+        if input_base is None:
+            input_base = f"{cof_name}/3_{cof_name}_landscape/selection"
+        if output_base is None:
+            output_base = f"4_{cof_name}_final_structures"
+
+        for folder in get_mode_folders(cof_name, mode):
+            mode_tag = os.path.basename(folder)
+            self.run(
+                input_folder=f"{input_base}/{mode_tag}",
+                output_folder=f"{cof_name}/{output_base}/{mode_tag}",
+            )
 
 class MacePreopt(OptMACE):
     """Pre-optimize a single CIF to improve the subsequent energy landscape.
