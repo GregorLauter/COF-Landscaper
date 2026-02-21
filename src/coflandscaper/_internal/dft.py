@@ -82,6 +82,187 @@ def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
             return atoms
     raise ValueError("No atom site loop with fractional coordinates.")
 
+
+def _find_last_occurrence(lines: list[str], keyword: str) -> int:
+    """Return the index of the last occurrence of a keyword.
+
+    Args:
+        lines: Text lines from a CRYSTAL output.
+        keyword: Substring to search for.
+
+    Returns:
+        Index of the last matching line, or -1 if not found.
+    """
+    for i in range(len(lines) - 1, -1, -1):
+        if keyword in lines[i]:
+            return i
+    return -1
+
+
+def _parse_atom_lines(lines: list[str], start_idx: int) -> tuple[list[str], list[list[float]]]:
+    """Parse atom symbols and XYZ coordinates from a line block.
+
+    Args:
+        lines: Text lines from a CRYSTAL output.
+        start_idx: Index where the atom block begins.
+
+    Returns:
+        Tuple of (symbols, coordinates), where coordinates are raw XYZ values.
+    """
+    symbols: list[str] = []
+    raw_coords: list[list[float]] = []
+
+    for i in range(start_idx, len(lines)):
+        parts = lines[i].split()
+        if len(parts) < 4:
+            if symbols:
+                break
+            continue
+
+        try:
+            sym = parts[-4]
+            if sym.capitalize() not in atomic_numbers:
+                if symbols:
+                    break
+                continue
+
+            x, y, z = float(parts[-3]), float(parts[-2]), float(parts[-1])
+            symbols.append(sym)
+            raw_coords.append([x, y, z])
+        except (ValueError, IndexError):
+            if symbols:
+                break
+            continue
+
+    return symbols, raw_coords
+
+
+def _parse_primary_structure(lines: list[str]) -> Optional["Atoms"]:
+    """Parse a structure using DIRECT LATTICE and PRIMITIVE CELL blocks.
+
+    Args:
+        lines: Text lines from a CRYSTAL output.
+
+    Returns:
+        ASE Atoms if parsing succeeds, otherwise None.
+    """
+    lat_idx = _find_last_occurrence(lines, "DIRECT LATTICE")
+    prim_idx = _find_last_occurrence(lines, "PRIMITIVE CELL")
+
+    if lat_idx == -1 and prim_idx == -1:
+        return None
+
+    try:
+        cell = None
+        if lat_idx != -1:
+            v_start = lat_idx + 2
+            cell = [
+                list(map(float, lines[v_start].split())),
+                list(map(float, lines[v_start + 1].split())),
+                list(map(float, lines[v_start + 2].split())),
+            ]
+
+        symbols: list[str] = []
+        positions: list[list[float]] = []
+        if prim_idx != -1:
+            symbols, positions = _parse_atom_lines(lines, prim_idx + 4)
+
+        if not symbols and cell is None:
+            return None
+
+        try:
+            from ase import Atoms
+        except Exception as exc:
+            raise ModuleNotFoundError(
+                "ase is required for CRYSTAL structure extraction. Install with: pip install ase"
+            ) from exc
+
+        return Atoms(symbols=symbols, cell=cell, positions=positions, pbc=(cell is not None))
+    except (ValueError, IndexError, KeyError):
+        return None
+
+
+def _parse_fallback_structure(lines: list[str]) -> Optional["Atoms"]:
+    """Parse a structure using LATTICE PARAMETERS and ATOM blocks.
+
+    Args:
+        lines: Text lines from a CRYSTAL output.
+
+    Returns:
+        ASE Atoms if parsing succeeds, otherwise None.
+    """
+    lat_header_sig = "LATTICE PARAMETERS (ANGSTROMS AND DEGREES)"
+    lat_idx = _find_last_occurrence(lines, lat_header_sig)
+
+    if lat_idx == -1:
+        return None
+
+    try:
+        param_line_idx = -1
+        for i in range(lat_idx, min(lat_idx + 10, len(lines))):
+            if "ALPHA" in lines[i] and "BETA" in lines[i]:
+                param_line_idx = i + 1
+                break
+
+        if param_line_idx == -1 or param_line_idx >= len(lines):
+            return None
+
+        params = list(map(float, lines[param_line_idx].split()))
+        if len(params) != 6:
+            return None
+
+        try:
+            from ase.geometry import cellpar_to_cell
+        except Exception as exc:
+            raise ModuleNotFoundError(
+                "ase is required for CRYSTAL structure extraction. Install with: pip install ase"
+            ) from exc
+
+        cell = cellpar_to_cell(params)
+
+        atom_header_idx = -1
+        for i in range(param_line_idx, len(lines)):
+            if "ATOM" in lines[i] and "Z" in lines[i]:
+                atom_header_idx = i
+                break
+        if atom_header_idx == -1:
+            return None
+
+        header = lines[atom_header_idx]
+        x_is_frac = "/A" in header or "/a" in header
+        y_is_frac = "/B" in header or "/b" in header
+        z_is_frac = "/C" in header or "/c" in header
+
+        symbols, raw_coords = _parse_atom_lines(lines, atom_header_idx + 2)
+        if not symbols:
+            return None
+
+        final_positions: list[list[float]] = []
+        cell_mat = np.array(cell, dtype=float)
+
+        for x, y, z in raw_coords:
+            if x_is_frac and y_is_frac and z_is_frac:
+                pos = np.dot([x, y, z], cell_mat)
+            elif (not x_is_frac) and (not y_is_frac) and (not z_is_frac):
+                pos = [x, y, z]
+            else:
+                frac_vec = [x if x_is_frac else 0.0, y if y_is_frac else 0.0, z if z_is_frac else 0.0]
+                cart_vec = [x if not x_is_frac else 0.0, y if not y_is_frac else 0.0, z if not z_is_frac else 0.0]
+                part_a = np.dot(frac_vec, cell_mat)
+                pos = [float(part_a[k] + cart_vec[k]) for k in range(3)]
+            final_positions.append([float(pos[0]), float(pos[1]), float(pos[2])])
+
+        try:
+            from ase import Atoms
+        except Exception as exc:
+            raise ModuleNotFoundError(
+                "ase is required for CRYSTAL structure extraction. Install with: pip install ase"
+            ) from exc
+
+        return Atoms(symbols=symbols, positions=final_positions, cell=cell, pbc=True)
+    except Exception:
+        return None
+
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     mz = re.search(r"_z(\d+)", stem)
     mL = re.search(r"_L(\d+)", stem)
@@ -334,6 +515,31 @@ END""".format(
 class CrystalOpt(Crystal):
     """CRYSTAL geometry-optimization input generator."""
 
+    def _extract_energy_au(self, text: str) -> float | None:
+        lines = text.splitlines()
+        if len(lines) < 2:
+            return None
+        if "TELAPSE" not in lines[-2]:
+            return None
+
+        energy_label = "TOTAL ENERGY + DISP + GCP (AU)"
+        num_re = re.compile(r"([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)")
+        last_val: float | None = None
+
+        for i, line in enumerate(lines):
+            if energy_label in line:
+                tail = line.split(energy_label, 1)[1]
+                m = num_re.search(tail)
+                if m:
+                    last_val = float(m.group(1))
+                else:
+                    if i + 1 < len(lines):
+                        m2 = num_re.search(lines[i + 1])
+                        if m2:
+                            last_val = float(m2.group(1))
+
+        return last_val
+
     def __init__(
         self,
         basisset: str = "SOLDEF2MSVP",
@@ -396,8 +602,268 @@ END""".format(
             outputs.extend(
                 self.run(
                     input_folder=f"{input_base}/{mode_tag}",
-                    output_folder=f"{output_base}/dft_{mode_tag}",
+                    output_folder=f"{output_base}/{mode_tag}",
                     verbose=verbose,
                 )
             )
         return outputs if return_paths else None
+
+    def read(
+        self,
+        input_folder: str,
+        output_csv_dir: str | None = None,
+    ) -> Path:
+        """Extract converged energies from CRYSTAL .out files.
+
+        Args:
+            input_folder: Folder containing CRYSTAL output files.
+            output_csv_dir: Optional output folder for the CSV.
+
+        Returns:
+            Path to the energies CSV.
+        """
+        input_path = Path(input_folder)
+        folder_tag = input_path.name
+        mode_tag = folder_tag.replace("dft_", "") if folder_tag.startswith("dft_") else folder_tag
+
+        cof_name = folder_tag
+        if input_path.parent.name.endswith("_final_structures"):
+            cof_name = input_path.parents[1].name
+        elif input_path.parent.name:
+            cof_name = input_path.parent.name
+
+        csv_dir = Path(output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures")
+        os.makedirs(csv_dir, exist_ok=True)
+
+        out_files = self._collect_out_files([input_path])
+
+        if not out_files:
+            raise FileNotFoundError(
+                f"No valid .out files found in: {input_path.resolve()} (expected system_name.out)"
+            )
+
+        energies_csv_path = csv_dir / "final_energies.csv"
+
+        rows = []
+        failed = []
+        for out_path in out_files:
+            try:
+                text = out_path.read_text(errors="ignore")
+                energy = self._extract_energy_au(text)
+                if energy is None:
+                    raise ValueError("Energy not found or not converged")
+                z, L = _parse_z_L_from_stem(out_path.stem)
+                rows.append(
+                    {
+                        "structure": out_path.stem,
+                        "z": z,
+                        "L": L,
+                        "energy_Eh": energy,
+                    }
+                )
+            except Exception as exc:
+                failed.append((str(out_path), repr(exc)))
+
+        df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
+        if not df.empty:
+            min_e = float(df["energy_Eh"].min())
+            df["energy_rel_Eh"] = df["energy_Eh"] - min_e
+        df.to_csv(energies_csv_path, index=False)
+
+        if failed:
+            print("\nFailed files (first 10):")
+            for p, err in failed[:10]:
+                print(" -", p)
+                print("   ", err)
+            print("Total failed:", len(failed))
+
+        return energies_csv_path
+
+    def _collect_out_files(self, input_paths: list[Path]) -> list[Path]:
+        """Collect valid CRYSTAL .out files from one or more folders.
+
+        Args:
+            input_paths: List of folders to search.
+
+        Returns:
+            Sorted list of valid .out files.
+        """
+        out_files: list[Path] = []
+        for input_path in input_paths:
+            for out_path in sorted(input_path.rglob("*.out")):
+                if out_path.name.lower().startswith("slurm"):
+                    continue
+                if out_path.parent == input_path:
+                    out_files.append(out_path)
+                    continue
+                if out_path.stem == out_path.parent.name:
+                    out_files.append(out_path)
+        return out_files
+
+    def read_mode(
+        self,
+        cof_name: str,
+        mode: str,
+        output_csv_dir: str | None = None,
+        input_base: str | None = None,
+    ) -> list[Path]:
+        """Extract energies for all stacking modes into a single CSV.
+
+        Args:
+            cof_name: COF name used for folder naming.
+            mode: "incl", "serr", or "both".
+            output_csv_dir: Optional output folder for the CSVs.
+            input_base: Optional base folder containing dft_{mode} subfolders.
+
+        Returns:
+            List containing the combined CSV path.
+        """
+        from .ild_ils_utils import get_mode_folders
+
+        if input_base is None:
+            input_base = f"{cof_name}/4_{cof_name}_final_structures"
+
+        input_paths = [Path(f"{input_base}/dft_{Path(folder).name}") for folder in get_mode_folders(cof_name, mode)]
+        out_files = self._collect_out_files(input_paths)
+        if not out_files:
+            raise FileNotFoundError(
+                f"No valid .out files found in: {input_base} (expected system_name.out)"
+            )
+
+        csv_dir = Path(output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures")
+        os.makedirs(csv_dir, exist_ok=True)
+        energies_csv_path = csv_dir / "final_energies.csv"
+
+        rows = []
+        failed = []
+        for out_path in out_files:
+            try:
+                text = out_path.read_text(errors="ignore")
+                energy = self._extract_energy_au(text)
+                if energy is None:
+                    raise ValueError("Energy not found or not converged")
+                z, L = _parse_z_L_from_stem(out_path.stem)
+                rows.append(
+                    {
+                        "structure": out_path.stem,
+                        "z": z,
+                        "L": L,
+                        "energy_Eh": energy,
+                    }
+                )
+            except Exception as exc:
+                failed.append((str(out_path), repr(exc)))
+
+        df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
+        if not df.empty:
+            min_e = float(df["energy_Eh"].min())
+            df["energy_rel_Eh"] = df["energy_Eh"] - min_e
+        df.to_csv(energies_csv_path, index=False)
+
+        if failed:
+            print("\nFailed files (first 10):")
+            for p, err in failed[:10]:
+                print(" -", p)
+                print("   ", err)
+            print("Total failed:", len(failed))
+
+        return [energies_csv_path]
+
+    def extract_structures(
+        self,
+        input_folder: str,
+        output_folder: str | None = None,
+    ) -> list[Path]:
+        """Extract the final optimized structures to CIF files.
+
+        Args:
+            input_folder: Folder containing CRYSTAL output files.
+            output_folder: Optional output folder for CIFs.
+
+        Returns:
+            List of CIF paths written.
+        """
+        input_path = Path(input_folder)
+        if not input_path.exists():
+            raise FileNotFoundError(f"Input folder not found: {input_path}")
+
+        out_files: list[Path] = []
+        for out_path in sorted(input_path.rglob("*.out")):
+            if out_path.name.lower().startswith("slurm"):
+                continue
+            if out_path.parent == input_path:
+                out_files.append(out_path)
+                continue
+            if out_path.stem == out_path.parent.name:
+                out_files.append(out_path)
+
+        if not out_files:
+            raise FileNotFoundError(
+                f"No valid .out files found in: {input_path.resolve()} (expected system_name.out)"
+            )
+
+        try:
+            from ase.io import write
+        except Exception as exc:
+            raise ModuleNotFoundError(
+                "ase is required for CRYSTAL structure extraction. Install with: pip install ase"
+            ) from exc
+
+        outputs: list[Path] = []
+        for out_path in out_files:
+            text = out_path.read_text(errors="ignore")
+            lines = text.splitlines()
+            structure = _parse_primary_structure(lines)
+            if structure is None:
+                structure = _parse_fallback_structure(lines)
+            if structure is None:
+                raise RuntimeError(f"Could not parse structure from: {out_path}")
+
+            if output_folder:
+                rel = out_path.parent.relative_to(input_path)
+                out_dir = Path(output_folder) / rel
+            else:
+                out_dir = out_path.parent
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            out_cif = out_dir / f"{out_path.stem}.cif"
+            write(str(out_cif), structure)
+            outputs.append(out_cif)
+
+        return outputs
+
+    def extract_mode(
+        self,
+        cof_name: str,
+        mode: str,
+        output_base: str | None = None,
+        input_base: str | None = None,
+    ) -> list[Path]:
+        """Extract optimized structures for all stacking modes.
+
+        Args:
+            cof_name: COF name used for folder naming.
+            mode: "incl", "serr", or "both".
+            output_base: Optional base folder for CIF outputs.
+            input_base: Optional base folder containing dft_{mode} subfolders.
+
+        Returns:
+            List of CIF paths written.
+        """
+        from .ild_ils_utils import get_mode_folders
+
+        if input_base is None:
+            input_base = f"{cof_name}/4_{cof_name}_final_structures"
+        if output_base is None:
+            output_base = input_base
+
+        outputs: list[Path] = []
+        for folder in get_mode_folders(cof_name, mode):
+            mode_tag = Path(folder).name
+            outputs.extend(
+                self.extract_structures(
+                    input_folder=f"{input_base}/{mode_tag}",
+                    output_folder=f"{output_base}/{mode_tag}",
+                )
+            )
+        return outputs

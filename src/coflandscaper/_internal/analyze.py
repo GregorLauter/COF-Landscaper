@@ -113,6 +113,22 @@ class CheckIld:
     __call__ = run
 
 class Analyze:
+    def _collect_cifs(self, folder: Path) -> list[str]:
+        files: list[str] = []
+        if not folder.exists():
+            raise FileNotFoundError(f"Input folder not found: {folder}")
+
+        for entry in sorted(folder.iterdir()):
+            if entry.is_file() and entry.suffix.lower() == ".cif":
+                files.append(str(entry))
+            elif entry.is_dir():
+                candidate = entry / f"{entry.name}.cif"
+                if candidate.exists():
+                    files.append(str(candidate))
+
+        if not files:
+            raise FileNotFoundError(f"No .cif files found in: {folder}")
+        return files
     def _calc_ils_dl(self, input_file: str) -> float:
         struct = Structure.from_file(input_file)
 
@@ -197,7 +213,7 @@ class Analyze:
         rows: list[dict[str, float | str]] = []
         for selected_mode in modes:
             folder = base / selected_mode
-            files = list_cifs(str(folder))
+            files = self._collect_cifs(folder)
             label = "Serrated" if selected_mode == "serr" else "Inclined"
             if print_values:
                 print(f"{label}:")
@@ -387,9 +403,26 @@ def visualizecof(
         style=style if isinstance(style, str) else "stick",
     )
     views = []
+    def _collect_cifs(folder: Path) -> list[str]:
+        files: list[str] = []
+        if not folder.exists():
+            raise FileNotFoundError(f"Input folder not found: {folder}")
+
+        for entry in sorted(folder.iterdir()):
+            if entry.is_file() and entry.suffix.lower() == ".cif":
+                files.append(str(entry))
+            elif entry.is_dir():
+                candidate = entry / f"{entry.name}.cif"
+                if candidate.exists():
+                    files.append(str(candidate))
+
+        if not files:
+            raise FileNotFoundError(f"No .cif files found in: {folder}")
+        return files
+
     for selected_mode in modes:
         folder = base / selected_mode
-        files = list_cifs(str(folder))
+        files = _collect_cifs(folder)
         label = "Serrated" if selected_mode == "serr" else "Inclined"
         supercell_size = supercell_size_serr if selected_mode == "serr" else supercell_size_incl
         for input_file in files:
