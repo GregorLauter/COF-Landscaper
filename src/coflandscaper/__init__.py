@@ -5,7 +5,7 @@ from ._internal.ild_ils_utils import get_mode_folders
 from ._internal.helpers import Supercell, SetVacuum, CenterZ, RemoveLayer
 from ._internal.mace import Mace, MaceFullOpt, MacePreopt, MaceSP, OptMACE
 from ._internal.landscape import Landscape, SelectCofs
-from ._internal.dft import Crystal, CrystalSP, CrystalOpt
+from ._internal.dft import Crystal, CrystalSP, CrystalOpt, VaspSP
 
 
 __all__ = [
@@ -37,4 +37,5 @@ __all__ = [
     "Crystal",
     "CrystalSP",
     "CrystalOpt",
+    "VaspSP",
 ]

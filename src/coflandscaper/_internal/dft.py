@@ -18,6 +18,8 @@ import numpy as np
 import pandas as pd
 from ase.data import atomic_numbers
 
+EV_TO_HARTREE = 1.0 / 27.211386245988
+
 def guess_symbol(raw: str) -> Optional[str]:
     s = re.sub(r"[^A-Za-z]", "", raw)
     if not s:
@@ -548,6 +550,128 @@ END""".format(
             )
         return csv_paths
 
+class VaspSP:
+    """VASP single-point energy reader."""
+
+    def _extract_e0_ev(self, oszicar_path: Path) -> float:
+        text = oszicar_path.read_text(errors="ignore")
+        lines = text.splitlines()
+        last_line = ""
+        for line in reversed(lines):
+            if line.strip():
+                last_line = line.strip()
+                break
+        if not last_line:
+            raise ValueError(f"OSZICAR is empty: {oszicar_path}")
+
+        num_re = re.compile(r"E0=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)")
+        match = num_re.search(last_line)
+        if not match:
+            raise ValueError(f"Could not parse E0 from last OSZICAR line: {oszicar_path}\n{last_line}")
+        return float(match.group(1))
+
+    def read(
+        self,
+        input_folder: str,
+        output_csv_dir: str | None = None,
+    ) -> Path:
+        """Extract converged energies from VASP OSZICAR files.
+
+        Args:
+            input_folder: Folder containing per-structure OSZICAR files.
+            output_csv_dir: Optional output folder for the CSV.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
+
+        Returns:
+            Path to the energies CSV.
+        """
+        input_path = Path(input_folder)
+        folder_tag = input_path.name
+        mode_tag = folder_tag if folder_tag in {"serr", "incl"} else folder_tag
+
+        cof_name = folder_tag
+        if input_path.parent.name.endswith("_matrix"):
+            cof_name = input_path.parents[1].name
+        elif input_path.parent.name:
+            cof_name = input_path.parent.name
+
+        csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
+        os.makedirs(csv_dir, exist_ok=True)
+
+        oszicar_paths = sorted(input_path.rglob("OSZICAR"))
+        if not oszicar_paths:
+            raise FileNotFoundError(f"No OSZICAR files found in: {input_path.resolve()}")
+
+        energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
+
+        rows = []
+        failed = []
+        for oszicar_path in oszicar_paths:
+            try:
+                e0_ev = self._extract_e0_ev(oszicar_path)
+                e0_eh = e0_ev * EV_TO_HARTREE
+                structure = oszicar_path.parent.name
+                z, L = _parse_z_L_from_stem(structure)
+                rows.append(
+                    {
+                        "structure": structure,
+                        "z": z,
+                        "L": L,
+                        "energy_Eh": e0_eh,
+                    }
+                )
+            except Exception as exc:
+                failed.append((str(oszicar_path), repr(exc)))
+
+        df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
+        if not df.empty:
+            min_e = float(df["energy_Eh"].min())
+            df["energy_rel_Eh"] = df["energy_Eh"] - min_e
+        df.to_csv(energies_csv_path, index=False)
+
+        if failed:
+            print("\nFailed files (first 10):")
+            for p, err in failed[:10]:
+                print(" -", p)
+                print("   ", err)
+            print("Total failed:", len(failed))
+
+        return energies_csv_path
+
+    def read_mode(
+        self,
+        cof_name: str,
+        mode: str,
+        output_csv_dir: str | None = None,
+        input_base: str | None = None,
+    ) -> list[Path]:
+        """Extract energies for stacking modes into CSVs.
+
+        Args:
+            cof_name: COF name used for folder naming.
+            mode: "incl", "serr", or "both".
+            output_csv_dir: Optional output folder for CSVs.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
+            input_base: Optional base folder containing incl/serr subfolders.
+                Defaults to {cof_name}/2_{cof_name}_matrix.
+
+        Returns:
+            List of CSV paths written.
+        """
+        from .ild_ils_utils import get_mode_folders
+
+        input_base_used = input_base or f"{cof_name}/2_{cof_name}_matrix"
+        csv_paths: list[Path] = []
+        for folder in get_mode_folders(cof_name, mode):
+            mode_tag = Path(folder).name
+            csv_paths.append(
+                self.read(
+                    input_folder=f"{input_base_used}/{mode_tag}",
+                    output_csv_dir=output_csv_dir,
+                )
+            )
+        return csv_paths
+
 class CrystalOpt(Crystal):
     """CRYSTAL geometry-optimization input generator."""
 
@@ -910,3 +1034,4 @@ END""".format(
                 )
             )
         return outputs
+
