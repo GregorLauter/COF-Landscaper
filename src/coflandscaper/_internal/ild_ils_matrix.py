@@ -123,10 +123,10 @@ class IlsSerr:
         output_folder: str,
         topo: str,
         cof_name: str | None = None,
-        shift_length_step: float = 1.0,
-        shift_length_start: float = 0.0,
-        shift_length_end: float | None = None,
-        shift_angle: float | None = None,
+        ils_length_step: float = 1.0,
+        ils_length_start: float = 0.0,
+        ils_length_end: float | None = None,
+        ils_angle: float | None = None,
         print_shift: bool = False,
     ) -> None:
         """Generate serrated ILS variants for each input CIF.
@@ -136,10 +136,10 @@ class IlsSerr:
             output_folder: Destination folder for serrated structures.
             topo: Topology string ("hcb" or "sql") used for defaults.
             cof_name: Optional name used for output file naming.
-            shift_length_step: Step size for slip length in Å.
-            shift_length_start: Minimum slip length in Å.
-            shift_length_end: Maximum slip length in Å. If None, auto‑computed.
-            shift_angle: Slip direction angle in degrees. If None, auto‑computed.
+            ils_length_step: Step size for slip length in Å.
+            ils_length_start: Minimum slip length in Å.
+            ils_length_end: Maximum slip length in Å. If None, auto‑computed.
+            ils_angle: Slip direction angle in degrees. If None, auto‑computed.
             print_shift: If True, print the auto‑computed default shift values.
 
         Raises:
@@ -147,13 +147,13 @@ class IlsSerr:
         """
         os.makedirs(output_folder, exist_ok=True)
         cif_files = list_cifs(input_folder)
-        if shift_length_end is None or shift_angle is None:
+        if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(cif_files[0], topo, print_shift=print_shift)
-            if shift_length_end is None:
-                shift_length_end = auto_len
-            if shift_angle is None:
-                shift_angle = auto_ang
-        shift_lengths = _generate_values(shift_length_start, shift_length_end, shift_length_step)
+            if ils_length_end is None:
+                ils_length_end = auto_len
+            if ils_angle is None:
+                ils_angle = auto_ang
+        ils_lengths = _generate_values(ils_length_start, ils_length_end, ils_length_step)
 
         for input_file in cif_files:
             base = os.path.splitext(os.path.basename(input_file))[0]
@@ -161,7 +161,7 @@ class IlsSerr:
             match = re.search(r"_z\d+", base)
             if match:
                 z_tag = match.group(0).lstrip("_")
-            for slen in shift_lengths:
+            for slen in ils_lengths:
                 tag = f"L{_slug(slen)}"
                 if cof_name and z_tag:
                     outname = f"{cof_name}_{z_tag}_{tag}_serr.cif"
@@ -170,22 +170,22 @@ class IlsSerr:
                 else:
                     outname = f"{base}_ser_{tag}.cif"
                 outpath = os.path.join(output_folder, outname)
-                self._shift_serrated(input_file, outpath, slen, shift_angle)
+                self._shift_serrated(input_file, outpath, slen, ils_angle)
 
     def _shift_serrated(
         self,
         input_file: str,
         output_file: str,
-        shift_length: float,
-        shift_angle_deg: float,
+        ils_length: float,
+        ils_angle_deg: float,
     ) -> None:
         """Write a serrated bilayer CIF with a shifted upper layer.
 
         Args:
             input_file: Path to the source CIF.
             output_file: Output CIF path.
-            shift_length: Slip length in Å.
-            shift_angle_deg: Slip direction angle in degrees.
+            ils_length: Slip length in Å.
+            ils_angle_deg: Slip direction angle in degrees.
 
         Returns:
             None.
@@ -193,9 +193,9 @@ class IlsSerr:
         struct = Structure.from_file(input_file)
         supercell = struct * (1, 1, 2)
 
-        angle_rad = math.radians(shift_angle_deg)
+        angle_rad = math.radians(ils_angle_deg)
         shift_cart = np.array(
-            [shift_length * math.cos(angle_rad), shift_length * math.sin(angle_rad), 0.0]
+            [ils_length * math.cos(angle_rad), ils_length * math.sin(angle_rad), 0.0]
         )
         fx, fy, _ = supercell.lattice.get_fractional_coords(shift_cart)
 
@@ -232,10 +232,10 @@ class IlsIncl:
         output_folder: str,
         topo: str,
         cof_name: str | None = None,
-        shift_length_start: float = 0.0,
-        shift_length_end: float | None = None,
-        shift_length_step: float = 1.0,
-        shift_angle: float | None = None,
+        ils_length_start: float = 0.0,
+        ils_length_end: float | None = None,
+        ils_length_step: float = 1.0,
+        ils_angle: float | None = None,
         print_shift: bool = False,
     ) -> None:
         """Generate inclined ILS variants for each input CIF.
@@ -245,10 +245,10 @@ class IlsIncl:
             output_folder: Destination folder for inclined structures.
             topo: Topology string ("hcb" or "sql") used for defaults.
             cof_name: Optional name used for output file naming.
-            shift_length_start: Minimum slip length in Å.
-            shift_length_end: Maximum slip length in Å. If None, auto‑computed.
-            shift_length_step: Step size for slip length in Å.
-            shift_angle: Slip direction angle in degrees. If None, auto‑computed.
+            ils_length_start: Minimum slip length in Å.
+            ils_length_end: Maximum slip length in Å. If None, auto‑computed.
+            ils_length_step: Step size for slip length in Å.
+            ils_angle: Slip direction angle in degrees. If None, auto‑computed.
             print_shift: If True, print the auto‑computed default shift values.
 
         Raises:
@@ -256,13 +256,13 @@ class IlsIncl:
         """
         os.makedirs(output_folder, exist_ok=True)
         cif_files = list_cifs(input_folder)
-        if shift_length_end is None or shift_angle is None:
+        if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(cif_files[0], topo, print_shift=print_shift)
-            if shift_length_end is None:
-                shift_length_end = auto_len
-            if shift_angle is None:
-                shift_angle = auto_ang
-        incl_lengths = _generate_values(shift_length_start, shift_length_end, shift_length_step)
+            if ils_length_end is None:
+                ils_length_end = auto_len
+            if ils_angle is None:
+                ils_angle = auto_ang
+        incl_lengths = _generate_values(ils_length_start, ils_length_end, ils_length_step)
 
         for input_file in cif_files:
             base = os.path.splitext(os.path.basename(input_file))[0]
@@ -279,22 +279,22 @@ class IlsIncl:
                 else:
                     outname = f"{base}_inc_{tag}.cif"
                 outpath = os.path.join(output_folder, outname)
-                self._inclined_shift(input_file, outpath, ilen, shift_angle)
+                self._inclined_shift(input_file, outpath, ilen, ils_angle)
 
     def _inclined_shift(
         self,
         input_file: str,
         output_file: str,
-        shift_length: float,
-        shift_angle_deg: float,
+        ils_length: float,
+        ils_angle_deg: float,
     ) -> None:
         """Write an inclined CIF by tilting the $c$ lattice vector.
 
         Args:
             input_file: Path to the source CIF.
             output_file: Output CIF path.
-            shift_length: Slip length in Å.
-            shift_angle_deg: Slip direction angle in degrees.
+            ils_length: Slip length in Å.
+            ils_angle_deg: Slip direction angle in degrees.
 
         Returns:
             None.
@@ -304,9 +304,9 @@ class IlsIncl:
         a_vec, b_vec, c_vec = struct.lattice.matrix
         c_len = struct.lattice.c
 
-        angle_rad = math.radians(shift_angle_deg)
-        x_shift = shift_length * math.cos(angle_rad)
-        y_shift = shift_length * math.sin(angle_rad)
+        angle_rad = math.radians(ils_angle_deg)
+        x_shift = ils_length * math.cos(angle_rad)
+        y_shift = ils_length * math.sin(angle_rad)
 
         new_c_vec = [x_shift, y_shift, c_len]
         new_lattice = Lattice([a_vec, b_vec, new_c_vec])
@@ -336,8 +336,8 @@ class CreateMatrix:
 
     Users may override the slip angle, minimum/maximum slip length, and step
     size to scan a specific region or alternative slip pathway. Outputs are
-    written to COF_NAME/2_{COF_NAME}_matrix/{serr|incl} and are intended for
-    subsequent single‑point energy evaluations (e.g., MACE or DFT).
+    written to COF_NAME/2_{COF_NAME}_matrix/{serr|incl} by default and are
+    intended for subsequent single‑point energy evaluations (e.g., MACE or DFT).
     """
 
     def __init__(
@@ -345,10 +345,10 @@ class CreateMatrix:
         ild_start: float = 3.0,
         ild_end: float = 4.5,
         ild_step: float = 0.1,
-        shift_length_start: float = 0.0,
-        shift_length_end: float | None = None,
-        shift_length_step: float = 1.0,
-        shift_angle: float | None = None,
+        ils_length_start: float = 0.0,
+        ils_length_end: float | None = None,
+        ils_length_step: float = 1.0,
+        ils_angle: float | None = None,
         print_shift: bool = False,
     ) -> None:
         """Configure the ILD×ILS scan parameters.
@@ -357,19 +357,19 @@ class CreateMatrix:
             ild_start: Minimum ILD in Å.
             ild_end: Maximum ILD in Å.
             ild_step: ILD step size in Å.
-            shift_length_start: Minimum slip length in Å.
-            shift_length_end: Maximum slip length in Å. If None, auto‑computed.
-            shift_length_step: Slip length step size in Å.
-            shift_angle: Slip direction angle in degrees. If None, auto‑computed.
+            ils_length_start: Minimum slip length in Å.
+            ils_length_end: Maximum slip length in Å. If None, auto‑computed.
+            ils_length_step: Slip length step size in Å.
+            ils_angle: Slip direction angle in degrees. If None, auto‑computed.
             print_shift: If True, print the auto‑computed default shift values.
         """
         self.ild_start = ild_start
         self.ild_end = ild_end
         self.ild_step = ild_step
-        self.shift_length_start = shift_length_start
-        self.shift_length_end = shift_length_end
-        self.shift_length_step = shift_length_step
-        self.shift_angle = shift_angle
+        self.ils_length_start = ils_length_start
+        self.ils_length_end = ils_length_end
+        self.ils_length_step = ils_length_step
+        self.ils_angle = ils_angle
         self.print_shift = print_shift
 
     def run(
@@ -377,6 +377,8 @@ class CreateMatrix:
         cof_name: str,
         topo: str,
         mode: str,
+        input_cif: str | None = None,
+        output_base: str | None = None,
     ) -> None:
         """Create the ILD×ILS matrix for a given COF.
 
@@ -384,6 +386,11 @@ class CreateMatrix:
             cof_name: COF name used for input/output folder naming.
             topo: Topology string ("hcb" or "sql") used for defaults.
             mode: "incl", "serr", or "both" to select ILS mode(s).
+            input_cif: Optional path to a pre-optimized CIF file.
+                Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
+            output_base: Optional base folder for outputs (relative to cof_name).
+                Defaults to 2_{cof_name}_matrix, which yields
+                {cof_name}/2_{cof_name}_matrix/{serr|incl}.
 
         Raises:
             ValueError: If `mode` is not one of "incl", "serr", or "both".
@@ -392,13 +399,15 @@ class CreateMatrix:
         if mode not in {"incl", "serr", "both"}:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
-        input_preopt = os.path.join(
+        input_preopt = input_cif or os.path.join(
             cof_name,
             f"1_{cof_name}_single_layer",
             f"{cof_name}_preopt.cif",
         )
         if not os.path.exists(input_preopt):
             raise FileNotFoundError(f"Missing input CIF: {input_preopt}")
+
+        output_base_used = output_base or f"2_{cof_name}_matrix"
 
         with tempfile.TemporaryDirectory() as tmp_ild:
             tmp_input_dir = os.path.join(tmp_ild, "input")
@@ -413,30 +422,30 @@ class CreateMatrix:
             )
 
             if mode in {"incl", "both"}:
-                out_incl = os.path.join(cof_name, f"2_{cof_name}_matrix", "incl")
+                out_incl = os.path.join(cof_name, output_base_used, "incl")
                 IlsIncl().run(
                     input_folder=tmp_ild,
                     output_folder=out_incl,
                     topo=topo,
                     cof_name=cof_name,
-                    shift_length_start=self.shift_length_start,
-                    shift_length_end=self.shift_length_end,
-                    shift_length_step=self.shift_length_step,
-                    shift_angle=self.shift_angle,
+                    ils_length_start=self.ils_length_start,
+                    ils_length_end=self.ils_length_end,
+                    ils_length_step=self.ils_length_step,
+                    ils_angle=self.ils_angle,
                     print_shift=self.print_shift,
                 )
 
             if mode in {"serr", "both"}:
-                out_serr = os.path.join(cof_name, f"2_{cof_name}_matrix", "serr")
+                out_serr = os.path.join(cof_name, output_base_used, "serr")
                 IlsSerr().run(
                     input_folder=tmp_ild,
                     output_folder=out_serr,
                     topo=topo,
                     cof_name=cof_name,
-                    shift_length_start=self.shift_length_start,
-                    shift_length_end=self.shift_length_end,
-                    shift_length_step=self.shift_length_step,
-                    shift_angle=self.shift_angle,
+                    ils_length_start=self.ils_length_start,
+                    ils_length_end=self.ils_length_end,
+                    ils_length_step=self.ils_length_step,
+                    ils_angle=self.ils_angle,
                     print_shift=self.print_shift,
                 )
 

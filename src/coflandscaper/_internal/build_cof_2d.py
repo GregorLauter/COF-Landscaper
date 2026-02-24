@@ -18,6 +18,9 @@ import pormake as pm
 import ase.io
 from ase.atoms import Atoms
 from rdkit import Chem
+DEFAULT_ILD_GUESS = 15.0
+DEFAULT_X_SCALE = 0.8
+
 from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
@@ -97,13 +100,12 @@ def _tag_isotopes(mol: Mol, indices: list[int]) -> None:
         if atom.GetIdx() in indices:
             atom.SetIsotope(2)
 
-def _write_xyz_with_bonds(mol: Mol, out_path: str, scaling_factor: float) -> None:
+def _write_xyz_with_bonds(mol: Mol, out_path: str) -> None:
     """Write an XYZ file with bond annotations and scaled X positions.
 
     Args:
         mol: RDKit Mol.
         out_path: Output file path.
-        scaling_factor: Scale applied to X-atom displacement.
     """
     with open(out_path, "w") as xyz_file:
         num_atoms = mol.GetNumAtoms()
@@ -124,9 +126,9 @@ def _write_xyz_with_bonds(mol: Mol, out_path: str, scaling_factor: float) -> Non
                         pos.y - connected_pos.y,
                         pos.z - connected_pos.z,
                     )
-                    vector.x *= scaling_factor
-                    vector.y *= scaling_factor
-                    vector.z *= scaling_factor
+                    vector.x *= DEFAULT_X_SCALE
+                    vector.y *= DEFAULT_X_SCALE
+                    vector.z *= DEFAULT_X_SCALE
                     pos = Point3D(
                         connected_pos.x + vector.x,
                         connected_pos.y + vector.y,
@@ -160,7 +162,6 @@ def _prepare_xyz(
     input_folder: str,
     output_folder: str,
     bond_type: str,
-    scaling_factor: float = 0.8,
 ) -> list[str]:
     """Prepare XYZ files by inserting bond markers for pormake.
 
@@ -168,7 +169,6 @@ def _prepare_xyz(
         input_folder: Folder with raw XYZ files.
         output_folder: Folder to write prepared XYZ files.
         bond_type: Bond type, "single" or "double".
-        scaling_factor: Scale applied to X-atom displacement.
 
     Returns:
         List of input XYZ file paths processed.
@@ -204,7 +204,7 @@ def _prepare_xyz(
 
         base_filename = os.path.basename(os.path.splitext(path)[0] + ".xyz")
         out_path = os.path.join(output_folder, base_filename)
-        _write_xyz_with_bonds(mol, out_path, scaling_factor)
+        _write_xyz_with_bonds(mol, out_path)
 
     return xyz_files
 
@@ -275,7 +275,6 @@ def _build_cof(
     linker_name: str,
     linker_path: str,
     output_folder: str,
-    ild_guess: float,
     cof_name: str | None = None,
 ) -> str:
     """Build one COF and write a CIF to disk.
@@ -287,7 +286,6 @@ def _build_cof(
         linker_name: Linker name.
         linker_path: Path to linker XYZ.
         output_folder: Output folder for CIF.
-        ild_guess: Interlayer distance guess.
         cof_name: Optional COF name for output filename.
 
     Returns:
@@ -326,7 +324,7 @@ def _build_cof(
     os.remove(tmp_path)
 
     alpha = 1.73205 if topo == "hcb" else 1.0
-    gamma = (alpha * ild_guess) / a
+    gamma = (alpha * DEFAULT_ILD_GUESS) / a
 
     base = os.path.join(os.path.dirname(pm.__file__), "database", "topologies")
     pickle_path = os.path.join(base, f"{topo}_modified.pickle")
@@ -374,13 +372,11 @@ class BuildCOF2D:
     vacuum (~15 Å) and is intended for later post-processing. Each COF is saved
     under a folder named by the user-specified COF name.
 
-    Attributes:
-        ild_guess: Interlayer distance guess used for topology scaling.
     """
 
-    def __init__(self, ild_guess: float = 15.0) -> None:
+    def __init__(self) -> None:
         """Initialize the builder."""
-        self.ild_guess = ild_guess
+        pass
 
     def _topology_paths(self, topo: str) -> tuple[str, str]:
         """Resolve topology file paths for a given topology name."""
@@ -397,27 +393,26 @@ class BuildCOF2D:
     def build(
         self,
         topo: str,
-        output_folder: str = "cof_raw",
+        cof_name: str,
         bond_type: str | None = None,
-        scaling_factor: float = 0.8,
-        cof_name: str | None = None,
+        output_folder: str | None = None,
     ) -> list[str]:
         """Build a 2D COF from one node and one linker.
 
         Args:
             topo: Topology name (currently "hcb" or "sql").
-            output_folder: Base output folder for CIF files.
             bond_type: Bond type, "single" or "double".
-            scaling_factor: Scale applied to X-atom displacement.
+            output_folder: Optional base output folder for CIF files.
             cof_name: COF name used for output folder and filename.
+                Outputs default to {cof_name}/1_{cof_name}_single_layer.
         """
         _disable_pormake_file_logging()
         with ExitStack() as stack:
             if bond_type:
                 nodes_dir_used = stack.enter_context(tempfile.TemporaryDirectory())
-                _prepare_xyz("0_node", nodes_dir_used, bond_type, scaling_factor)
+                _prepare_xyz("0_node", nodes_dir_used, bond_type)
                 linker_dir_used = stack.enter_context(tempfile.TemporaryDirectory())
-                _prepare_xyz("0_linker", linker_dir_used, bond_type, scaling_factor)
+                _prepare_xyz("0_linker", linker_dir_used, bond_type)
             else:
                 nodes_dir_used = "nodes"
                 linker_dir_used = "linker"
@@ -431,9 +426,9 @@ class BuildCOF2D:
             node_name, node_path = nodes[0]
             linker_name, linker_path = linkers[0]
 
-            output_folder_used = output_folder
-            if cof_name:
-                output_folder_used = os.path.join(cof_name, f"1_{cof_name}_single_layer")
+            output_folder_used = output_folder or os.path.join(
+                cof_name, f"1_{cof_name}_single_layer"
+            )
 
             os.makedirs(output_folder_used, exist_ok=True)
             output = _build_cof(
@@ -443,7 +438,6 @@ class BuildCOF2D:
                 linker_name,
                 linker_path,
                 output_folder_used,
-                self.ild_guess,
                 cof_name=cof_name,
             )
 

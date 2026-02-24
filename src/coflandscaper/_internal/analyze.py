@@ -201,13 +201,26 @@ class Analyze:
         cof_name: str,
         mode: str = "both",
         input_base: str | Path | None = None,
+        output_base: str | Path | None = None,
         print_values: bool = True,
     ):
+        """Compute ILD/ILS metrics for optimized CIFs and write a summary CSV.
+
+        Args:
+            cof_name: COF name used for default folder naming.
+            mode: "incl", "serr", or "both".
+            input_base: Optional base folder containing per-mode subfolders.
+                Defaults to {cof_name}/4_{cof_name}_final_structures.
+            output_base: Optional folder for the output CSV.
+                Defaults to the input base folder.
+            print_values: If True, print ILD/ILS values to stdout.
+        """
         mode_lower = mode.lower()
         if mode_lower not in {"incl", "serr", "both"}:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
         base = Path(input_base) if input_base else Path(f"{cof_name}/4_{cof_name}_final_structures")
+        output_base_path = Path(output_base) if output_base else base
         modes = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
 
         rows: list[dict[str, float | str]] = []
@@ -236,7 +249,7 @@ class Analyze:
                     }
                 )
 
-        output_csv = base / "final_structures.csv"
+        output_csv = output_base_path / "final_structures.csv"
         with open(output_csv, "w", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=["Stacking", "filename", "ILD", "ILS"])
             writer.writeheader()
@@ -248,12 +261,28 @@ def analyze(
     cof_name: str,
     mode: str = "both",
     input_base: str | Path | None = None,
+    output_base: str | Path | None = None,
     print_values: bool = True,
 ):
+    """Compute ILD/ILS metrics and write a summary CSV.
+
+    Args:
+        cof_name: COF name used for default folder naming.
+        mode: "incl", "serr", or "both".
+        input_base: Optional base folder containing per-mode subfolders.
+            Defaults to {cof_name}/4_{cof_name}_final_structures.
+        output_base: Optional folder for the output CSV.
+            Defaults to the input base folder.
+        print_values: If True, print ILD/ILS values to stdout.
+
+    Returns:
+        None.
+    """
     return Analyze().run(
         cof_name=cof_name,
         mode=mode,
         input_base=input_base,
+        output_base=output_base,
         print_values=print_values,
     )
 
@@ -363,6 +392,21 @@ def visualize_cof(
     style: str | dict[str, Any] = "stick",
     print_names: bool = True,
 ):
+    """Visualize all structures in a folder with py3Dmol.
+
+    Args:
+        folder: Folder containing structure files.
+        model_format: Optional format override (e.g., "cif").
+        add_unit_cell: If True, draw the unit cell.
+        width: Viewer width in pixels.
+        height: Viewer height in pixels.
+        background: Viewer background color.
+        style: py3Dmol style string or dict (default "stick").
+        print_names: If True, print file names as they are shown.
+
+    Returns:
+        List of py3Dmol views.
+    """
     return VisualizeCOF(
         width=width,
         height=height,
@@ -388,6 +432,24 @@ def visualizecof(
     supercell_size_serr: tuple[int, int, int] = (2, 2, 1),
     supercell_size_incl: tuple[int, int, int] = (2, 2, 2),
 ):
+    """Visualize optimized COF structures for the selected stacking mode(s).
+
+    Args:
+        cof_name: COF name used for folder naming.
+        mode: "incl", "serr", or "both".
+        input_base: Optional base folder containing per-mode subfolders.
+            Defaults to {cof_name}/4_{cof_name}_final_structures.
+        width: Viewer width in pixels.
+        height: Viewer height in pixels.
+        background: Viewer background color.
+        style: py3Dmol style string or dict (default "stick").
+        add_unit_cell: If True, draw the unit cell.
+        supercell_size_serr: Supercell size for serrated structures.
+        supercell_size_incl: Supercell size for inclined structures.
+
+    Returns:
+        List of py3Dmol views.
+    """
     analyzer = Analyze()
     mode_lower = mode.lower()
     if mode_lower not in {"incl", "serr", "both"}:

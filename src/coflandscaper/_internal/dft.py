@@ -82,7 +82,6 @@ def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
             return atoms
     raise ValueError("No atom site loop with fractional coordinates.")
 
-
 def _find_last_occurrence(lines: list[str], keyword: str) -> int:
     """Return the index of the last occurrence of a keyword.
 
@@ -97,7 +96,6 @@ def _find_last_occurrence(lines: list[str], keyword: str) -> int:
         if keyword in lines[i]:
             return i
     return -1
-
 
 def _parse_atom_lines(lines: list[str], start_idx: int) -> tuple[list[str], list[list[float]]]:
     """Parse atom symbols and XYZ coordinates from a line block.
@@ -135,7 +133,6 @@ def _parse_atom_lines(lines: list[str], start_idx: int) -> tuple[list[str], list
             continue
 
     return symbols, raw_coords
-
 
 def _parse_primary_structure(lines: list[str]) -> Optional["Atoms"]:
     """Parse a structure using DIRECT LATTICE and PRIMITIVE CELL blocks.
@@ -180,7 +177,6 @@ def _parse_primary_structure(lines: list[str]) -> Optional["Atoms"]:
         return Atoms(symbols=symbols, cell=cell, positions=positions, pbc=(cell is not None))
     except (ValueError, IndexError, KeyError):
         return None
-
 
 def _parse_fallback_structure(lines: list[str]) -> Optional["Atoms"]:
     """Parse a structure using LATTICE PARAMETERS and ATOM blocks.
@@ -276,6 +272,12 @@ class Crystal:
     """Base class to convert CIF files into CRYSTAL .d12 inputs."""
 
     def __init__(self, post_block: str) -> None:
+        """Initialize a CRYSTAL input generator.
+
+        Args:
+            post_block: Text appended to each generated .d12 file.
+                This is where BASISSET/DFT/SHRINK or OPTGEOM blocks are injected.
+        """
         self.post_block = post_block
 
     def _convert_one(self, cif_path: Path, output_path: Path | None = None) -> Path:
@@ -312,8 +314,7 @@ class Crystal:
         self,
         input_folder: str,
         output_folder: str | None = None,
-        verbose: bool = False,
-    ) -> list[Path]:
+    ) -> None:
         """Convert all CIF files in a folder to .d12.
 
         Args:
@@ -321,7 +322,7 @@ class Crystal:
             output_folder: Optional output folder for .d12 files.
 
         Returns:
-            List of .d12 output paths.
+            None.
         """
         in_path = Path(input_folder)
         if not in_path.exists():
@@ -330,47 +331,48 @@ class Crystal:
         out_path = Path(output_folder) if output_folder else in_path
         out_path.mkdir(parents=True, exist_ok=True)
 
-        outputs: list[Path] = []
         for cif in sorted(in_path.glob("*.cif")):
             try:
                 subdir = out_path / cif.stem
                 subdir.mkdir(parents=True, exist_ok=True)
                 target = subdir / (cif.stem + ".d12")
-                outputs.append(self._convert_one(cif, output_path=target))
-            except Exception as exc:
-                if verbose:
-                    print(f"✖ Failed {cif.name}: {exc}")
-        return outputs
+                self._convert_one(cif, output_path=target)
+            except Exception:
+                continue
 
     def run_mode(
         self,
         cof_name: str,
         mode: str,
-        verbose: bool = False,
-        return_paths: bool = False,
-    ) -> list[Path] | None:
+        input_base: str | None = None,
+        output_base: str | None = None,
+    ) -> None:
         """Convert CIFs for stacking modes and write to dft_{mode} folders.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
+            input_base: Optional base folder containing mode subfolders.
+                Defaults to {cof_name}/2_{cof_name}_matrix.
+            output_base: Optional base folder for outputs.
+                Defaults to {cof_name}/2_{cof_name}_matrix.
 
         Returns:
-            List of .d12 output paths.
+            None.
         """
-        from .ild_ils_utils import get_mode_folders
+        mode_lower = mode.lower()
+        if mode_lower not in {"incl", "serr", "both"}:
+            raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
-        outputs: list[Path] = []
-        for folder in get_mode_folders(cof_name, mode):
-            mode_tag = Path(folder).name
-            outputs.extend(
-                self.run(
-                    input_folder=folder,
-                    output_folder=f"{cof_name}/2_{cof_name}_matrix/dft_{mode_tag}",
-                    verbose=verbose,
-                )
+        mode_tags = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
+        input_base_used = input_base or f"{cof_name}/2_{cof_name}_matrix"
+        output_base_used = output_base or f"{cof_name}/2_{cof_name}_matrix"
+
+        for mode_tag in mode_tags:
+            self.run(
+                input_folder=f"{input_base_used}/{mode_tag}",
+                output_folder=f"{output_base_used}/dft_{mode_tag}",
             )
-        return outputs if return_paths else None
 
 class CrystalSP(Crystal):
     """CRYSTAL single-point input generator."""
@@ -407,6 +409,15 @@ class CrystalSP(Crystal):
         shrink: str = "2 2 8",
         post_block: str | None = None,
     ) -> None:
+        """Initialize a CRYSTAL single-point input generator.
+
+        Args:
+            basisset: CRYSTAL basis set name.
+            functional: CRYSTAL functional name.
+            shrink: SHRINK line values.
+            post_block: Optional override for the full CRYSTAL input tail.
+                If None, a BASISSET/DFT/SHRINK block is auto-generated.
+        """
         if post_block is None:
             post_block = """BASISSET
 {basisset}
@@ -428,6 +439,16 @@ END""".format(
         input_folder: str,
         output_csv_dir: str | None = None,
     ) -> Path:
+        """Extract converged energies from CRYSTAL .out files.
+
+        Args:
+            input_folder: Folder containing CRYSTAL output files.
+            output_csv_dir: Optional output folder for the CSV.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
+
+        Returns:
+            Path to the energies CSV.
+        """
         input_path = Path(input_folder)
         folder_tag = input_path.name
         mode_tag = folder_tag.replace("dft_", "") if folder_tag.startswith("dft_") else folder_tag
@@ -498,15 +519,30 @@ END""".format(
         cof_name: str,
         mode: str,
         output_csv_dir: str | None = None,
+        input_base: str | None = None,
     ) -> list[Path]:
+        """Extract energies for stacking modes into CSVs.
+
+        Args:
+            cof_name: COF name used for folder naming.
+            mode: "incl", "serr", or "both".
+            output_csv_dir: Optional output folder for CSVs.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
+            input_base: Optional base folder containing dft_{mode} subfolders.
+                Defaults to {cof_name}/2_{cof_name}_matrix.
+
+        Returns:
+            List of CSV paths written.
+        """
         from .ild_ils_utils import get_mode_folders
 
+        input_base_used = input_base or f"{cof_name}/2_{cof_name}_matrix"
         csv_paths: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
             csv_paths.append(
                 self.read(
-                    input_folder=f"{cof_name}/2_{cof_name}_matrix/dft_{mode_tag}",
+                    input_folder=f"{input_base_used}/dft_{mode_tag}",
                     output_csv_dir=output_csv_dir,
                 )
             )
@@ -548,6 +584,16 @@ class CrystalOpt(Crystal):
         maxtradius: str = "0.8",
         post_block: str | None = None,
     ) -> None:
+        """Initialize a CRYSTAL geometry-optimization input generator.
+
+        Args:
+            basisset: CRYSTAL basis set name.
+            functional: CRYSTAL functional name.
+            shrink: SHRINK line values.
+            maxtradius: MAXTRADIUS value for OPTGEOM.
+            post_block: Optional override for the full CRYSTAL input tail.
+                If None, OPTGEOM + BASISSET/DFT/SHRINK blocks are generated.
+        """
         if post_block is None:
             post_block = """OPTGEOM
 MAXTRADIUS
@@ -573,21 +619,21 @@ END""".format(
         self,
         cof_name: str,
         mode: str,
-        verbose: bool = False,
-        return_paths: bool = False,
         input_base: str | None = None,
         output_base: str | None = None,
-    ) -> list[Path] | None:
+    ) -> None:
         """Convert CIFs for stacking modes and write to dft_{mode} folders.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
             input_base: Optional base folder containing per-mode input subfolders.
+                Defaults to {cof_name}/3_{cof_name}_landscape/selection.
             output_base: Optional base folder for outputs (relative to cof_name).
+                Defaults to {cof_name}/4_{cof_name}_final_structures.
 
         Returns:
-            List of .d12 output paths.
+            None.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -596,17 +642,12 @@ END""".format(
         if output_base is None:
             output_base = f"{cof_name}/4_{cof_name}_final_structures"
 
-        outputs: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
-            outputs.extend(
-                self.run(
-                    input_folder=f"{input_base}/{mode_tag}",
-                    output_folder=f"{output_base}/{mode_tag}",
-                    verbose=verbose,
-                )
+            self.run(
+                input_folder=f"{input_base}/{mode_tag}",
+                output_folder=f"{output_base}/{mode_tag}",
             )
-        return outputs if return_paths else None
 
     def read(
         self,
@@ -713,7 +754,9 @@ END""".format(
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
             output_csv_dir: Optional output folder for the CSVs.
+                Defaults to {cof_name}/4_{cof_name}_final_structures.
             input_base: Optional base folder containing dft_{mode} subfolders.
+                Defaults to {cof_name}/4_{cof_name}_final_structures.
 
         Returns:
             List containing the combined CSV path.

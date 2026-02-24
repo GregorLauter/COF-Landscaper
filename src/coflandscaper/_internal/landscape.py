@@ -11,64 +11,57 @@ from .ild_ils_utils import get_mode_folders
 EH_TO_KJMOL = 2625.5
 
 class Landscape:
+    """Generate potential energy landscapes from SP energy CSVs."""
+
     def run(
         self,
-        input_folder: str | None = None,
-        input_csv: str | None = None,
-        output_heatmap_dir: str | None = None,
-        colorscheme: str = "default",
+        input_folder: str,
+        output_folder: str | None = None,
+        colorscheme: str = "viridis",
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
-    ) -> Path:
-        if not input_folder and not input_csv:
-            raise ValueError("Provide input_folder or input_csv.")
+    ) -> None:
+        """Build the PES plots for a given stacking folder.
 
-        if input_csv:
-            csv_path = Path(input_csv)
-            if not csv_path.exists():
-                raise FileNotFoundError(f"CSV not found: {csv_path}")
-            csv_dir = csv_path.parent
-            cof_name = None
-            folder_tag = None
-            lot_suffix = None
-            match = re.match(r"(.+)_sp_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name)
-            if match:
-                cof_name = match.group(1)
-                folder_tag = match.group(2)
-                lot_suffix = match.group(3)
+        Args:
+            input_folder: Folder containing the CIFs for a stacking mode.
+                Defaults to {cof_name}/2_{cof_name}_matrix/{serr|incl} when
+                used via `run_mode`.
+            output_folder: Optional output folder for plots.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
+            colorscheme: Heatmap colorscheme. Options: "grey",
+                "colorblind" ("cividis"), or "viridis" (default).
+            plot_mode: "heatmap", "isolines", or "both".
+            rel_energy_max: Optional max value (kJ/mol) to cap relative energies.
+                Values above this are clipped in the plots.
+
+        Returns:
+            None.
+        """
+        input_path = Path(input_folder)
+        folder_tag = input_path.name
+        if input_path.parent.name.endswith("_matrix"):
+            cof_name = input_path.parents[1].name
+            csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
+            csv_matches = list(csv_dir.glob(f"{cof_name}_sp_energies_{folder_tag}_*.csv"))
+            if csv_matches:
+                csv_path = max(csv_matches, key=lambda p: p.stat().st_mtime)
             else:
-                match = re.match(r"(.+)_sp_energies_(serr|incl)(?:\.csv)?$", csv_path.name)
-                if match:
-                    cof_name = match.group(1)
-                    folder_tag = match.group(2)
-                else:
-                    folder_tag = csv_dir.name
+                csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
         else:
-            input_path = Path(input_folder)
-            folder_tag = input_path.name
-            if input_path.parent.name.endswith("_matrix"):
-                cof_name = input_path.parents[1].name
-                csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
-                csv_matches = list(csv_dir.glob(f"{cof_name}_sp_energies_{folder_tag}_*.csv"))
-                if csv_matches:
-                    csv_path = max(csv_matches, key=lambda p: p.stat().st_mtime)
-                else:
-                    csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
-            else:
-                csv_dir = Path(f"csvs/{folder_tag}")
-                csv_path = csv_dir / "energy_absolute.csv"
-            if not csv_path.exists():
-                raise FileNotFoundError(f"CSV not found: {csv_path}")
-            lot_suffix = None
-            match = re.match(r"(.+)_sp_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name)
-            if match:
-                lot_suffix = match.group(3)
+            cof_name = None
+            csv_dir = Path(f"csvs/{folder_tag}")
+            csv_path = csv_dir / "energy_absolute.csv"
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV not found: {csv_path}")
+        lot_suffix = None
+        match = re.match(r"(.+)_sp_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name)
+        if match:
+            lot_suffix = match.group(3)
 
-        if output_heatmap_dir:
-            heatmap_dir = Path(output_heatmap_dir)
-        elif (input_folder and Path(input_folder).parent.name.endswith("_matrix")) or (
-            input_csv and cof_name and csv_dir.name == f"3_{cof_name}_landscape"
-        ):
+        if output_folder:
+            heatmap_dir = Path(output_folder)
+        elif Path(input_folder).parent.name.endswith("_matrix") and cof_name:
             heatmap_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
         else:
             heatmap_dir = Path(f"heatmaps/{folder_tag}")
@@ -76,9 +69,7 @@ class Landscape:
 
         lot_tag = f"_{lot_suffix}" if lot_suffix else ""
 
-        if (input_folder and Path(input_folder).parent.name.endswith("_matrix")) or (
-            input_csv and cof_name and folder_tag in {"serr", "incl"}
-        ):
+        if Path(input_folder).parent.name.endswith("_matrix") and folder_tag in {"serr", "incl"}:
             heatmap_path = heatmap_dir / f"pes_{cof_name}_{folder_tag}_heatmap{lot_tag}.png"
             isolines_path = heatmap_dir / f"pes_{cof_name}_{folder_tag}_isolines{lot_tag}.png"
             write_rel_csv = False
@@ -238,47 +229,37 @@ class Landscape:
             plt.show()
             print(f"Saved: {isolines_path}")
             paths.append(isolines_path)
-
-        return paths[0] if len(paths) == 1 else Path(paths[0].parent)
+        return None
 
     def run_mode(
         self,
         cof_name: str,
         mode: str,
-        colorscheme: str = "default",
+        colorscheme: str = "viridis",
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
-    ) -> list[Path]:
+    ) -> None:
         """Generate landscapes for the selected mode(s) using MaceSP CSVs.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            colorscheme: Heatmap colorscheme.
+            colorscheme: Heatmap colorscheme. Options: "grey",
+                "colorblind" ("cividis"), or "viridis" (default).
             plot_mode: "heatmap", "isolines", or "both".
             rel_energy_max: Optional max value for relative energies.
 
         Returns:
-            List of heatmap paths.
+            None.
         """
-        heatmaps: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
-            folder_tag = Path(folder).name
-            csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
-            matches = list(csv_dir.glob(f"{cof_name}_sp_energies_{folder_tag}_*.csv"))
-            if matches:
-                csv_path = max(matches, key=lambda p: p.stat().st_mtime)
-            else:
-                csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
-            heatmaps.append(
-                self.run(
-                    input_csv=str(csv_path),
-                    colorscheme=colorscheme,
-                    plot_mode=plot_mode,
-                    rel_energy_max=rel_energy_max,
-                )
+            self.run(
+                input_folder=folder,
+                colorscheme=colorscheme,
+                plot_mode=plot_mode,
+                rel_energy_max=rel_energy_max,
             )
-        return heatmaps
+        return None
 
     def _find_local_minima(self, data: np.ndarray) -> list[tuple[int, int]]:
         minima: list[tuple[int, int]] = []
@@ -305,9 +286,7 @@ class Landscape:
         return minima
 
     def _resolve_cmap(self, colorscheme: str):
-        key = (colorscheme or "default").lower()
-        if key in {"default", "normal"}:
-            return None
+        key = (colorscheme or "viridis").lower()
         if key in {"grey", "gray", "greys"}:
             return "Greys"
         if key in {"colorblind", "cb", "cividis"}:
@@ -315,12 +294,11 @@ class Landscape:
         if key in {"viridis"}:
             return "viridis"
         raise ValueError(
-            "Unknown colorscheme. Use 'default', 'grey', 'colorblind', 'cividis', or 'viridis'."
+            "Unknown colorscheme. Use 'grey', 'colorblind', 'cividis', or 'viridis'."
         )
 
 class SelectCofs:
-    def __init__(self, tol: float = 1e-6):
-        self.tol = tol
+    """Select CIFs based on ILD/ILS pairs."""
 
     def _dedupe_selections(self, selections: list[tuple[float, float]]) -> list[tuple[float, float]]:
         seen: set[tuple[float, float]] = set()
@@ -341,7 +319,7 @@ class SelectCofs:
         if df2.empty:
             raise ValueError(f"CSV has no valid z/L/energy rows: {csv_path}")
         min_val = df2["energy_Eh"].min()
-        sel = df2[np.isclose(df2["energy_Eh"], min_val, atol=self.tol)]
+        sel = df2[df2["energy_Eh"] == min_val]
         selections = list(zip(sel["z"].astype(float), sel["L"].astype(float)))
         return self._dedupe_selections(selections)
 
@@ -404,7 +382,7 @@ class SelectCofs:
             if z is None or L is None:
                 continue
             for (z_sel, L_sel) in list(remaining):
-                if abs(z - z_sel) <= self.tol and abs(L - L_sel) <= self.tol:
+                if z == z_sel and L == L_sel:
                     shutil.copy2(cif_path, out_path / cif_path.name)
                     selected_rows.append(
                         {
@@ -434,26 +412,34 @@ class SelectCofs:
         self,
         cof_name: str,
         mode: str,
-        selections: list[tuple[float, float]] | None = None,
         selections_serr: list[tuple[float, float]] | None = None,
         selections_incl: list[tuple[float, float]] | None = None,
-        include_minima: bool = True,
+        include_autoselect: bool = True,
+        input_base: str | None = None,
+        output_base: str | None = None,
     ) -> None:
         """Select CIFs for the selected mode(s).
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            selections: Extra selections applied to all modes.
             selections_serr: Extra selections for serrated only.
             selections_incl: Extra selections for inclined only.
-            include_minima: If True, auto-select local minima per mode.
+            include_autoselect: If True, auto-select local minima per mode.
+            input_base: Optional base folder containing mode subfolders.
+                Defaults to {cof_name}/2_{cof_name}_matrix.
+            output_base: Optional base folder for selected CIFs.
+                Defaults to {cof_name}/3_{cof_name}_landscape/selection.
         """
+        if input_base is None:
+            input_base = f"{cof_name}/2_{cof_name}_matrix"
+        if output_base is None:
+            output_base = f"{cof_name}/3_{cof_name}_landscape/selection"
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
-            out_folder = f"{cof_name}/3_{cof_name}_landscape/selection/{mode_tag}"
+            out_folder = f"{output_base}/{mode_tag}"
             mode_selections: list[tuple[float, float]] = []
-            if include_minima:
+            if include_autoselect:
                 csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
                 matches = list(csv_dir.glob(f"{cof_name}_sp_energies_{mode_tag}_*.csv"))
                 if matches:
@@ -461,9 +447,6 @@ class SelectCofs:
                 else:
                     csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
                 mode_selections.extend(self._local_minima_from_csv(csv_path))
-
-            if selections:
-                mode_selections.extend(selections)
             if mode_tag == "serr" and selections_serr:
                 mode_selections.extend(selections_serr)
             if mode_tag == "incl" and selections_incl:
@@ -472,12 +455,12 @@ class SelectCofs:
             mode_selections = self._dedupe_selections(mode_selections)
             if not mode_selections:
                 raise ValueError(
-                    "No selections provided. Use include_minima=True or provide selections."
+                    "No selections provided. Use include_autoselect=True or provide selections_serr/selections_incl."
                 )
 
             label = "Serrated" if mode_tag == "serr" else "Inclined" if mode_tag == "incl" else None
             self.run(
-                input_folder=folder,
+                input_folder=f"{input_base}/{mode_tag}",
                 output_folder=out_folder,
                 selections=mode_selections,
                 mode_label=label,

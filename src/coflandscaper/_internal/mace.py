@@ -119,27 +119,31 @@ class MaceSP(Mace):
 
     This computes energies for a set of CIFs (no geometry optimization). It is
     intended for evaluating ILD/ILS grids and generating energy landscapes.
-
-    Defaults:
-        - device="cpu", dtype="float64"
-            - head="omat_pbe"
-        - dispersion: None (auto by head)
-        - output folder: COF_NAME/3_{COF_NAME}_landscape
-
-    Options:
-        - device, dtype, head: select model configuration.
-        - dispersion: True/False to override head-based default.
-        - output_csv_dir: custom output directory.
     """
 
-    def run(
+    def __init__(
+        self,
+        device: str = "cpu",
+        dtype: str = "float64",
+        head: str = "omat_pbe",
+        dispersion: bool | None = None,
+    ) -> None:
+        """Configure the MACE single-point calculator.
+        
+    Args:
+            dtype: Numerical precision; use "float64" (more accurate, slower)
+                or "float32" (faster, less accurate).
+            head: MACE head to use (e.g., "omat_pbe", "omol",
+                "spice_wB97M", "matpes_r2scan").
+            device: Compute device, e.g. "cpu" or "cuda" (if available).
+        dispersion: Whether to enable dispersion. If None, defaults by head.
+        """
+        super().__init__(device=device, dtype=dtype, head=head, dispersion=dispersion)
+
+    def _run_folder(
         self,
         input_folder: str,
         output_csv_dir: str | None = None,
-        device: str | None = None,
-        dtype: str | None = None,
-        head: str | None = None,
-        dispersion: bool | None = None,
     ) -> Path:
         input_path = Path(input_folder)
         folder_tag = input_path.name
@@ -158,12 +162,7 @@ class MaceSP(Mace):
         if not cif_files:
             raise FileNotFoundError(f"No .cif files found in: {input_path.resolve()}")
 
-        device, dtype, head, dispersion = self._resolve_params(
-            device=device,
-            dtype=dtype,
-            head=head,
-            dispersion=dispersion,
-        )
+        device, dtype, head, dispersion = self._resolve_params()
 
         energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
 
@@ -215,38 +214,31 @@ class MaceSP(Mace):
         self,
         cof_name: str,
         mode: str,
-        device: str | None = None,
-        dtype: str | None = None,
-        head: str | None = None,
-        dispersion: bool | None = None,
-    ) -> list[Path]:
-        """Run single-point energies for folders implied by MODE.
+        input_folder: str | None = None,
+        output_csv_dir: str | None = None,
+    ) -> None:
+        """Run single-point energies for stacking modes or a specific folder.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            device: Torch device.
-            dtype: Default dtype for the model.
-            head: Model head name.
-            dispersion: Whether to enable dispersion. If None, defaults by head.
+            input_folder: Optional folder containing CIFs to process.
+                Defaults to {cof_name}/2_{cof_name}_matrix/{serr|incl}.
+            output_csv_dir: Optional output folder for CSVs.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
 
         Returns:
-            List of CSV paths written.
+            None.
         """
         from .ild_ils_utils import get_mode_folders
 
-        csv_paths: list[Path] = []
+        if input_folder:
+            self._run_folder(input_folder=input_folder, output_csv_dir=output_csv_dir)
+            return None
+
         for folder in get_mode_folders(cof_name, mode):
-            csv_paths.append(
-                self.run(
-                    input_folder=folder,
-                    device=device,
-                    dtype=dtype,
-                    head=head,
-                    dispersion=dispersion,
-                )
-            )
-        return csv_paths
+            self._run_folder(input_folder=folder, output_csv_dir=output_csv_dir)
+        return None
 
 class OptMACE(Mace):
     """Geometry optimization using MACE."""
@@ -317,7 +309,7 @@ class OptMACE(Mace):
         output_base: str | None = None,
         input_base: str | None = None,
     ) -> None:
-        """Optimize CIFs for stacking modes and write to {output_base}_{mode} folders.
+        """Perform full 3D MACE relaxations for stacking-mode CIFs and write relaxed structures.
 
         Args:
             cof_name: COF name used for folder naming.
@@ -377,19 +369,33 @@ class MacePreopt(OptMACE):
             dispersion=False,
         )
 
-    def run(self, cof_name: str) -> None:
-        output_folder = os.path.join(cof_name, f"1_{cof_name}_single_layer")
-        input_path = os.path.join(output_folder, f"{cof_name}_unopt.cif")
+    def run(
+        self,
+        cof_name: str,
+        input_folder: str | None = None,
+        output_folder: str | None = None,
+    ) -> None:
+        """Run the pre-optimization step on a single CIF.
+
+        Args:
+            cof_name: COF name used for default input/output naming.
+            input_folder: Optional folder containing {cof_name}_unopt.cif.
+            output_folder: Optional folder for {cof_name}_preopt.cif.
+        """
+        default_folder = os.path.join(cof_name, f"1_{cof_name}_single_layer")
+        input_folder_used = input_folder or default_folder
+        output_folder_used = output_folder or default_folder
+        input_path = os.path.join(input_folder_used, f"{cof_name}_unopt.cif")
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"Missing input CIF: {input_path}")
-        os.makedirs(output_folder, exist_ok=True)
-        output_path = os.path.join(output_folder, f"{cof_name}_preopt.cif")
+        os.makedirs(output_folder_used, exist_ok=True)
+        output_path = os.path.join(output_folder_used, f"{cof_name}_preopt.cif")
         self.optimize_cof(input_path, output_path)
 
 class MaceFullOpt(OptMACE):
-    """Batch optimization without fixed Z, optional dispersion.
+    """Full geometry optimization with MACE allowing unconstrained 3D relaxation.
 
-    Processes all CIFs in a folder.
+    Processes all CIFs in a folder without fixed Z, optional dispersion.
     """
 
     def __init__(
