@@ -8,6 +8,13 @@ from pymatgen.core import Lattice, Structure
 
 from .ild_ils_utils import _periodic_delta_frac, _slug, _unwrap_fractional_z, list_cifs
 
+
+def foo() -> str:
+    """Print and return a simple test sentence."""
+    sentence = "A man with no pants fear no pickpocket."
+    print(sentence)
+    return sentence
+
 class Supercell:
     """Build a supercell $a\times b\times c$ from each input unit cell.
 

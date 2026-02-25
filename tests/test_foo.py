@@ -1,5 +1,4 @@
-import millie
-
+import coflandscaper
 
 def test_foo() -> None:
-    assert millie.foo(12) == "Hello, World! Also: 12"
+	assert coflandscaper.foo() == "A man with no pants fear no pickpocket."

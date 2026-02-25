@@ -8,8 +8,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from .ild_ils_utils import get_mode_folders
 
-EH_TO_KJMOL = 2625.5
-
 class Landscape:
     """Generate potential energy landscapes from SP energy CSVs."""
 
@@ -20,6 +18,7 @@ class Landscape:
         colorscheme: str = "viridis",
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
+        show_minima_markers: bool = True,
     ) -> None:
         """Build the PES plots for a given stacking folder.
 
@@ -32,8 +31,10 @@ class Landscape:
             colorscheme: Heatmap colorscheme. Options: "grey",
                 "colorblind" ("cividis"), or "viridis" (default).
             plot_mode: "heatmap", "isolines", or "both".
-            rel_energy_max: Optional max value (kJ/mol) to cap relative energies.
+            rel_energy_max: Optional max value (eV) to cap relative energies.
                 Values above this are clipped in the plots.
+            show_minima_markers: If True (default), mark global minima in red and
+                local minima in green on heatmap/isolines.
 
         Returns:
             None.
@@ -80,11 +81,11 @@ class Landscape:
             write_rel_csv = True
 
         df = pd.read_csv(csv_path)
-        df2 = df.dropna(subset=["z", "L", "energy_Eh"]).copy()
+        df2 = df.dropna(subset=["z", "L", "energy_eV"]).copy()
         if df2.empty:
             raise ValueError("No entries with parsed z/L. Check naming like ..._z30_..._L020.cif")
 
-        abs_grid = df2.pivot_table(index="z", columns="L", values="energy_Eh", aggfunc="last").sort_index()
+        abs_grid = df2.pivot_table(index="z", columns="L", values="energy_eV", aggfunc="last").sort_index()
 
         if abs_grid.empty:
             raise ValueError("No matching rows for a z/L grid. Check CSV content.")
@@ -95,7 +96,7 @@ class Landscape:
             raise ValueError("Grid has no finite energies (unexpected).")
 
         global_min = vals[mask].min()
-        rel_grid = (abs_grid - global_min) * EH_TO_KJMOL
+        rel_grid = abs_grid - global_min
         if rel_energy_max is not None:
             rel_grid = rel_grid.clip(lower=0.0, upper=float(rel_energy_max))
 
@@ -204,9 +205,10 @@ class Landscape:
                 vmax=vmax,
             )
             cbar = plt.colorbar(im, pad=0.02)
-            cbar.set_label("Relative energy (kJ/mol)", labelpad=18, fontsize=12)
+            cbar.set_label("Relative energy (eV)", labelpad=18, fontsize=12)
             _style_axes()
-            _mark_minima(use_rect=True)
+            if show_minima_markers:
+                _mark_minima(use_rect=True)
             plt.tight_layout()
             plt.savefig(heatmap_path, dpi=200)
             plt.show()
@@ -221,9 +223,10 @@ class Landscape:
                 levels = 12
             im = plt.contour(data, levels=levels, cmap=cmap)
             cbar = plt.colorbar(im, pad=0.02)
-            cbar.set_label("Relative energy (kJ/mol)", labelpad=18, fontsize=12)
+            cbar.set_label("Relative energy (eV)", labelpad=18, fontsize=12)
             _style_axes()
-            _mark_minima(use_rect=False)
+            if show_minima_markers:
+                _mark_minima(use_rect=False)
             plt.tight_layout()
             plt.savefig(isolines_path, dpi=200)
             plt.show()
@@ -238,6 +241,9 @@ class Landscape:
         colorscheme: str = "viridis",
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
+        show_minima_markers: bool = True,
+        input_folder: str | None = None,
+        output_folder: str | None = None,
     ) -> None:
         """Generate landscapes for the selected mode(s) using MaceSP CSVs.
 
@@ -248,16 +254,35 @@ class Landscape:
                 "colorblind" ("cividis"), or "viridis" (default).
             plot_mode: "heatmap", "isolines", or "both".
             rel_energy_max: Optional max value for relative energies.
+            show_minima_markers: If True (default), mark minima on plots.
+            input_folder: Optional explicit folder containing CIFs for one mode.
+                If set, this folder is used directly and `mode` folder defaults
+                are not used.
+            output_folder: Optional output folder for plots.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
 
         Returns:
             None.
         """
-        for folder in get_mode_folders(cof_name, mode):
+        if input_folder:
             self.run(
-                input_folder=folder,
+                input_folder=input_folder,
+                output_folder=output_folder,
                 colorscheme=colorscheme,
                 plot_mode=plot_mode,
                 rel_energy_max=rel_energy_max,
+                show_minima_markers=show_minima_markers,
+            )
+            return None
+
+        for folder in get_mode_folders(cof_name, mode):
+            self.run(
+                input_folder=folder,
+                output_folder=output_folder,
+                colorscheme=colorscheme,
+                plot_mode=plot_mode,
+                rel_energy_max=rel_energy_max,
+                show_minima_markers=show_minima_markers,
             )
         return None
 
@@ -315,11 +340,11 @@ class SelectCofs:
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
         df = pd.read_csv(csv_path)
-        df2 = df.dropna(subset=["z", "L", "energy_Eh"]).copy()
+        df2 = df.dropna(subset=["z", "L", "energy_eV"]).copy()
         if df2.empty:
             raise ValueError(f"CSV has no valid z/L/energy rows: {csv_path}")
-        min_val = df2["energy_Eh"].min()
-        sel = df2[df2["energy_Eh"] == min_val]
+        min_val = df2["energy_eV"].min()
+        sel = df2[df2["energy_eV"] == min_val]
         selections = list(zip(sel["z"].astype(float), sel["L"].astype(float)))
         return self._dedupe_selections(selections)
 
@@ -327,12 +352,12 @@ class SelectCofs:
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
         df = pd.read_csv(csv_path)
-        df2 = df.dropna(subset=["z", "L", "energy_Eh"]).copy()
+        df2 = df.dropna(subset=["z", "L", "energy_eV"]).copy()
         if df2.empty:
             raise ValueError(f"CSV has no valid z/L/energy rows: {csv_path}")
 
         abs_grid = (
-            df2.pivot_table(index="z", columns="L", values="energy_Eh", aggfunc="last")
+            df2.pivot_table(index="z", columns="L", values="energy_eV", aggfunc="last")
             .sort_index()
         )
         if abs_grid.empty:
@@ -417,6 +442,8 @@ class SelectCofs:
         include_autoselect: bool = True,
         input_base: str | None = None,
         output_base: str | None = None,
+        input_folder: str | None = None,
+        output_folder: str | None = None,
     ) -> None:
         """Select CIFs for the selected mode(s).
 
@@ -430,14 +457,14 @@ class SelectCofs:
                 Defaults to {cof_name}/2_{cof_name}_matrix.
             output_base: Optional base folder for selected CIFs.
                 Defaults to {cof_name}/3_{cof_name}_landscape/selection.
+            input_folder: Optional explicit folder for one mode (serr or incl).
+                If set, this folder is used directly and `input_base`/`mode`
+                folder expansion is not used.
+            output_folder: Optional explicit output folder for selected CIFs.
+                Used with `input_folder` for single-folder selection.
         """
-        if input_base is None:
-            input_base = f"{cof_name}/2_{cof_name}_matrix"
-        if output_base is None:
-            output_base = f"{cof_name}/3_{cof_name}_landscape/selection"
-        for folder in get_mode_folders(cof_name, mode):
-            mode_tag = Path(folder).name
-            out_folder = f"{output_base}/{mode_tag}"
+
+        def _build_mode_selections(mode_tag: str) -> list[tuple[float, float]]:
             mode_selections: list[tuple[float, float]] = []
             if include_autoselect:
                 csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
@@ -457,6 +484,36 @@ class SelectCofs:
                 raise ValueError(
                     "No selections provided. Use include_autoselect=True or provide selections_serr/selections_incl."
                 )
+            return mode_selections
+
+        if input_folder:
+            mode_tag = Path(input_folder).name.replace("dft_", "")
+            if mode_tag not in {"serr", "incl"}:
+                raise ValueError("input_folder must point to a serr or incl mode folder.")
+
+            target_output = output_folder
+            if target_output is None:
+                base = output_base or f"{cof_name}/3_{cof_name}_landscape/selection"
+                target_output = f"{base}/{mode_tag}"
+
+            selections = _build_mode_selections(mode_tag)
+            label = "Serrated" if mode_tag == "serr" else "Inclined"
+            self.run(
+                input_folder=input_folder,
+                output_folder=target_output,
+                selections=selections,
+                mode_label=label,
+            )
+            return None
+
+        if input_base is None:
+            input_base = f"{cof_name}/2_{cof_name}_matrix"
+        if output_base is None:
+            output_base = f"{cof_name}/3_{cof_name}_landscape/selection"
+        for folder in get_mode_folders(cof_name, mode):
+            mode_tag = Path(folder).name
+            out_folder = f"{output_base}/{mode_tag}"
+            mode_selections = _build_mode_selections(mode_tag)
 
             label = "Serrated" if mode_tag == "serr" else "Inclined" if mode_tag == "incl" else None
             self.run(

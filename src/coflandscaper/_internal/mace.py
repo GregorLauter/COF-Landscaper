@@ -15,8 +15,6 @@ from ase.io import read
 from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 
-EV_TO_HARTREE = 1.0 / 27.211386245988
-
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     mz = re.search(r"_z(\d+)", stem)
     mL = re.search(r"_L(\d+)", stem)
@@ -177,7 +175,6 @@ class MaceSP(Mace):
                 atoms.calc = calc
 
                 e_ev = float(atoms.get_potential_energy())
-                e_eh = e_ev * EV_TO_HARTREE
 
                 z, L = _parse_z_L_from_stem(cif_path.stem)
 
@@ -186,7 +183,7 @@ class MaceSP(Mace):
                         "structure": cif_path.stem,
                         "z": z,
                         "L": L,
-                        "energy_Eh": e_eh,
+                        "energy_eV": e_ev,
                     }
                 )
             except Exception as e:
@@ -197,8 +194,8 @@ class MaceSP(Mace):
 
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         if not df.empty:
-            min_e = float(df["energy_Eh"].min())
-            df["energy_rel_Eh"] = df["energy_Eh"] - min_e
+            min_e = float(df["energy_eV"].min())
+            df["energy_rel_eV"] = df["energy_eV"] - min_e
         df.to_csv(energies_csv_path, index=False)
 
         if failed:
