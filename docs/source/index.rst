@@ -1,4 +1,4 @@
-Welcome to millie's documentation!
+Welcome to COF-Landscaper's documentation!
 ==================================
 
 .. toctree::
