@@ -1,5 +1,5 @@
 Welcome to COF-Landscaper's documentation!
-==================================
+==========================================
 
 .. toctree::
   :hidden:
