@@ -16,8 +16,10 @@ dependencies = [
     "py3dmol>=2.5.4",
     "rdkit>=2025.9.3",
     "torch-dftd>=0.5.2",
+    "jupyter>=1.1.1",
+    "ipykernel>=7.1.0",
 ]
-requires-python = ">=3.12,<3.13"
+requires-python = "==3.12.*"
 dynamic = ["version"]
 readme = "README.rst"
 description = "Does things for you."
@@ -31,11 +33,6 @@ dev = [
   "sphinx",
   "sphinx-copybutton",
   "furo",
-  "jupyter>=1.1.1",
-  "ipykernel>=7.1.0",
-]
-viz = [
-  "py3Dmol>=2.4.2",
 ]
 
 [project.urls]
