@@ -1,3 +1,5 @@
+"""Cof landscaper package."""
+
 from ._internal.analyze import (
     Analyze,
     CalcIlsDl,
@@ -10,7 +12,7 @@ from ._internal.analyze import (
 )
 from ._internal.build_cof_2d import BuildCOF2D
 from ._internal.dft import Crystal, CrystalOpt, CrystalSP, VaspSP
-from ._internal.helpers import CenterZ, RemoveLayer, SetVacuum, Supercell, foo
+from ._internal.helpers import CenterZ, RemoveLayer, SetVacuum, Supercell
 from ._internal.ild_ils_matrix import ChangeIld, CreateMatrix, IlsIncl, IlsSerr
 from ._internal.ild_ils_utils import get_mode_folders
 from ._internal.landscape import Landscape, SelectCofs
@@ -43,7 +45,6 @@ __all__ = [
     "VaspSP",
     "VisualizeCOF",
     "analyze",
-    "foo",
     "get_mode_folders",
     "visualize_cof",
     "visualizecof",
