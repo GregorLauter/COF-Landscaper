@@ -6,18 +6,20 @@ must specify the topology (currently "hcb" or "sql"), the bond type ("single"
 or "double"), and a COF name for output organization.
 """
 
+import glob
 import os
 import tempfile
-import glob
-from io import StringIO
-from typing import Sequence
-from pymatgen.core import Structure
+from collections.abc import Sequence
 from contextlib import ExitStack
+from io import StringIO
+
+import ase.io
 import numpy as np
 import pormake as pm
-import ase.io
 from ase.atoms import Atoms
+from pymatgen.core import Structure
 from rdkit import Chem
+
 DEFAULT_ILD_GUESS = 15.0
 DEFAULT_X_SCALE = 0.8
 
@@ -48,9 +50,13 @@ def _disable_pormake_file_logging() -> None:
     except Exception:
         pass
 
+
 _disable_pormake_file_logging()
 
-def _replace_atoms(atoms: Atoms, from_symbol: str, to_symbol: str) -> tuple[str, list[int]]:
+
+def _replace_atoms(
+    atoms: Atoms, from_symbol: str, to_symbol: str
+) -> tuple[str, list[int]]:
     """Replace atom symbols and return XYZ block and replaced indices.
 
     Args:
@@ -74,6 +80,7 @@ def _replace_atoms(atoms: Atoms, from_symbol: str, to_symbol: str) -> tuple[str,
     xyz_file.close()
     return xyz_block, x_indices
 
+
 def _build_rdkit_mol(xyz_block: str) -> Mol | None:
     """Build an RDKit Mol from an XYZ block.
 
@@ -89,6 +96,7 @@ def _build_rdkit_mol(xyz_block: str) -> Mol | None:
     rdDetermineBonds.DetermineBonds(mol)
     return mol
 
+
 def _tag_isotopes(mol: Mol, indices: list[int]) -> None:
     """Tag atoms in the Mol by isotope for downstream processing.
 
@@ -99,6 +107,7 @@ def _tag_isotopes(mol: Mol, indices: list[int]) -> None:
     for atom in mol.GetAtoms():
         if atom.GetIdx() in indices:
             atom.SetIsotope(2)
+
 
 def _write_xyz_with_bonds(mol: Mol, out_path: str) -> None:
     """Write an XYZ file with bond annotations and scaled X positions.
@@ -147,9 +156,9 @@ def _write_xyz_with_bonds(mol: Mol, out_path: str) -> None:
                 bond_type_str = "S"
             elif bond_type == 1.5 and bond.IsInRing():
                 bond_type_str = "A"
-            elif bond_type == 1.5 and not bond.IsInRing():
-                bond_type_str = "D"
-            elif bond_type == 2.0:
+            elif (
+                bond_type == 1.5 and not bond.IsInRing()
+            ) or bond_type == 2.0:
                 bond_type_str = "D"
             elif bond_type == 3.0:
                 bond_type_str = "T"
@@ -157,6 +166,7 @@ def _write_xyz_with_bonds(mol: Mol, out_path: str) -> None:
                 bond_type_str = "S"
 
             xyz_file.write(f"{atom1}    {atom2}    {bond_type_str}\n")
+
 
 def _prepare_xyz(
     input_folder: str,
@@ -208,6 +218,7 @@ def _prepare_xyz(
 
     return xyz_files
 
+
 def _normalize_edge_pair(pair: Sequence[int] | np.ndarray) -> tuple[int, int]:
     """Normalize an edge pair into a 2-tuple of ints.
 
@@ -225,7 +236,10 @@ def _normalize_edge_pair(pair: Sequence[int] | np.ndarray) -> tuple[int, int]:
         raise ValueError(f"Unexpected edge type shape: {pair}")
     return (int(arr[0]), int(arr[1]))
 
-def _normalize_edge_types(edge_types: Sequence[Sequence[int]] | np.ndarray) -> np.ndarray:
+
+def _normalize_edge_types(
+    edge_types: Sequence[Sequence[int]] | np.ndarray,
+) -> np.ndarray:
     """Normalize edge types into a 2D numpy array of int pairs.
 
     Args:
@@ -241,6 +255,7 @@ def _normalize_edge_types(edge_types: Sequence[Sequence[int]] | np.ndarray) -> n
     except Exception:
         pass
     return np.array([_normalize_edge_pair(p) for p in edge_types], dtype=int)
+
 
 def _sanitize_edge_types_inplace(
     edge_types: Sequence[Sequence[int]] | np.ndarray,
@@ -267,6 +282,7 @@ def _sanitize_edge_types_inplace(
                 edge_types[i] = tuple(val.tolist())
         return edge_types
     return edge_types
+
 
 def _build_cof(
     topo: str,
@@ -308,7 +324,7 @@ def _build_cof(
     node = pm.BuildingBlock(node_path)
     linker = pm.BuildingBlock(linker_path)
     node_bbs = {0: node}
-    edge_bbs = {pair: linker for pair in edgetype_filtered}
+    edge_bbs = dict.fromkeys(edgetype_filtered, linker)
 
     cof = builder.build_by_type(
         topology=topo_initial,
@@ -332,7 +348,7 @@ def _build_cof(
     if os.path.exists(pickle_path):
         os.remove(pickle_path)
 
-    with open(cgd_path, "r") as file:
+    with open(cgd_path) as file:
         lines = file.readlines()
     line_parts = lines[3].split()
     line_parts[3] = f"{float(gamma):.5f}"
@@ -357,6 +373,7 @@ def _build_cof(
     cof.write_cif(output_filename)
     return output_filename
 
+
 class BuildCOF2D:
     """Build a 2D COF from user-prepared nodes and linkers.
 
@@ -376,11 +393,12 @@ class BuildCOF2D:
 
     def __init__(self) -> None:
         """Initialize the builder."""
-        pass
 
     def _topology_paths(self, topo: str) -> tuple[str, str]:
         """Resolve topology file paths for a given topology name."""
-        base = os.path.join(os.path.dirname(pm.__file__), "database", "topologies")
+        base = os.path.join(
+            os.path.dirname(pm.__file__), "database", "topologies"
+        )
         pickle_path = os.path.join(base, f"{topo}_modified.pickle")
         cgd_path = os.path.join(base, f"{topo}_modified.cgd")
         return pickle_path, cgd_path
@@ -409,9 +427,13 @@ class BuildCOF2D:
         _disable_pormake_file_logging()
         with ExitStack() as stack:
             if bond_type:
-                nodes_dir_used = stack.enter_context(tempfile.TemporaryDirectory())
+                nodes_dir_used = stack.enter_context(
+                    tempfile.TemporaryDirectory()
+                )
                 _prepare_xyz("0_node", nodes_dir_used, bond_type)
-                linker_dir_used = stack.enter_context(tempfile.TemporaryDirectory())
+                linker_dir_used = stack.enter_context(
+                    tempfile.TemporaryDirectory()
+                )
                 _prepare_xyz("0_linker", linker_dir_used, bond_type)
             else:
                 nodes_dir_used = "nodes"
@@ -421,7 +443,9 @@ class BuildCOF2D:
             linkers = self._list_xyz(linker_dir_used)
 
             if len(nodes) != 1 or len(linkers) != 1:
-                raise ValueError("Expected exactly one node and one linker file.")
+                raise ValueError(
+                    "Expected exactly one node and one linker file."
+                )
 
             node_name, node_path = nodes[0]
             linker_name, linker_path = linkers[0]
@@ -442,4 +466,3 @@ class BuildCOF2D:
             )
 
             return [output]
-
