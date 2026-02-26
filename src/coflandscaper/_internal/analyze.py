@@ -23,12 +23,13 @@ from .ild_ils_utils import (
 
 ModelFormat = Literal["cif", "xyz", "pdb", "mol", "mol2", "sdf"]
 
+
 class CalcIlsDl:
     def run(self, input_folder: str):
         for input_file in list_cifs(input_folder):
             struct = Structure.from_file(input_file)
 
-            with open(input_file, "r") as f:
+            with open(input_file) as f:
                 lines = f.readlines()
 
             atom_lines = []
@@ -56,7 +57,9 @@ class CalcIlsDl:
             if not atom_lines:
                 raise ValueError("No atom lines found in CIF")
 
-            pair_idx, (lower_line, upper_line), (xl, yl, zl), key = pick_lower_left_pair_from_lines(atom_lines)
+            pair_idx, (lower_line, upper_line), (xl, yl, zl), key = (
+                pick_lower_left_pair_from_lines(atom_lines)
+            )
             xu, yu, zu = parse_xyz_from_atom_line(upper_line)
             xu_w, yu_w = wrap01(xu), wrap01(yu)
 
@@ -78,6 +81,7 @@ class CalcIlsDl:
 
     __call__ = run
 
+
 class CalcIlsSl:
     def run(self, input_folder: str):
         for input_file in list_cifs(input_folder):
@@ -90,12 +94,15 @@ class CalcIlsSl:
             gr = math.radians(gamma_deg)
 
             cx = c * math.cos(br)
-            cy = c * (math.cos(ar) - math.cos(br) * math.cos(gr)) / math.sin(gr)
+            cy = (
+                c * (math.cos(ar) - math.cos(br) * math.cos(gr)) / math.sin(gr)
+            )
             slip = math.sqrt(cx**2 + cy**2)
 
             print(f"{os.path.basename(input_file)}: ILS = {slip:.2f} Å")
 
     __call__ = run
+
 
 class CheckIld:
     def run(self, input_folder: str):
@@ -108,9 +115,12 @@ class CheckIld:
             fz_unwrapped = np.mod(fz - z0, 1.0)
             thickness = (np.max(fz_unwrapped) - np.min(fz_unwrapped)) * ild
 
-            print(f"{os.path.basename(input_file)}: ILD = {ild:.6f} Å, Layer Thickness = {thickness:.6f} Å")
+            print(
+                f"{os.path.basename(input_file)}: ILD = {ild:.6f} Å, Layer Thickness = {thickness:.6f} Å"
+            )
 
     __call__ = run
+
 
 class Analyze:
     def _collect_cifs(self, folder: Path) -> list[str]:
@@ -129,10 +139,11 @@ class Analyze:
         if not files:
             raise FileNotFoundError(f"No .cif files found in: {folder}")
         return files
+
     def _calc_ils_dl(self, input_file: str) -> float:
         struct = Structure.from_file(input_file)
 
-        with open(input_file, "r") as f:
+        with open(input_file) as f:
             lines = f.readlines()
 
         atom_lines = []
@@ -160,7 +171,9 @@ class Analyze:
         if not atom_lines:
             raise ValueError("No atom lines found in CIF")
 
-        _, (lower_line, upper_line), (xl, yl, _), _ = pick_lower_left_pair_from_lines(atom_lines)
+        _, (lower_line, upper_line), (xl, yl, _), _ = (
+            pick_lower_left_pair_from_lines(atom_lines)
+        )
         xu, yu, _ = parse_xyz_from_atom_line(upper_line)
         xu_w, yu_w = wrap01(xu), wrap01(yu)
 
@@ -219,7 +232,11 @@ class Analyze:
         if mode_lower not in {"incl", "serr", "both"}:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
-        base = Path(input_base) if input_base else Path(f"{cof_name}/4_{cof_name}_final_structures")
+        base = (
+            Path(input_base)
+            if input_base
+            else Path(f"{cof_name}/4_{cof_name}_final_structures")
+        )
         output_base_path = Path(output_base) if output_base else base
         modes = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
 
@@ -232,7 +249,9 @@ class Analyze:
                 print(f"{label}:")
                 print(" ILD (Å)  ILS (Å)")
             for input_file in files:
-                ild = self._calc_ild(input_file, divide_by_two=selected_mode == "serr")
+                ild = self._calc_ild(
+                    input_file, divide_by_two=selected_mode == "serr"
+                )
                 if selected_mode == "serr":
                     ils = self._calc_ils_dl(input_file)
                 else:
@@ -251,11 +270,14 @@ class Analyze:
 
         output_csv = output_base_path / "final_structures.csv"
         with open(output_csv, "w", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=["Stacking", "filename", "ILD", "ILS"])
+            writer = csv.DictWriter(
+                csvfile, fieldnames=["Stacking", "filename", "ILD", "ILS"]
+            )
             writer.writeheader()
             writer.writerows(rows)
 
     __call__ = run
+
 
 def analyze(
     cof_name: str,
@@ -286,6 +308,7 @@ def analyze(
         print_values=print_values,
     )
 
+
 @dataclass
 class VisualizeCOF:
     width: int = 800
@@ -299,7 +322,9 @@ class VisualizeCOF:
             candidates.extend(sorted(path.glob(f"*.{ext}")))
         return candidates
 
-    def _resolve_model(self, source: str | Path | Structure, model_format: ModelFormat | None) -> tuple[str, str]:
+    def _resolve_model(
+        self, source: str | Path | Structure, model_format: ModelFormat | None
+    ) -> tuple[str, str]:
         if isinstance(source, Structure):
             fmt = model_format or "cif"
             data = source.to(fmt=fmt)
@@ -307,17 +332,23 @@ class VisualizeCOF:
 
         path = Path(source)
         if not path.exists():
-            raise FileNotFoundError(f"Structure file or folder not found: {path}")
+            raise FileNotFoundError(
+                f"Structure file or folder not found: {path}"
+            )
 
         if path.is_dir():
             candidates = self._find_files(path)
             if not candidates:
-                raise FileNotFoundError(f"No structure files found in folder: {path}")
+                raise FileNotFoundError(
+                    f"No structure files found in folder: {path}"
+                )
             path = candidates[0]
 
         fmt = model_format or path.suffix.lower().lstrip(".")
         if fmt == "":
-            raise ValueError("Unable to infer model format. Pass model_format explicitly.")
+            raise ValueError(
+                "Unable to infer model format. Pass model_format explicitly."
+            )
 
         data = path.read_text()
         return data, fmt
@@ -338,7 +369,9 @@ class VisualizeCOF:
 
         files = self._find_files(path)
         if not files:
-            raise FileNotFoundError(f"No structure files found in folder: {path}")
+            raise FileNotFoundError(
+                f"No structure files found in folder: {path}"
+            )
 
         views = []
         for file_path in files:
@@ -382,6 +415,7 @@ class VisualizeCOF:
         view.zoomTo()
         return view
 
+
 def visualize_cof(
     folder: str | Path,
     model_format: ModelFormat | None = None,
@@ -420,6 +454,7 @@ def visualize_cof(
         print_names=print_names,
     )
 
+
 def visualizecof(
     cof_name: str,
     mode: str = "both",
@@ -455,7 +490,11 @@ def visualizecof(
     if mode_lower not in {"incl", "serr", "both"}:
         raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
-    base = Path(input_base) if input_base else Path(f"{cof_name}/4_{cof_name}_final_structures")
+    base = (
+        Path(input_base)
+        if input_base
+        else Path(f"{cof_name}/4_{cof_name}_final_structures")
+    )
     modes = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
 
     viewer = VisualizeCOF(
@@ -465,6 +504,7 @@ def visualizecof(
         style=style if isinstance(style, str) else "stick",
     )
     views = []
+
     def _collect_cifs(folder: Path) -> list[str]:
         files: list[str] = []
         if not folder.exists():
@@ -486,9 +526,15 @@ def visualizecof(
         folder = base / selected_mode
         files = _collect_cifs(folder)
         label = "Serrated" if selected_mode == "serr" else "Inclined"
-        supercell_size = supercell_size_serr if selected_mode == "serr" else supercell_size_incl
+        supercell_size = (
+            supercell_size_serr
+            if selected_mode == "serr"
+            else supercell_size_incl
+        )
         for input_file in files:
-            ild = analyzer._calc_ild(input_file, divide_by_two=selected_mode == "serr")
+            ild = analyzer._calc_ild(
+                input_file, divide_by_two=selected_mode == "serr"
+            )
             if selected_mode == "serr":
                 ils = analyzer._calc_ils_dl(input_file)
             else:
