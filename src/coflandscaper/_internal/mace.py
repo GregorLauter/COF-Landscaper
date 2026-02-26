@@ -1,12 +1,12 @@
 """MACE base and derived classes for COF workflows."""
 
 from __future__ import annotations
-from contextlib import contextmanager
-from pathlib import Path
+
 import os
 import re
-import sys
 import warnings
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from ase.constraints import FixCartesian
@@ -14,6 +14,7 @@ from ase.filters import UnitCellFilter
 from ase.io import read
 from ase.optimize import LBFGS
 from mace.calculators import mace_mp
+
 
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     mz = re.search(r"_z(\d+)", stem)
@@ -24,6 +25,7 @@ def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     L = float(mL.group(1)) / 10.0
     return z, L
 
+
 def _default_dispersion_for_head(head: str) -> bool:
     head_key = (head or "").lower()
     if head_key in {"omat_pbe", "matpes_r2scan"}:
@@ -31,6 +33,7 @@ def _default_dispersion_for_head(head: str) -> bool:
     if head_key in {"omol", "spice_wb97m", "spice"}:
         return False
     return False
+
 
 class Mace:
     """Base class for MACE calculators.
@@ -66,7 +69,9 @@ class Mace:
         resolved_head = head or self.head
         if dispersion is None:
             if self.dispersion is None:
-                resolved_dispersion = _default_dispersion_for_head(resolved_head)
+                resolved_dispersion = _default_dispersion_for_head(
+                    resolved_head
+                )
             else:
                 resolved_dispersion = self.dispersion
         else:
@@ -92,10 +97,14 @@ class Mace:
                 category=UserWarning,
                 message="Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected*",
             )
-            warnings.filterwarnings("ignore", category=UserWarning, module="e3nn")
+            warnings.filterwarnings(
+                "ignore", category=UserWarning, module="e3nn"
+            )
             return self._make_calc_inner(device, dtype, head, dispersion)
 
-    def _make_calc_inner(self, device: str, dtype: str, head: str, dispersion: bool):
+    def _make_calc_inner(
+        self, device: str, dtype: str, head: str, dispersion: bool
+    ):
         try:
             import torch
             from mace.modules.models import ScaleShiftMACE
@@ -112,6 +121,7 @@ class Mace:
             dispersion=dispersion,
         )
 
+
 class MaceSP(Mace):
     """Single-point MACE energies over a folder of CIFs.
 
@@ -127,16 +137,18 @@ class MaceSP(Mace):
         dispersion: bool | None = None,
     ) -> None:
         """Configure the MACE single-point calculator.
-        
-    Args:
-            dtype: Numerical precision; use "float64" (more accurate, slower)
-                or "float32" (faster, less accurate).
-            head: MACE head to use (e.g., "omat_pbe", "omol",
-                "spice_wB97M", "matpes_r2scan").
-            device: Compute device, e.g. "cpu" or "cuda" (if available).
-        dispersion: Whether to enable dispersion. If None, defaults by head.
+
+        Args:
+                dtype: Numerical precision; use "float64" (more accurate, slower)
+                    or "float32" (faster, less accurate).
+                head: MACE head to use (e.g., "omat_pbe", "omol",
+                    "spice_wB97M", "matpes_r2scan").
+                device: Compute device, e.g. "cpu" or "cuda" (if available).
+            dispersion: Whether to enable dispersion. If None, defaults by head.
         """
-        super().__init__(device=device, dtype=dtype, head=head, dispersion=dispersion)
+        super().__init__(
+            device=device, dtype=dtype, head=head, dispersion=dispersion
+        )
 
     def _run_folder(
         self,
@@ -158,7 +170,9 @@ class MaceSP(Mace):
 
         cif_files = sorted(input_path.glob("*.cif"))
         if not cif_files:
-            raise FileNotFoundError(f"No .cif files found in: {input_path.resolve()}")
+            raise FileNotFoundError(
+                f"No .cif files found in: {input_path.resolve()}"
+            )
 
         device, dtype, head, dispersion = self._resolve_params()
 
@@ -190,7 +204,9 @@ class MaceSP(Mace):
                 failed.append((str(cif_path), repr(e)))
 
             if i % 25 == 0 or i == len(cif_files):
-                print(f"[single-point] {i}/{len(cif_files)} done | ok={len(rows)} | failed={len(failed)}")
+                print(
+                    f"[single-point] {i}/{len(cif_files)} done | ok={len(rows)} | failed={len(failed)}"
+                )
 
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         if not df.empty:
@@ -230,12 +246,17 @@ class MaceSP(Mace):
         from .ild_ils_utils import get_mode_folders
 
         if input_folder:
-            self._run_folder(input_folder=input_folder, output_csv_dir=output_csv_dir)
-            return None
+            self._run_folder(
+                input_folder=input_folder, output_csv_dir=output_csv_dir
+            )
+            return
 
         for folder in get_mode_folders(cof_name, mode):
-            self._run_folder(input_folder=folder, output_csv_dir=output_csv_dir)
-        return None
+            self._run_folder(
+                input_folder=folder, output_csv_dir=output_csv_dir
+            )
+        return
+
 
 class OptMACE(Mace):
     """Geometry optimization using MACE."""
@@ -244,12 +265,14 @@ class OptMACE(Mace):
         self,
         fmax: float = 0.05,
         dtype: str = "float64",
-            head: str = "omat_pbe",
+        head: str = "omat_pbe",
         device: str = "cpu",
         fix_z: bool = True,
         dispersion: bool | None = None,
     ) -> None:
-        super().__init__(device=device, dtype=dtype, head=head, dispersion=dispersion)
+        super().__init__(
+            device=device, dtype=dtype, head=head, dispersion=dispersion
+        )
         self.fmax = fmax
         self.fix_z = fix_z
         self.calc = self._make_calc(
@@ -297,7 +320,9 @@ class OptMACE(Mace):
 
     def run(self, input_folder: str, output_folder: str) -> None:
         """Alias for batch optimization over a folder of CIFs."""
-        self.process_cifs(input_folder=input_folder, output_folder=output_folder)
+        self.process_cifs(
+            input_folder=input_folder, output_folder=output_folder
+        )
 
     def run_mode(
         self,
@@ -328,6 +353,7 @@ class OptMACE(Mace):
                 output_folder=f"{cof_name}/{output_base}/{mode_tag}",
             )
 
+
 class MacePreopt(OptMACE):
     """Pre-optimize a single CIF to improve the subsequent energy landscape.
 
@@ -353,7 +379,7 @@ class MacePreopt(OptMACE):
         self,
         fmax: float = 0.01,
         dtype: str = "float64",
-            head: str = "omat_pbe",
+        head: str = "omat_pbe",
         device: str = "cpu",
         fix_z: bool = True,
     ) -> None:
@@ -386,8 +412,11 @@ class MacePreopt(OptMACE):
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"Missing input CIF: {input_path}")
         os.makedirs(output_folder_used, exist_ok=True)
-        output_path = os.path.join(output_folder_used, f"{cof_name}_preopt.cif")
+        output_path = os.path.join(
+            output_folder_used, f"{cof_name}_preopt.cif"
+        )
         self.optimize_cof(input_path, output_path)
+
 
 class MaceFullOpt(OptMACE):
     """Full geometry optimization with MACE allowing unconstrained 3D relaxation.
@@ -399,7 +428,7 @@ class MaceFullOpt(OptMACE):
         self,
         fmax: float = 0.01,
         dtype: str = "float64",
-            head: str = "omat_pbe",
+        head: str = "omat_pbe",
         device: str = "cpu",
         dispersion: bool | None = None,
     ) -> None:
@@ -411,4 +440,3 @@ class MaceFullOpt(OptMACE):
             fix_z=False,
             dispersion=dispersion,
         )
-

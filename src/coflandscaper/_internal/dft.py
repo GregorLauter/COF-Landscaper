@@ -9,10 +9,10 @@ Provides a base class `Crystal` and two derived classes:
 """
 
 from __future__ import annotations
-from pathlib import Path
+
 import os
 import re
-from typing import Optional
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,7 +20,8 @@ from ase.data import atomic_numbers
 
 HARTREE_TO_EV = 27.211386245988
 
-def guess_symbol(raw: str) -> Optional[str]:
+
+def guess_symbol(raw: str) -> str | None:
     s = re.sub(r"[^A-Za-z]", "", raw)
     if not s:
         return None
@@ -32,6 +33,7 @@ def guess_symbol(raw: str) -> Optional[str]:
     if s[0] in atomic_numbers:
         return s[0]
     return None
+
 
 def parse_cell(text: str) -> dict[str, float]:
     def grab(key: str) -> float:
@@ -49,6 +51,7 @@ def parse_cell(text: str) -> dict[str, float]:
         "gamma": grab(r"_cell_angle_gamma"),
     }
 
+
 def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
     for i, line in enumerate(lines):
         if line.strip().lower().startswith("loop_"):
@@ -64,7 +67,9 @@ def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
             xk = next(k for k in hdr if "_fract_x" in k)
             yk = next(k for k in hdr if "_fract_y" in k)
             zk = next(k for k in hdr if "_fract_z" in k)
-            lbl = next((k for k in hdr if "_type_symbol" in k or "_label" in k), None)
+            lbl = next(
+                (k for k in hdr if "_type_symbol" in k or "_label" in k), None
+            )
 
             atoms: list[tuple[int, float, float, float]] = []
             while j < len(lines):
@@ -84,6 +89,7 @@ def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
             return atoms
     raise ValueError("No atom site loop with fractional coordinates.")
 
+
 def _find_last_occurrence(lines: list[str], keyword: str) -> int:
     """Return the index of the last occurrence of a keyword.
 
@@ -99,7 +105,10 @@ def _find_last_occurrence(lines: list[str], keyword: str) -> int:
             return i
     return -1
 
-def _parse_atom_lines(lines: list[str], start_idx: int) -> tuple[list[str], list[list[float]]]:
+
+def _parse_atom_lines(
+    lines: list[str], start_idx: int
+) -> tuple[list[str], list[list[float]]]:
     """Parse atom symbols and XYZ coordinates from a line block.
 
     Args:
@@ -136,7 +145,8 @@ def _parse_atom_lines(lines: list[str], start_idx: int) -> tuple[list[str], list
 
     return symbols, raw_coords
 
-def _parse_primary_structure(lines: list[str]) -> Optional["Atoms"]:
+
+def _parse_primary_structure(lines: list[str]) -> Atoms | None:
     """Parse a structure using DIRECT LATTICE and PRIMITIVE CELL blocks.
 
     Args:
@@ -176,11 +186,17 @@ def _parse_primary_structure(lines: list[str]) -> Optional["Atoms"]:
                 "ase is required for CRYSTAL structure extraction. Install with: pip install ase"
             ) from exc
 
-        return Atoms(symbols=symbols, cell=cell, positions=positions, pbc=(cell is not None))
+        return Atoms(
+            symbols=symbols,
+            cell=cell,
+            positions=positions,
+            pbc=(cell is not None),
+        )
     except (ValueError, IndexError, KeyError):
         return None
 
-def _parse_fallback_structure(lines: list[str]) -> Optional["Atoms"]:
+
+def _parse_fallback_structure(lines: list[str]) -> Atoms | None:
     """Parse a structure using LATTICE PARAMETERS and ATOM blocks.
 
     Args:
@@ -244,11 +260,21 @@ def _parse_fallback_structure(lines: list[str]) -> Optional["Atoms"]:
             elif (not x_is_frac) and (not y_is_frac) and (not z_is_frac):
                 pos = [x, y, z]
             else:
-                frac_vec = [x if x_is_frac else 0.0, y if y_is_frac else 0.0, z if z_is_frac else 0.0]
-                cart_vec = [x if not x_is_frac else 0.0, y if not y_is_frac else 0.0, z if not z_is_frac else 0.0]
+                frac_vec = [
+                    x if x_is_frac else 0.0,
+                    y if y_is_frac else 0.0,
+                    z if z_is_frac else 0.0,
+                ]
+                cart_vec = [
+                    x if not x_is_frac else 0.0,
+                    y if not y_is_frac else 0.0,
+                    z if not z_is_frac else 0.0,
+                ]
                 part_a = np.dot(frac_vec, cell_mat)
                 pos = [float(part_a[k] + cart_vec[k]) for k in range(3)]
-            final_positions.append([float(pos[0]), float(pos[1]), float(pos[2])])
+            final_positions.append(
+                [float(pos[0]), float(pos[1]), float(pos[2])]
+            )
 
         try:
             from ase import Atoms
@@ -257,9 +283,12 @@ def _parse_fallback_structure(lines: list[str]) -> Optional["Atoms"]:
                 "ase is required for CRYSTAL structure extraction. Install with: pip install ase"
             ) from exc
 
-        return Atoms(symbols=symbols, positions=final_positions, cell=cell, pbc=True)
+        return Atoms(
+            symbols=symbols, positions=final_positions, cell=cell, pbc=True
+        )
     except Exception:
         return None
+
 
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     mz = re.search(r"_z(\d+)", stem)
@@ -269,6 +298,7 @@ def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     z = float(mz.group(1)) / 10.0
     L = float(mL.group(1)) / 10.0
     return z, L
+
 
 class Crystal:
     """Base class to convert CIF files into CRYSTAL .d12 inputs."""
@@ -282,7 +312,9 @@ class Crystal:
         """
         self.post_block = post_block
 
-    def _convert_one(self, cif_path: Path, output_path: Path | None = None) -> Path:
+    def _convert_one(
+        self, cif_path: Path, output_path: Path | None = None
+    ) -> Path:
         txt = cif_path.read_text(errors="ignore")
         lines = txt.splitlines()
         cell = parse_cell(txt)
@@ -376,6 +408,7 @@ class Crystal:
                 output_folder=f"{output_base_used}/dft_{mode_tag}",
             )
 
+
 class CrystalSP(Crystal):
     """CRYSTAL single-point input generator."""
 
@@ -396,11 +429,10 @@ class CrystalSP(Crystal):
                 m = num_re.search(tail)
                 if m:
                     last_val = float(m.group(1))
-                else:
-                    if i + 1 < len(lines):
-                        m2 = num_re.search(lines[i + 1])
-                        if m2:
-                            last_val = float(m2.group(1))
+                elif i + 1 < len(lines):
+                    m2 = num_re.search(lines[i + 1])
+                    if m2:
+                        last_val = float(m2.group(1))
 
         return last_val
 
@@ -421,7 +453,7 @@ class CrystalSP(Crystal):
                 If None, a BASISSET/DFT/SHRINK block is auto-generated.
         """
         if post_block is None:
-            post_block = """BASISSET
+            post_block = f"""BASISSET
 {basisset}
 DFT
 {functional}
@@ -429,11 +461,7 @@ END
 SHRINK
             0 8
             {shrink}
-END""".format(
-                basisset=basisset,
-                functional=functional,
-                shrink=shrink,
-            )
+END"""
         super().__init__(post_block=post_block)
 
     def read(
@@ -453,7 +481,11 @@ END""".format(
         """
         input_path = Path(input_folder)
         folder_tag = input_path.name
-        mode_tag = folder_tag.replace("dft_", "") if folder_tag.startswith("dft_") else folder_tag
+        mode_tag = (
+            folder_tag.replace("dft_", "")
+            if folder_tag.startswith("dft_")
+            else folder_tag
+        )
 
         cof_name = folder_tag
         if input_path.parent.name.endswith("_matrix"):
@@ -563,6 +595,7 @@ END""".format(
             )
         return csv_paths
 
+
 class VaspSP:
     """VASP single-point energy reader."""
 
@@ -577,10 +610,14 @@ class VaspSP:
         if not last_line:
             raise ValueError(f"OSZICAR is empty: {oszicar_path}")
 
-        num_re = re.compile(r"E0=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)")
+        num_re = re.compile(
+            r"E0=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
+        )
         match = num_re.search(last_line)
         if not match:
-            raise ValueError(f"Could not parse E0 from last OSZICAR line: {oszicar_path}\n{last_line}")
+            raise ValueError(
+                f"Could not parse E0 from last OSZICAR line: {oszicar_path}\n{last_line}"
+            )
         return float(match.group(1))
 
     def read(
@@ -600,7 +637,11 @@ class VaspSP:
         """
         input_path = Path(input_folder)
         folder_tag = input_path.name
-        mode_tag = folder_tag.replace("dft_", "") if folder_tag.startswith("dft_") else folder_tag
+        mode_tag = (
+            folder_tag.replace("dft_", "")
+            if folder_tag.startswith("dft_")
+            else folder_tag
+        )
 
         cof_name = folder_tag
         if input_path.parent.name.endswith("_matrix"):
@@ -613,7 +654,9 @@ class VaspSP:
 
         oszicar_paths = sorted(input_path.rglob("OSZICAR"))
         if not oszicar_paths:
-            raise FileNotFoundError(f"No OSZICAR files found in: {input_path.resolve()}")
+            raise FileNotFoundError(
+                f"No OSZICAR files found in: {input_path.resolve()}"
+            )
 
         energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
 
@@ -696,6 +739,7 @@ class VaspSP:
             )
         return csv_paths
 
+
 class CrystalOpt(Crystal):
     """CRYSTAL geometry-optimization input generator."""
 
@@ -716,11 +760,10 @@ class CrystalOpt(Crystal):
                 m = num_re.search(tail)
                 if m:
                     last_val = float(m.group(1))
-                else:
-                    if i + 1 < len(lines):
-                        m2 = num_re.search(lines[i + 1])
-                        if m2:
-                            last_val = float(m2.group(1))
+                elif i + 1 < len(lines):
+                    m2 = num_re.search(lines[i + 1])
+                    if m2:
+                        last_val = float(m2.group(1))
 
         return last_val
 
@@ -743,7 +786,7 @@ class CrystalOpt(Crystal):
                 If None, OPTGEOM + BASISSET/DFT/SHRINK blocks are generated.
         """
         if post_block is None:
-            post_block = """OPTGEOM
+            post_block = f"""OPTGEOM
 MAXTRADIUS
 {maxtradius}
 ENDOPT
@@ -755,12 +798,7 @@ END
 SHRINK
             0 8
             {shrink}
-END""".format(
-                maxtradius=maxtradius,
-                basisset=basisset,
-                functional=functional,
-                shrink=shrink,
-            )
+END"""
         super().__init__(post_block=post_block)
 
     def run_mode(
@@ -814,7 +852,11 @@ END""".format(
         """
         input_path = Path(input_folder)
         folder_tag = input_path.name
-        mode_tag = folder_tag.replace("dft_", "") if folder_tag.startswith("dft_") else folder_tag
+        mode_tag = (
+            folder_tag.replace("dft_", "")
+            if folder_tag.startswith("dft_")
+            else folder_tag
+        )
 
         cof_name = folder_tag
         if input_path.parent.name.endswith("_final_structures"):
@@ -822,7 +864,9 @@ END""".format(
         elif input_path.parent.name:
             cof_name = input_path.parent.name
 
-        csv_dir = Path(output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures")
+        csv_dir = Path(
+            output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures"
+        )
         os.makedirs(csv_dir, exist_ok=True)
 
         out_files = self._collect_out_files([input_path])
@@ -922,14 +966,19 @@ END""".format(
         else:
             if input_base is None:
                 input_base = f"{cof_name}/4_{cof_name}_final_structures"
-            input_paths = [Path(f"{input_base}/dft_{Path(folder).name}") for folder in get_mode_folders(cof_name, mode)]
+            input_paths = [
+                Path(f"{input_base}/dft_{Path(folder).name}")
+                for folder in get_mode_folders(cof_name, mode)
+            ]
         out_files = self._collect_out_files(input_paths)
         if not out_files:
             raise FileNotFoundError(
                 f"No valid .out files found in: {input_folder or input_base} (expected system_name.out)"
             )
 
-        csv_dir = Path(output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures")
+        csv_dir = Path(
+            output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures"
+        )
         os.makedirs(csv_dir, exist_ok=True)
         energies_csv_path = csv_dir / "final_energies.csv"
 
@@ -1017,7 +1066,9 @@ END""".format(
             if structure is None:
                 structure = _parse_fallback_structure(lines)
             if structure is None:
-                raise RuntimeError(f"Could not parse structure from: {out_path}")
+                raise RuntimeError(
+                    f"Could not parse structure from: {out_path}"
+                )
 
             if output_folder:
                 rel = out_path.parent.relative_to(input_path)
@@ -1081,4 +1132,3 @@ END""".format(
                 )
             )
         return outputs
-

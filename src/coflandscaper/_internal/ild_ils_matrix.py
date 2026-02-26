@@ -1,13 +1,16 @@
 """ILD/ILS utilities and matrix generator."""
 
 from __future__ import annotations
+
 import math
 import os
 import re
 import shutil
 import tempfile
+
 import numpy as np
 from pymatgen.core import Lattice, Structure
+
 from .ild_ils_utils import (
     _calculate_ild,
     _generate_values,
@@ -18,6 +21,7 @@ from .ild_ils_utils import (
     list_cifs,
 )
 
+
 class ChangeIld:
     """Generate ILD variations by rescaling the layer separation along $z$.
 
@@ -26,6 +30,7 @@ class ChangeIld:
     positions consistent in fractional coordinates. The layer thickness is
     preserved and the slab is re‑centered in the new unit cell.
     """
+
     def run(
         self,
         input_folder: str,
@@ -54,9 +59,13 @@ class ChangeIld:
             for new_z in z_values:
                 outname = f"{base}_{_z_tag(new_z)}.cif"
                 outpath = os.path.join(output_folder, outname)
-                self._change_interlayer_distance(input_file, outpath, float(new_z))
+                self._change_interlayer_distance(
+                    input_file, outpath, float(new_z)
+                )
 
-    def _change_interlayer_distance(self, input_file: str, output_file: str, new_z: float) -> None:
+    def _change_interlayer_distance(
+        self, input_file: str, output_file: str, new_z: float
+    ) -> None:
         """Write a CIF with a rescaled $z$ lattice vector.
 
         Args:
@@ -82,7 +91,9 @@ class ChangeIld:
         thickness = (np.max(fz_unwrapped) - np.min(fz_unwrapped)) * z_len_old
 
         if new_z < thickness:
-            raise ValueError(f"New ILD {new_z:.4f} Å < slab thickness {thickness:.4f} Å; cannot fit.")
+            raise ValueError(
+                f"New ILD {new_z:.4f} Å < slab thickness {thickness:.4f} Å; cannot fit."
+            )
 
         scale_factor = new_z / z_len_old
         new_c_vec = c_vec_old * scale_factor
@@ -110,6 +121,7 @@ class ChangeIld:
 
     __call__ = run
 
+
 class IlsSerr:
     """Generate serrated ILS structures by shifting the top layer in a bilayer.
 
@@ -117,6 +129,7 @@ class IlsSerr:
     the $ab$ plane. The shift length and angle can be scanned; the default
     shift corresponds to the AB stacking derived from the parent cell.
     """
+
     def run(
         self,
         input_folder: str,
@@ -148,12 +161,16 @@ class IlsSerr:
         os.makedirs(output_folder, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
-            auto_len, auto_ang = default_shift_from_cif(cif_files[0], topo, print_shift=print_shift)
+            auto_len, auto_ang = default_shift_from_cif(
+                cif_files[0], topo, print_shift=print_shift
+            )
             if ils_length_end is None:
                 ils_length_end = auto_len
             if ils_angle is None:
                 ils_angle = auto_ang
-        ils_lengths = _generate_values(ils_length_start, ils_length_end, ils_length_step)
+        ils_lengths = _generate_values(
+            ils_length_start, ils_length_end, ils_length_step
+        )
 
         for input_file in cif_files:
             base = os.path.splitext(os.path.basename(input_file))[0]
@@ -195,7 +212,11 @@ class IlsSerr:
 
         angle_rad = math.radians(ils_angle_deg)
         shift_cart = np.array(
-            [ils_length * math.cos(angle_rad), ils_length * math.sin(angle_rad), 0.0]
+            [
+                ils_length * math.cos(angle_rad),
+                ils_length * math.sin(angle_rad),
+                0.0,
+            ]
         )
         fx, fy, _ = supercell.lattice.get_fractional_coords(shift_cart)
 
@@ -218,6 +239,7 @@ class IlsSerr:
 
     __call__ = run
 
+
 class IlsIncl:
     """Generate inclined ILS structures by tilting the $c$ vector.
 
@@ -226,6 +248,7 @@ class IlsIncl:
     default shift length and angle correspond to the AB stacking derived from
     the parent cell.
     """
+
     def run(
         self,
         input_folder: str,
@@ -257,12 +280,16 @@ class IlsIncl:
         os.makedirs(output_folder, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
-            auto_len, auto_ang = default_shift_from_cif(cif_files[0], topo, print_shift=print_shift)
+            auto_len, auto_ang = default_shift_from_cif(
+                cif_files[0], topo, print_shift=print_shift
+            )
             if ils_length_end is None:
                 ils_length_end = auto_len
             if ils_angle is None:
                 ils_angle = auto_ang
-        incl_lengths = _generate_values(ils_length_start, ils_length_end, ils_length_step)
+        incl_lengths = _generate_values(
+            ils_length_start, ils_length_end, ils_length_step
+        )
 
         for input_file in cif_files:
             base = os.path.splitext(os.path.basename(input_file))[0]
@@ -323,6 +350,7 @@ class IlsIncl:
         new_struct.to(filename=output_file)
 
     __call__ = run
+
 
 class CreateMatrix:
     """Create an ILD×ILS matrix of stacking variants for a fixed COF layer.
@@ -412,7 +440,10 @@ class CreateMatrix:
         with tempfile.TemporaryDirectory() as tmp_ild:
             tmp_input_dir = os.path.join(tmp_ild, "input")
             os.makedirs(tmp_input_dir, exist_ok=True)
-            shutil.copy2(input_preopt, os.path.join(tmp_input_dir, os.path.basename(input_preopt)))
+            shutil.copy2(
+                input_preopt,
+                os.path.join(tmp_input_dir, os.path.basename(input_preopt)),
+            )
             ChangeIld().run(
                 input_folder=tmp_input_dir,
                 output_folder=tmp_ild,

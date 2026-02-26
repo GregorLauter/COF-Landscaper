@@ -1,9 +1,11 @@
 """Utilities for ILD/ILS transformations and CIF parsing."""
 
 from __future__ import annotations
+
 import math
 import os
-from typing import Iterable
+from collections.abc import Iterable
+
 import numpy as np
 from pymatgen.core import Lattice, Structure
 
@@ -21,12 +23,16 @@ def list_cifs(input_folder: str) -> list[str]:
         FileNotFoundError: If no CIF files are found.
     """
     files = sorted(
-        f for f in (os.path.join(input_folder, n) for n in os.listdir(input_folder))
+        f
+        for f in (
+            os.path.join(input_folder, n) for n in os.listdir(input_folder)
+        )
         if f.endswith(".cif")
     )
     if not files:
         raise FileNotFoundError(f"No .cif files found in '{input_folder}'")
     return files
+
 
 def _calculate_ild(lat: Lattice) -> float:
     """Compute the interlayer distance (ILD) from a lattice.
@@ -42,15 +48,21 @@ def _calculate_ild(lat: Lattice) -> float:
     alpha_r = np.radians(alpha_deg)
     beta_r = np.radians(beta_deg)
     gamma_r = np.radians(gamma_deg)
-    V = a * b * c * np.sqrt(
-        1
-        + 2 * np.cos(alpha_r) * np.cos(beta_r) * np.cos(gamma_r)
-        - np.cos(alpha_r) ** 2
-        - np.cos(beta_r) ** 2
-        - np.cos(gamma_r) ** 2
+    V = (
+        a
+        * b
+        * c
+        * np.sqrt(
+            1
+            + 2 * np.cos(alpha_r) * np.cos(beta_r) * np.cos(gamma_r)
+            - np.cos(alpha_r) ** 2
+            - np.cos(beta_r) ** 2
+            - np.cos(gamma_r) ** 2
+        )
     )
     ild = V / (a * b * np.sin(gamma_r))
     return ild
+
 
 def _unwrap_fractional_z(frac_z: np.ndarray) -> float:
     """Find a fractional $z$ reference that avoids discontinuities.
@@ -70,6 +82,7 @@ def _unwrap_fractional_z(frac_z: np.ndarray) -> float:
     z0 = float(z_sorted[start])
     return z0
 
+
 def _periodic_delta_frac(z: float, z0: float) -> float:
     """Compute the minimal periodic distance between two fractional values.
 
@@ -83,7 +96,8 @@ def _periodic_delta_frac(z: float, z0: float) -> float:
     dz = abs((z - z0) % 1.0)
     return min(dz, 1.0 - dz)
 
-def _z_tag(val: float | int) -> str:
+
+def _z_tag(val: float) -> str:
     """Encode a $z$ value (Å) to a short tag in 0.1 Å units.
 
     Args:
@@ -94,7 +108,8 @@ def _z_tag(val: float | int) -> str:
     """
     return f"z{int(round(float(val) * 10.0))}"
 
-def _slug(val: float | int) -> str:
+
+def _slug(val: float) -> str:
     """Encode a length to a zero‑padded 0.1 Å slug.
 
     Args:
@@ -105,6 +120,7 @@ def _slug(val: float | int) -> str:
     """
     val_tenths = int(round(float(val) * 10))
     return f"{val_tenths:03d}"
+
 
 def _generate_values(start: float, end: float, step: float) -> list[float]:
     """Generate a monotonic list of values with inclusive end.
@@ -133,6 +149,7 @@ def _generate_values(start: float, end: float, step: float) -> list[float]:
     values = sorted(set(values))
     return values
 
+
 def wrap01(u: float) -> float:
     """Wrap a value into [0, 1).
 
@@ -143,6 +160,7 @@ def wrap01(u: float) -> float:
         Wrapped value.
     """
     return u % 1.0
+
 
 def parse_xyz_from_atom_line(line: str) -> tuple[float, float, float] | None:
     """Parse XYZ coordinates from a CIF atom line.
@@ -164,9 +182,12 @@ def parse_xyz_from_atom_line(line: str) -> tuple[float, float, float] | None:
     except ValueError:
         return None
 
+
 def pick_lower_left_pair_from_lines(
     atom_lines: Iterable[str],
-) -> tuple[int, tuple[str, str], tuple[float, float, float], tuple[float, float]]:
+) -> tuple[
+    int, tuple[str, str], tuple[float, float, float], tuple[float, float]
+]:
     """Pick the lower‑left atom pair from consecutive atom lines.
 
     Each pair is assumed to be consecutive lines representing a lower and
@@ -183,7 +204,9 @@ def pick_lower_left_pair_from_lines(
     """
     atom_lines = list(atom_lines)
     if len(atom_lines) % 2 != 0:
-        raise ValueError("Expected an even number of atom lines (consecutive pairs).")
+        raise ValueError(
+            "Expected an even number of atom lines (consecutive pairs)."
+        )
 
     best_key = None
     best_pair_idx = None
@@ -217,6 +240,7 @@ def pick_lower_left_pair_from_lines(
 
     return best_pair_idx, best_lower_upper, best_lower_xyz, best_key
 
+
 def get_mode_folders(cof_name: str, mode: str) -> list[str]:
     """Return output folders for the selected stacking mode(s).
 
@@ -243,6 +267,7 @@ def get_mode_folders(cof_name: str, mode: str) -> list[str]:
         return [serr]
     return [serr, incl]
 
+
 def ab_half_diagonal_from_cif(input_file: str) -> tuple[float, float]:
     """Compute half the $a+b$ diagonal length and angle from a CIF.
 
@@ -259,6 +284,7 @@ def ab_half_diagonal_from_cif(input_file: str) -> tuple[float, float]:
     length = float(np.linalg.norm(vec_xy))
     angle = float(math.degrees(math.atan2(vec_xy[1], vec_xy[0])))
     return length, angle
+
 
 def default_shift_from_cif(
     input_file: str,
@@ -291,7 +317,9 @@ def default_shift_from_cif(
         length = (2.0 / math.sqrt(3.0)) * sql_len
         angle = 90.0
         if print_shift:
-            print(f"[DEFAULT_SHIFT_VALUES] Length={length:.2f}Å Angle={angle:.2f}")
+            print(
+                f"[DEFAULT_SHIFT_VALUES] Length={length:.2f}Å Angle={angle:.2f}"
+            )
         return length, angle
 
     length = sql_len
