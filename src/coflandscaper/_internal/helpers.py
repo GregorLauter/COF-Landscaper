@@ -13,13 +13,6 @@ from .ild_ils_utils import (
 )
 
 
-def foo() -> str:
-    """Print and return a simple test sentence."""
-    sentence = "A man with no pants fear no pickpocket."
-    print(sentence)
-    return sentence
-
-
 class Supercell:
     """Build a supercell $a\times b\times c$ from each input unit cell.
 

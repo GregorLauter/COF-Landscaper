@@ -19,13 +19,12 @@ import pormake as pm
 from ase.atoms import Atoms
 from pymatgen.core import Structure
 from rdkit import Chem
-
-DEFAULT_ILD_GUESS = 15.0
-DEFAULT_X_SCALE = 0.8
-
 from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
+
+DEFAULT_ILD_GUESS = 15.0
+DEFAULT_X_SCALE = 0.8
 
 
 def _disable_pormake_file_logging() -> None:
