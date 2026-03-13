@@ -14,20 +14,40 @@ from .ild_ils_utils import get_mode_folders
 class Landscape:
     """Generate potential energy landscapes from SP energy CSVs."""
 
+    def _resolve_input_csv(
+        self, input_folder: str, cof_name: str | None
+    ) -> tuple[Path, Path, str, str | None]:
+        input_path = Path(input_folder)
+        folder_tag = input_path.name
+
+        if folder_tag not in {"serr", "incl"}:
+            raise ValueError(
+                "input_folder must point to a mode folder named 'serr' or 'incl'."
+            )
+
+        csv_dir = input_path.parent
+        if cof_name is None:
+            raise ValueError("cof_name must be provided explicitly.")
+        csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
+
+        return csv_dir, csv_path, folder_tag, cof_name
+
     def run(
         self,
         input_folder: str,
+        cof_name: str | None = None,
         output_folder: str | None = None,
         colorscheme: str = "viridis",
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
+        show_header: bool = True,
     ) -> None:
         """Build the PES plots for a given stacking folder.
 
         Args:
             input_folder: Folder containing the CIFs for a stacking mode.
-                Defaults to {cof_name}/2_{cof_name}_matrix/{serr|incl} when
+                Defaults to {cof_name}/3_{cof_name}_landscape when
                 used via `run_mode`.
             output_folder: Optional output folder for plots.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
@@ -38,26 +58,15 @@ class Landscape:
                 Values above this are clipped in the plots.
             show_minima_markers: If True (default), mark global minima in red and
                 local minima in green on heatmap/isolines.
+            show_header: If True (default), draw title and header text.
 
         Returns:
             None.
         """
         input_path = Path(input_folder)
-        folder_tag = input_path.name
-        if input_path.parent.name.endswith("_matrix"):
-            cof_name = input_path.parents[1].name
-            csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
-            csv_matches = list(
-                csv_dir.glob(f"{cof_name}_sp_energies_{folder_tag}_*.csv")
-            )
-            if csv_matches:
-                csv_path = max(csv_matches, key=lambda p: p.stat().st_mtime)
-            else:
-                csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
-        else:
-            cof_name = None
-            csv_dir = Path(f"csvs/{folder_tag}")
-            csv_path = csv_dir / "energy_absolute.csv"
+        csv_dir, csv_path, folder_tag, cof_name = self._resolve_input_csv(
+            input_folder, cof_name
+        )
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
         lot_suffix = None
@@ -67,9 +76,11 @@ class Landscape:
         if match:
             lot_suffix = match.group(3)
 
+        use_mode_naming = folder_tag in {"serr", "incl"} and cof_name is not None
+
         if output_folder:
             heatmap_dir = Path(output_folder)
-        elif Path(input_folder).parent.name.endswith("_matrix") and cof_name:
+        elif use_mode_naming:
             heatmap_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
         else:
             heatmap_dir = Path(f"heatmaps/{folder_tag}")
@@ -77,9 +88,7 @@ class Landscape:
 
         lot_tag = f"_{lot_suffix}" if lot_suffix else ""
 
-        if Path(input_folder).parent.name.endswith(
-            "_matrix"
-        ) and folder_tag in {"serr", "incl"}:
+        if use_mode_naming:
             heatmap_path = (
                 heatmap_dir
                 / f"pes_{cof_name}_{folder_tag}_heatmap{lot_tag}.png"
@@ -149,37 +158,38 @@ class Landscape:
             )
             plt.xlabel("Inter Layer Slipping [Å]", fontsize=12)
             plt.ylabel("Inter Layer Distance [Å]", fontsize=12)
-            title_name = cof_name or "COF"
-            plt.title(
-                f"Potential Energy Landscape - {title_name}",
-                fontsize=14,
-                pad=36,
-            )
-            mode_label = None
-            if folder_tag == "serr":
-                mode_label = "Serrated"
-            elif folder_tag == "incl":
-                mode_label = "Inclined"
-            if mode_label:
-                plt.text(
-                    0.5,
-                    1.06,
-                    f"Stacking Mode: {mode_label}",
-                    transform=plt.gca().transAxes,
-                    ha="center",
-                    va="bottom",
-                    fontsize=10,
+            if show_header:
+                title_name = cof_name or "COF"
+                plt.title(
+                    f"Potential Energy Landscape - {title_name}",
+                    fontsize=14,
+                    pad=36,
                 )
-            if lot_suffix:
-                plt.text(
-                    0.5,
-                    1.02,
-                    f"Level of Theory: {lot_suffix}",
-                    transform=plt.gca().transAxes,
-                    ha="center",
-                    va="bottom",
-                    fontsize=10,
-                )
+                mode_label = None
+                if folder_tag == "serr":
+                    mode_label = "Serrated"
+                elif folder_tag == "incl":
+                    mode_label = "Inclined"
+                if mode_label:
+                    plt.text(
+                        0.5,
+                        1.06,
+                        f"Stacking Mode: {mode_label}",
+                        transform=plt.gca().transAxes,
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                    )
+                if lot_suffix:
+                    plt.text(
+                        0.5,
+                        1.02,
+                        f"Level of Theory: {lot_suffix}",
+                        transform=plt.gca().transAxes,
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                    )
 
         def _mark_minima(use_rect: bool) -> None:
             finite_vals = np.array(data, dtype=float)
@@ -275,6 +285,7 @@ class Landscape:
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
+        show_header: bool = True,
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
@@ -288,6 +299,7 @@ class Landscape:
             plot_mode: "heatmap", "isolines", or "both".
             rel_energy_max: Optional max value for relative energies.
             show_minima_markers: If True (default), mark minima on plots.
+            show_header: If True (default), draw title and header text.
             input_folder: Optional explicit folder containing CIFs for one mode.
                 If set, this folder is used directly and `mode` folder defaults
                 are not used.
@@ -297,25 +309,40 @@ class Landscape:
         Returns:
             None.
         """
-        if input_folder:
-            self.run(
-                input_folder=input_folder,
-                output_folder=output_folder,
-                colorscheme=colorscheme,
-                plot_mode=plot_mode,
-                rel_energy_max=rel_energy_max,
-                show_minima_markers=show_minima_markers,
-            )
-            return
+        mode_norm = (mode or "").strip().lower()
+        mode_tags = (
+            ["serr", "incl"]
+            if mode_norm == "both"
+            else [mode_norm] if mode_norm in {"serr", "incl"} else []
+        )
+        if not mode_tags:
+            raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
-        for folder in get_mode_folders(cof_name, mode):
+        base_path = Path(input_folder or f"{cof_name}/3_{cof_name}_landscape")
+        if not base_path.exists() or not base_path.is_dir():
+            raise FileNotFoundError(f"Input folder not found: {base_path}")
+
+        missing_csvs: list[str] = []
+        for mode_tag in mode_tags:
+            expected_csv = base_path / f"{cof_name}_sp_energies_{mode_tag}.csv"
+            if not expected_csv.exists():
+                missing_csvs.append(str(expected_csv))
+                continue
+
             self.run(
-                input_folder=folder,
+                input_folder=str(base_path / mode_tag),
+                cof_name=cof_name,
                 output_folder=output_folder,
                 colorscheme=colorscheme,
                 plot_mode=plot_mode,
                 rel_energy_max=rel_energy_max,
                 show_minima_markers=show_minima_markers,
+                show_header=show_header,
+            )
+
+        if missing_csvs:
+            raise FileNotFoundError(
+                "Missing expected CSV(s): " + ", ".join(missing_csvs)
             )
         return
 
@@ -344,16 +371,562 @@ class Landscape:
         return minima
 
     def _resolve_cmap(self, colorscheme: str):
-        key = (colorscheme or "viridis").lower()
-        if key in {"grey", "gray", "greys"}:
-            return "Greys"
-        if key in {"colorblind", "cb", "cividis"}:
-            return "cividis"
-        if key in {"viridis"}:
-            return "viridis"
-        raise ValueError(
-            "Unknown colorscheme. Use 'grey', 'colorblind', 'cividis', or 'viridis'."
+        raw = colorscheme or "viridis"
+        try:
+            plt.get_cmap(raw)
+            return raw
+        except ValueError as exc:
+            raise ValueError(
+                "Unknown colorscheme. Use any valid Matplotlib colormap name "
+                "(e.g. 'viridis', 'plasma', 'magma', 'cividis', 'coolwarm')."
+            ) from exc
+
+
+class LandscapeDifference(Landscape):
+    """Generate PES difference plots from two subfolder-based SP energy CSVs."""
+
+    def _normalize_subfolder(self, subfolder: str) -> str:
+        cleaned = (subfolder or "").strip()
+        if not cleaned:
+            raise ValueError("subfolder must be a non-empty string")
+        folder_path = Path(cleaned)
+        if folder_path.is_absolute():
+            raise ValueError(
+                "subfolder must be a relative path inside the landscape folder"
+            )
+        if any(part == ".." for part in folder_path.parts):
+            raise ValueError("subfolder must not contain '..'")
+        return cleaned
+
+    def _resolve_base_csv_path(
+        self, input_folder: str | None, cof_name: str | None, mode: str
+    ) -> tuple[Path, str, str]:
+        if cof_name is None:
+            raise ValueError("cof_name must be provided explicitly.")
+
+        mode_tag = (mode or "").strip().lower()
+        if mode_tag not in {"serr", "incl"}:
+            raise ValueError("mode must be 'serr' or 'incl'.")
+
+        base_dir = Path(input_folder or f"{cof_name}/3_{cof_name}_landscape")
+        if not base_dir.exists() or not base_dir.is_dir():
+            raise FileNotFoundError(f"Input folder not found: {base_dir}")
+
+        standard_csv_name = f"{cof_name}_sp_energies_{mode_tag}.csv"
+        return base_dir, standard_csv_name, mode_tag
+
+    def _relative_grid_from_csv(self, csv_path: Path) -> pd.DataFrame:
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV not found: {csv_path}")
+
+        df = pd.read_csv(csv_path)
+        value_col = "energy_rel_eV" if "energy_rel_eV" in df.columns else "energy_eV"
+        df2 = df.dropna(subset=["z", "L", value_col]).copy()
+        if df2.empty:
+            raise ValueError(
+                f"No entries with parsed z/L in: {csv_path}. "
+                "Check naming like ..._z30_..._L020.cif"
+            )
+
+        abs_grid = df2.pivot_table(
+            index="z", columns="L", values=value_col, aggfunc="last"
+        ).sort_index()
+
+        if abs_grid.empty:
+            raise ValueError(
+                f"No matching rows for a z/L grid in: {csv_path}. Check CSV content."
+            )
+
+        vals = np.array(abs_grid.values, dtype=float)
+        mask = np.isfinite(vals)
+        if not mask.any():
+            raise ValueError(f"Grid has no finite energies: {csv_path}")
+
+        if value_col == "energy_rel_eV":
+            return abs_grid
+
+        global_min = vals[mask].min()
+        return abs_grid - global_min
+
+    def run(
+        self,
+        input_folder: str | None,
+        cof_name: str | None,
+        mode: str,
+        subfolder_1: str,
+        subfolder_2: str,
+        output_folder: str | None = None,
+        colorscheme: str = "viridis",
+        plot_mode: str = "both",
+        rel_energy_max: float | None = None,
+        show_header: bool = True,
+    ) -> None:
+        """Build PES difference plots from two subfolder-based CSVs.
+
+        Args:
+            input_folder: Base landscape folder containing theory subfolders.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
+            mode: "serr" or "incl".
+            subfolder_1: First subfolder containing the standard CSV name.
+            subfolder_2: Second subfolder containing the standard CSV name.
+            output_folder: Optional output folder for plots.
+            colorscheme: Heatmap colorscheme.
+            plot_mode: "heatmap", "isolines", or "both".
+            rel_energy_max: Optional symmetric cap (eV) for difference values.
+            show_header: If True (default), draw title and header text.
+
+        Returns:
+            None.
+        """
+        normalized_subfolder_1 = self._normalize_subfolder(subfolder_1)
+        normalized_subfolder_2 = self._normalize_subfolder(subfolder_2)
+        if normalized_subfolder_1 == normalized_subfolder_2:
+            raise ValueError("subfolder_1 and subfolder_2 must be different")
+
+        base_dir, standard_csv_name, mode_tag = self._resolve_base_csv_path(
+            input_folder, cof_name, mode
         )
+        csv_path_1 = base_dir / normalized_subfolder_1 / standard_csv_name
+        csv_path_2 = base_dir / normalized_subfolder_2 / standard_csv_name
+
+        rel_grid_1 = self._relative_grid_from_csv(csv_path_1)
+        rel_grid_2 = self._relative_grid_from_csv(csv_path_2)
+
+        rel_grid_1, rel_grid_2 = rel_grid_1.align(rel_grid_2, join="inner")
+        if rel_grid_1.empty or rel_grid_2.empty:
+            raise ValueError(
+                "No common z/L grid points between both CSVs after alignment."
+            )
+
+        diff_grid = rel_grid_1 - rel_grid_2
+        if rel_energy_max is not None:
+            diff_grid = diff_grid.clip(
+                lower=-float(rel_energy_max), upper=float(rel_energy_max)
+            )
+
+        heatmap_dir = Path(output_folder) if output_folder else base_dir
+        os.makedirs(heatmap_dir, exist_ok=True)
+
+        subfolder_1_tag = re.sub(r"[\\/]+", "__", normalized_subfolder_1)
+        subfolder_2_tag = re.sub(r"[\\/]+", "__", normalized_subfolder_2)
+        comparison_tag = f"diff_{subfolder_1_tag}_vs_{subfolder_2_tag}"
+
+        heatmap_path = (
+            heatmap_dir / f"pes_{cof_name}_{mode_tag}_heatmap_{comparison_tag}.png"
+        )
+        isolines_path = (
+            heatmap_dir
+            / f"pes_{cof_name}_{mode_tag}_isolines_{comparison_tag}.png"
+        )
+
+        diff_csv_dir = Path(output_folder) if output_folder else base_dir
+        os.makedirs(diff_csv_dir, exist_ok=True)
+        diff_csv_path = diff_csv_dir / f"energy_relative_{comparison_tag}.csv"
+        diff_grid.to_csv(diff_csv_path, index=True)
+
+        data = diff_grid.values
+        cmap = self._resolve_cmap(colorscheme)
+        mode = (plot_mode or "heatmap").lower()
+        nrows, ncols = data.shape
+
+        finite_vals = np.array(data, dtype=float)
+        finite_vals = finite_vals[np.isfinite(finite_vals)]
+        if finite_vals.size == 0:
+            raise ValueError("Difference grid contains no finite values")
+
+        vmin = float(np.min(finite_vals))
+        vmax = float(np.max(finite_vals))
+        if vmin == vmax:
+            vmax = vmin + 1e-12
+
+        def _style_axes() -> None:
+            plt.xlim(-0.5, ncols - 0.5)
+            plt.ylim(-0.5, nrows - 0.5)
+            plt.xticks(
+                range(len(diff_grid.columns)),
+                [f"{c:.1f}" for c in diff_grid.columns],
+                rotation=45,
+                ha="right",
+                fontsize=10,
+            )
+            plt.yticks(
+                range(len(diff_grid.index)),
+                [f"{r:.1f}" for r in diff_grid.index],
+                fontsize=10,
+            )
+            plt.xlabel("Inter Layer Slipping [Å]", fontsize=12)
+            plt.ylabel("Inter Layer Distance [Å]", fontsize=12)
+            if show_header:
+                title_name = cof_name or "COF"
+                plt.title(
+                    f"Potential Energy Difference Landscape - {title_name}",
+                    fontsize=14,
+                    pad=36,
+                )
+                mode_label = None
+                if mode_tag == "serr":
+                    mode_label = "Serrated"
+                elif mode_tag == "incl":
+                    mode_label = "Inclined"
+                if mode_label:
+                    plt.text(
+                        0.5,
+                        1.06,
+                        f"Stacking Mode: {mode_label}",
+                        transform=plt.gca().transAxes,
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                    )
+                plt.text(
+                    0.5,
+                    1.03,
+                    f"Difference: {normalized_subfolder_1} - {normalized_subfolder_2}",
+                    transform=plt.gca().transAxes,
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                )
+
+        if mode in {"heatmap", "both"}:
+            plt.figure(figsize=(10, 6))
+            im = plt.imshow(
+                data,
+                aspect="auto",
+                origin="lower",
+                cmap=cmap,
+                extent=(-0.5, ncols - 0.5, -0.5, nrows - 0.5),
+                vmin=vmin,
+                vmax=vmax,
+            )
+            cbar = plt.colorbar(im, pad=0.02)
+            cbar.set_label(
+                "Relative energy difference (eV): "
+                f"{normalized_subfolder_1} - {normalized_subfolder_2}",
+                labelpad=18,
+                fontsize=12,
+            )
+            _style_axes()
+            plt.tight_layout()
+            plt.savefig(heatmap_path, dpi=200)
+            plt.show()
+            print(f"Saved: {heatmap_path}")
+
+        if mode in {"isolines", "contour", "contours", "both"}:
+            plt.figure(figsize=(10, 6))
+            if vmax > vmin:
+                levels = np.linspace(vmin, vmax, 12)
+            else:
+                levels = 12
+            im = plt.contour(data, levels=levels, cmap=cmap)
+            cbar = plt.colorbar(im, pad=0.02)
+            cbar.set_label(
+                "Relative energy difference (eV): "
+                f"{normalized_subfolder_1} - {normalized_subfolder_2}",
+                labelpad=18,
+                fontsize=12,
+            )
+            _style_axes()
+            plt.tight_layout()
+            plt.savefig(isolines_path, dpi=200)
+            plt.show()
+            print(f"Saved: {isolines_path}")
+
+    def run_mode(
+        self,
+        cof_name: str,
+        mode: str,
+        subfolder_1: str,
+        subfolder_2: str,
+        colorscheme: str = "viridis",
+        plot_mode: str = "both",
+        rel_energy_max: float | None = None,
+        show_header: bool = True,
+        input_folder: str | None = None,
+        output_folder: str | None = None,
+    ) -> None:
+        """Generate difference landscapes for selected mode(s)."""
+        mode_norm = (mode or "").strip().lower()
+        mode_tags = (
+            ["serr", "incl"]
+            if mode_norm == "both"
+            else [mode_norm] if mode_norm in {"serr", "incl"} else []
+        )
+        if not mode_tags:
+            raise ValueError("mode must be 'incl', 'serr', or 'both'.")
+
+        for mode_tag in mode_tags:
+            self.run(
+                input_folder=input_folder,
+                cof_name=cof_name,
+                mode=mode_tag,
+                subfolder_1=subfolder_1,
+                subfolder_2=subfolder_2,
+                output_folder=output_folder,
+                colorscheme=colorscheme,
+                plot_mode=plot_mode,
+                rel_energy_max=rel_energy_max,
+                show_header=show_header,
+            )
+        return
+
+
+class BenchmarkOverview:
+    """Create a benchmark overview slide from existing PES PNGs."""
+
+    def _sanitize_level_tag(self, level: str) -> str:
+        return re.sub(r"[\\/]+", "__", level)
+
+    def _mode_label(self, mode: str) -> str:
+        if mode == "serr":
+            return "Serrated"
+        if mode == "incl":
+            return "Inclined"
+        return mode
+
+    def _draw_image(
+        self, ax, image_path: Path, title: str | None = None
+    ) -> None:
+        ax.axis("off")
+        if title:
+            ax.set_title(title, fontsize=12, pad=8)
+        if image_path.exists():
+            image = plt.imread(str(image_path))
+            ax.imshow(image)
+        else:
+            ax.text(
+                0.5,
+                0.5,
+                f"Missing:\n{image_path.name}",
+                ha="center",
+                va="center",
+                fontsize=10,
+                transform=ax.transAxes,
+            )
+
+    def _read_diff_stats(
+        self, base_dir: Path, level_2: str, level_1: str
+    ) -> tuple[float | None, float | None, float | None]:
+        level_1_tag = self._sanitize_level_tag(level_1)
+        level_2_tag = self._sanitize_level_tag(level_2)
+        candidate_paths = [
+            base_dir / level_2 / f"energy_relative_diff_{level_1}_vs_{level_2}.csv",
+            base_dir
+            / level_2
+            / f"energy_relative_diff_{level_1_tag}_vs_{level_2_tag}.csv",
+            base_dir / f"energy_relative_diff_{level_1}_vs_{level_2}.csv",
+            base_dir / f"energy_relative_diff_{level_1_tag}_vs_{level_2_tag}.csv",
+        ]
+        for csv_path in candidate_paths:
+            if not csv_path.exists():
+                continue
+            try:
+                df = pd.read_csv(csv_path, index_col=0)
+                vals = np.array(df.values, dtype=float)
+                finite = vals[np.isfinite(vals)]
+                if finite.size == 0:
+                    continue
+                return (
+                    float(np.min(finite)),
+                    float(np.max(finite)),
+                    float(np.mean(finite)),
+                )
+            except Exception:
+                continue
+        return None, None, None
+
+    def _read_minima_tuples(
+        self, base_dir: Path, cof_name: str, level: str, mode: str
+    ) -> list[tuple[float, float]]:
+        level_dir = base_dir / level
+        candidate_paths = [level_dir / f"{cof_name}_sp_energies_{mode}.csv"]
+        candidate_paths.extend(
+            sorted(level_dir.glob(f"{cof_name}_sp_energies_{mode}_*.csv"))
+        )
+
+        csv_path = next((path for path in candidate_paths if path.exists()), None)
+        if csv_path is None:
+            return []
+
+        try:
+            df = pd.read_csv(csv_path)
+            value_col = "energy_rel_eV" if "energy_rel_eV" in df.columns else "energy_eV"
+            df2 = df.dropna(subset=["z", "L", value_col]).copy()
+            if df2.empty:
+                return []
+
+            grid = df2.pivot_table(
+                index="z", columns="L", values=value_col, aggfunc="last"
+            ).sort_index()
+            if grid.empty:
+                return []
+
+            data = np.array(grid.values, dtype=float)
+            minima_idx = Landscape()._find_local_minima(data)
+            if not minima_idx:
+                return []
+
+            z_vals = list(grid.index)
+            L_vals = list(grid.columns)
+            minima = [(float(z_vals[i]), float(L_vals[j])) for i, j in minima_idx]
+            minima = sorted(set(minima), key=lambda pair: (pair[0], pair[1]))
+            return minima
+        except Exception:
+            return []
+
+    def _format_minima_text(
+        self, minima: list[tuple[float, float]], max_line_len: int = 45
+    ) -> str:
+        if not minima:
+            return "minima: []"
+        tuples = [f"[{z:.1f},{L:.1f}]" for z, L in minima]
+        lines: list[str] = []
+        current = ""
+        for item in tuples:
+            candidate = item if not current else f"{current}, {item}"
+            if len(candidate) <= max_line_len:
+                current = candidate
+            else:
+                lines.append(current)
+                current = item
+        if current:
+            lines.append(current)
+
+        if not lines:
+            return "minima: []"
+
+        return "minima: " + lines[0] + (
+            "\n" + "\n".join(lines[1:]) if len(lines) > 1 else ""
+        )
+
+    def run(
+        self,
+        cof_name: str,
+        mode: str,
+        level_1: str,
+        level_2_list: list[str],
+        heading_text: str | None = None,
+        input_folder: str | None = None,
+        output_folder: str | None = None,
+        output_name: str | None = None,
+    ) -> Path:
+        """Build one benchmark overview PNG in a 4-column layout.
+
+        Layout:
+            Row 0: level_1 label | level_1 heatmap | level_1 isolines | empty
+            Row i>0: level_2 name | level_2 heatmap | level_2 isolines | diff heatmap
+        """
+        if mode not in {"serr", "incl"}:
+            raise ValueError("mode must be 'serr' or 'incl'")
+        if not level_2_list:
+            raise ValueError("level_2_list must not be empty")
+        if len(level_2_list) > 4:
+            raise ValueError(
+                "level_2_list supports up to 4 entries to keep a 4x5 overview layout"
+            )
+
+        base_dir = Path(input_folder or f"{cof_name}/3_{cof_name}_landscape")
+        out_dir = Path(output_folder or base_dir)
+        os.makedirs(out_dir, exist_ok=True)
+
+        output_file = output_name or f"benchmark_overview_{cof_name}_{mode}_{level_1}.png"
+        output_path = out_dir / output_file
+
+        rows = 1 + len(level_2_list)
+        cols = 4
+        fig, axes = plt.subplots(
+            rows,
+            cols,
+            figsize=(20, 3.0 * rows),
+        )
+
+        if rows == 1:
+            axes = np.array([axes])
+
+        mode_label = self._mode_label(mode)
+        heading = heading_text or f"{cof_name} — {mode_label}"
+        fig.suptitle(heading, fontsize=20, y=0.985)
+
+        title_ax = axes[0, 0]
+        title_ax.axis("off")
+        level_1_minima = self._read_minima_tuples(base_dir, cof_name, level_1, mode)
+        level_1_minima_text = self._format_minima_text(level_1_minima)
+        title_ax.text(
+            0.5,
+            0.5,
+            f"{level_1}\n{level_1_minima_text}",
+            ha="center",
+            va="center",
+            fontsize=14,
+            transform=title_ax.transAxes,
+        )
+
+        level_1_dir = base_dir / level_1
+        self._draw_image(
+            axes[0, 1],
+            level_1_dir / f"pes_{cof_name}_{mode}_heatmap.png",
+        )
+        self._draw_image(
+            axes[0, 2],
+            level_1_dir / f"pes_{cof_name}_{mode}_isolines.png",
+        )
+        axes[0, 3].axis("off")
+
+        for row_idx, level_2 in enumerate(level_2_list, start=1):
+            row_title_ax = axes[row_idx, 0]
+            row_title_ax.axis("off")
+            min_v, max_v, avg_v = self._read_diff_stats(
+                base_dir, level_2, level_1
+            )
+            level_2_minima = self._read_minima_tuples(base_dir, cof_name, level_2, mode)
+            level_2_minima_text = self._format_minima_text(level_2_minima)
+            if min_v is None or max_v is None or avg_v is None:
+                stats_text = "min: n/a\nmax: n/a\navg: n/a"
+            else:
+                stats_text = (
+                    f"min: {min_v:.3f} eV\n"
+                    f"max: {max_v:.3f} eV\n"
+                    f"avg: {avg_v:.3f} eV"
+                )
+            row_title_ax.text(
+                0.5,
+                0.5,
+                f"{level_2}\n{stats_text}\n{level_2_minima_text}",
+                ha="center",
+                va="center",
+                fontsize=13,
+                transform=row_title_ax.transAxes,
+            )
+
+            level_2_dir = base_dir / level_2
+            self._draw_image(
+                axes[row_idx, 1],
+                level_2_dir / f"pes_{cof_name}_{mode}_heatmap.png",
+            )
+            self._draw_image(
+                axes[row_idx, 2],
+                level_2_dir / f"pes_{cof_name}_{mode}_isolines.png",
+            )
+            self._draw_image(
+                axes[row_idx, 3],
+                (
+                    level_2_dir
+                    / f"pes_{cof_name}_{mode}_heatmap_diff_{self._sanitize_level_tag(level_1)}_vs_{self._sanitize_level_tag(level_2)}.png"
+                    if (
+                        level_2_dir
+                        / f"pes_{cof_name}_{mode}_heatmap_diff_{self._sanitize_level_tag(level_1)}_vs_{self._sanitize_level_tag(level_2)}.png"
+                    ).exists()
+                    else level_2_dir
+                    / f"pes_{cof_name}_{mode}_heatmap_diff_{level_1}_vs_{level_2}.png"
+                ),
+            )
+
+        plt.tight_layout(rect=[0, 0, 1, 0.98])
+        fig.subplots_adjust(wspace=0.02, hspace=0.08)
+        plt.savefig(output_path, dpi=200)
+        plt.close(fig)
+        print(f"Saved: {output_path}")
+        return output_path
 
 
 class SelectCofs:

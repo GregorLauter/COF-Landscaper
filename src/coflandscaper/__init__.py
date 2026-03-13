@@ -15,12 +15,18 @@ from ._internal.dft import Crystal, CrystalOpt, CrystalSP, VaspSP
 from ._internal.helpers import CenterZ, RemoveLayer, SetVacuum, Supercell
 from ._internal.ild_ils_matrix import ChangeIld, CreateMatrix, IlsIncl, IlsSerr
 from ._internal.ild_ils_utils import get_mode_folders
-from ._internal.landscape import Landscape, SelectCofs
+from ._internal.landscape import (
+    BenchmarkOverview,
+    Landscape,
+    LandscapeDifference,
+    SelectCofs,
+)
 from ._internal.mace import Mace, MaceFullOpt, MacePreopt, MaceSP, OptMACE
 
 __all__ = [
     "Analyze",
     "BuildCOF2D",
+    "BenchmarkOverview",
     "CalcIlsDl",
     "CalcIlsSl",
     "CenterZ",
@@ -33,6 +39,7 @@ __all__ = [
     "IlsIncl",
     "IlsSerr",
     "Landscape",
+    "LandscapeDifference",
     "Mace",
     "MaceFullOpt",
     "MacePreopt",

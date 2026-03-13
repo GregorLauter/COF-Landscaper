@@ -10,6 +10,7 @@ import tempfile
 
 import numpy as np
 from pymatgen.core import Lattice, Structure
+from pymatgen.io.cif import CifWriter
 
 from .ild_ils_utils import (
     _calculate_ild,
@@ -117,7 +118,7 @@ class ChangeIld:
             coords=frac_final,
             coords_are_cartesian=False,
         )
-        new_struct.to(filename=output_file)
+        CifWriter(new_struct).write_file(output_file, mode="wt")
 
     __call__ = run
 
@@ -235,7 +236,7 @@ class IlsSerr:
             coords=new_frac,
             coords_are_cartesian=False,
         )
-        out.to(filename=output_file)
+        CifWriter(out).write_file(output_file, mode="wt")
 
     __call__ = run
 
@@ -347,7 +348,7 @@ class IlsIncl:
             coords=new_frac,
             coords_are_cartesian=False,
         )
-        new_struct.to(filename=output_file)
+        CifWriter(new_struct).write_file(output_file, mode="wt")
 
     __call__ = run
 
