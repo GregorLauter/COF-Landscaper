@@ -12,6 +12,7 @@ import tempfile
 from collections.abc import Sequence
 from contextlib import ExitStack
 from io import StringIO
+from pathlib import Path
 
 import ase.io
 import numpy as np
@@ -25,6 +26,197 @@ from rdkit.Geometry import Point3D
 
 DEFAULT_ILD_GUESS = 15.0
 DEFAULT_X_SCALE = 0.8
+
+
+def _package_topology_dir() -> Path:
+    """Return the package-local topology directory."""
+    return Path(__file__).resolve().parent.parent / "database" / "topologies"
+
+
+class PackageDatabase(pm.Database):
+    """pormake Database using coflandscaper-shipped topologies by default."""
+
+    def __init__(
+        self,
+        topo_dir: str | os.PathLike[str] | None = None,
+        bb_dir: str | os.PathLike[str] | None = None,
+    ) -> None:
+        default_topo_dir = _package_topology_dir()
+        super().__init__(topo_dir=topo_dir or default_topo_dir, bb_dir=bb_dir)
+
+
+class CofLandscaperBuilder(pm.Builder):
+    """Builder subclass with linker-plane alignment from builder_mod."""
+
+    def build(self, topology, bbs, permutations=None, **kwargs):
+        """Build with parent implementation, then align linker planes."""
+        framework = super().build(
+            topology=topology,
+            bbs=bbs,
+            permutations=permutations,
+            **kwargs,
+        )
+        self._post_align_linker_planes(framework)
+        return framework
+
+    @staticmethod
+    def _plane_normal(points: np.ndarray) -> np.ndarray | None:
+        if points.shape[0] < 3:
+            return None
+        centered = points - points.mean(axis=0)
+        _, _, vt = np.linalg.svd(centered, full_matrices=False)
+        n = vt[-1]
+        n_norm = np.linalg.norm(n)
+        if n_norm < 1e-8:
+            return None
+        return n / n_norm
+
+    @staticmethod
+    def _rotate_about_axis(
+        positions: np.ndarray,
+        axis_point: np.ndarray,
+        axis_dir: np.ndarray,
+        angle: float,
+    ) -> np.ndarray:
+        axis = axis_dir / np.linalg.norm(axis_dir)
+        x, y, z = axis
+        k = np.array([[0, -z, y], [z, 0, -x], [-y, x, 0]])
+        ident = np.eye(3)
+        rot = ident + np.sin(angle) * k + (1 - np.cos(angle)) * (k @ k)
+        return axis_point + (positions - axis_point) @ rot.T
+
+    @classmethod
+    def _align_edge_to_plane(
+        cls,
+        edge_positions: np.ndarray,
+        r1: np.ndarray,
+        r2: np.ndarray,
+        target_normal: np.ndarray | None,
+    ) -> np.ndarray:
+        if target_normal is None:
+            return edge_positions
+
+        axis = r2 - r1
+        axis_norm = np.linalg.norm(axis)
+        if axis_norm < 1e-8:
+            return edge_positions
+        axis_u = axis / axis_norm
+
+        edge_normal = cls._plane_normal(edge_positions)
+        if edge_normal is None:
+            return edge_positions
+
+        def _proj(v: np.ndarray) -> np.ndarray:
+            return v - np.dot(v, axis_u) * axis_u
+
+        a = _proj(edge_normal)
+        b = _proj(target_normal)
+        a_norm = np.linalg.norm(a)
+        b_norm = np.linalg.norm(b)
+        if a_norm < 1e-8 or b_norm < 1e-8:
+            return edge_positions
+
+        a /= a_norm
+        b /= b_norm
+        cosang = np.clip(np.dot(a, b), -1.0, 1.0)
+        angle = np.arccos(cosang)
+        if angle < 1e-8:
+            return edge_positions
+
+        sign = np.sign(np.dot(axis_u, np.cross(a, b)))
+        if sign == 0:
+            sign = 1.0
+        angle *= sign
+
+        return cls._rotate_about_axis(edge_positions, r1, axis_u, angle)
+
+    @staticmethod
+    def _topology_plane_normal(cell: np.ndarray) -> np.ndarray | None:
+        a = cell[0]
+        b = cell[1]
+        n = np.cross(a, b)
+        n_norm = np.linalg.norm(n)
+        if n_norm < 1e-8:
+            return None
+        return n / n_norm
+
+    @staticmethod
+    def _find_matched_atom_indices(topology, located_bbs, permutations, e):
+        n1, n2 = topology.neighbor_list[e]
+        i1 = n1.index
+        i2 = n2.index
+
+        bb1 = located_bbs[i1]
+        bb2 = located_bbs[i2]
+
+        for o, n in enumerate(topology.neighbor_list[i1]):
+            s = n.distance_vector + n1.distance_vector
+            s = np.linalg.norm(s)
+            if s < 0.01:
+                perm = permutations[i1]
+                a1 = bb1.connection_point_indices[perm][o]
+                break
+
+        for o, n in enumerate(topology.neighbor_list[i2]):
+            s = n.distance_vector + n2.distance_vector
+            s = np.linalg.norm(s)
+            if s < 0.01:
+                perm = permutations[i2]
+                a2 = bb2.connection_point_indices[perm][o]
+                break
+
+        return a1, a2
+
+    def _post_align_linker_planes(self, framework) -> None:
+        info = framework.info
+        topology = info["topology"]
+        located_bbs = info["located_bbs"]
+        permutations = info["permutations"]
+
+        topo_normal = self._topology_plane_normal(topology.atoms.cell)
+        if topo_normal is None:
+            return
+
+        for e in topology.edge_indices:
+            edge_bb = located_bbs[e]
+            if edge_bb is None:
+                continue
+
+            n1, n2 = topology.neighbor_list[e]
+            i1 = n1.index
+            i2 = n2.index
+
+            bb1 = located_bbs[i1]
+            bb2 = located_bbs[i2]
+
+            a1, a2 = self._find_matched_atom_indices(
+                topology, located_bbs, permutations, e
+            )
+            r1 = bb1.atoms.positions[a1]
+            r2 = bb2.atoms.positions[a2]
+
+            edge_bb.atoms.positions[:] = self._align_edge_to_plane(
+                edge_bb.atoms.positions,
+                r1,
+                r2,
+                topo_normal,
+            )
+
+        bb_atoms_list = [v.atoms for v in located_bbs if v is not None]
+        if not bb_atoms_list:
+            return
+
+        updated_atoms = sum(bb_atoms_list[1:], bb_atoms_list[0])
+        updated_atoms.set_pbc(True)
+        updated_atoms.set_cell(topology.atoms.cell)
+        del updated_atoms[[a.symbol == "X" for a in updated_atoms]]
+
+        if len(updated_atoms) != len(framework.atoms):
+            raise ValueError(
+                "Aligned atom count mismatch after removing connection atoms."
+            )
+
+        framework.atoms.positions[:] = updated_atoms.positions
 
 
 def _disable_pormake_file_logging() -> None:
@@ -306,10 +498,10 @@ def _build_cof(
     Returns:
         Path to the written CIF file.
     """
-    database = pm.Database()
+    database = PackageDatabase()
     topo_initial = database.get_topo(f"{topo}_initial")
     _sanitize_edge_types_inplace(topo_initial.edge_types)
-    builder = pm.Builder()
+    builder = CofLandscaperBuilder()
     edgetype_raw = _normalize_edge_types(topo_initial.edge_types)
     filtered_edge = edgetype_raw[(edgetype_raw != -1).any(axis=1)]
     unique_pairs = set()
@@ -341,18 +533,18 @@ def _build_cof(
     alpha = 1.73205 if topo == "hcb" else 1.0
     gamma = (alpha * DEFAULT_ILD_GUESS) / a
 
-    base = os.path.join(os.path.dirname(pm.__file__), "database", "topologies")
-    pickle_path = os.path.join(base, f"{topo}_modified.pickle")
-    cgd_path = os.path.join(base, f"{topo}_modified.cgd")
-    if os.path.exists(pickle_path):
-        os.remove(pickle_path)
+    base = _package_topology_dir()
+    pickle_path = base / f"{topo}_modified.pickle"
+    cgd_path = base / f"{topo}_modified.cgd"
+    if pickle_path.exists():
+        pickle_path.unlink()
 
-    with open(cgd_path) as file:
+    with cgd_path.open() as file:
         lines = file.readlines()
     line_parts = lines[3].split()
     line_parts[3] = f"{float(gamma):.5f}"
     lines[3] = "  ".join(line_parts) + "\n"
-    with open(cgd_path, "w") as file:
+    with cgd_path.open("w") as file:
         file.writelines(lines)
 
     topo_modified = database.get_topo(f"{topo}_modified")
@@ -395,12 +587,10 @@ class BuildCOF2D:
 
     def _topology_paths(self, topo: str) -> tuple[str, str]:
         """Resolve topology file paths for a given topology name."""
-        base = os.path.join(
-            os.path.dirname(pm.__file__), "database", "topologies"
-        )
-        pickle_path = os.path.join(base, f"{topo}_modified.pickle")
-        cgd_path = os.path.join(base, f"{topo}_modified.cgd")
-        return pickle_path, cgd_path
+        base = _package_topology_dir()
+        pickle_path = base / f"{topo}_modified.pickle"
+        cgd_path = base / f"{topo}_modified.cgd"
+        return (str(pickle_path), str(cgd_path))
 
     def _list_xyz(self, folder: str) -> list[tuple[str, str]]:
         """List XYZ files in a folder."""
