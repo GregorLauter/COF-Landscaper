@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 from pymatgen.core import Lattice, Structure
+from pymatgen.io.cif import CifWriter
 
 from .ild_ils_utils import (
     _periodic_delta_frac,
@@ -33,7 +34,7 @@ class Supercell:
             outpath = os.path.join(output_folder, outname)
             struct = Structure.from_file(input_file)
             supercell = struct * supercell_size
-            supercell.to(filename=outpath)
+            CifWriter(supercell).write_file(outpath, mode="wt")
 
     __call__ = run
 

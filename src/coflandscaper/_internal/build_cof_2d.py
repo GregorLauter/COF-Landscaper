@@ -167,6 +167,19 @@ class CofLandscaperBuilder(pm.Builder):
 
         return a1, a2
 
+    @staticmethod
+    def _calc_image(topology, ni, nj, invc: np.ndarray) -> np.ndarray:
+        """Calculate periodic image shift between two topology neighbors."""
+        i = ni.index
+        j = nj.index
+
+        d = nj.distance_vector - ni.distance_vector
+
+        ri = topology.atoms.positions[i]
+        rj = topology.atoms.positions[j]
+
+        return (d - (rj - ri)) @ invc
+
     def _post_align_linker_planes(self, framework) -> None:
         info = framework.info
         topology = info["topology"]
@@ -176,6 +189,9 @@ class CofLandscaperBuilder(pm.Builder):
         topo_normal = self._topology_plane_normal(topology.atoms.cell)
         if topo_normal is None:
             return
+
+        cell = topology.atoms.cell
+        invc = np.linalg.inv(cell)
 
         for e in topology.edge_indices:
             edge_bb = located_bbs[e]
@@ -195,10 +211,13 @@ class CofLandscaperBuilder(pm.Builder):
             r1 = bb1.atoms.positions[a1]
             r2 = bb2.atoms.positions[a2]
 
+            image = self._calc_image(topology, n1, n2, invc)
+            d = r2 - r1 + image @ cell
+
             edge_bb.atoms.positions[:] = self._align_edge_to_plane(
                 edge_bb.atoms.positions,
                 r1,
-                r2,
+                r1 + d,
                 topo_normal,
             )
 
