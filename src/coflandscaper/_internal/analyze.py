@@ -7,120 +7,17 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 from pymatgen.core import Structure
 
 from .ild_ils_utils import (
     _calculate_ild,
-    _unwrap_fractional_z,
-    list_cifs,
     parse_xyz_from_atom_line,
     pick_lower_left_pair_from_lines,
     wrap01,
 )
-
-ModelFormat = Literal["cif", "xyz", "pdb", "mol", "mol2", "sdf"]
-
-
-class CalcIlsDl:
-    def run(self, input_folder: str):
-        for input_file in list_cifs(input_folder):
-            struct = Structure.from_file(input_file)
-
-            with open(input_file) as f:
-                lines = f.readlines()
-
-            atom_lines = []
-            in_atom_loop = False
-            saw_atom_headers = False
-
-            for line in lines:
-                ls = line.strip()
-                if ls.startswith("loop_"):
-                    in_atom_loop = False
-                    saw_atom_headers = False
-                    continue
-
-                if ls.startswith("_atom_site_"):
-                    saw_atom_headers = True
-                    in_atom_loop = True
-                    continue
-
-                if in_atom_loop and saw_atom_headers:
-                    if not ls or ls.startswith("_") or ls.startswith("loop_"):
-                        break
-                    if ls and ls[0].isalpha():
-                        atom_lines.append(ls)
-
-            if not atom_lines:
-                raise ValueError("No atom lines found in CIF")
-
-            pair_idx, (lower_line, upper_line), (xl, yl, zl), key = (
-                pick_lower_left_pair_from_lines(atom_lines)
-            )
-            xu, yu, zu = parse_xyz_from_atom_line(upper_line)
-            xu_w, yu_w = wrap01(xu), wrap01(yu)
-
-            dxu = xu_w - xl
-            if dxu < 0.0:
-                dxu += 1.0
-            dyu = yu_w - yl
-            if dyu < 0.0:
-                dyu += 1.0
-
-            a_vec, b_vec, _ = struct.lattice.matrix
-            a_xy = np.array([a_vec[0], a_vec[1]])
-            b_xy = np.array([b_vec[0], b_vec[1]])
-
-            slip_vec_xy = dxu * a_xy + dyu * b_xy
-            slip_mag = float(np.linalg.norm(slip_vec_xy))
-
-            print(f"{os.path.basename(input_file)}: ILS = {slip_mag:.2f} Å")
-
-    __call__ = run
-
-
-class CalcIlsSl:
-    def run(self, input_folder: str):
-        for input_file in list_cifs(input_folder):
-            struct = Structure.from_file(input_file)
-            lat = struct.lattice
-            a, b, c = lat.abc
-            alpha_deg, beta_deg, gamma_deg = lat.angles
-            ar = math.radians(alpha_deg)
-            br = math.radians(beta_deg)
-            gr = math.radians(gamma_deg)
-
-            cx = c * math.cos(br)
-            cy = (
-                c * (math.cos(ar) - math.cos(br) * math.cos(gr)) / math.sin(gr)
-            )
-            slip = math.sqrt(cx**2 + cy**2)
-
-            print(f"{os.path.basename(input_file)}: ILS = {slip:.2f} Å")
-
-    __call__ = run
-
-
-class CheckIld:
-    def run(self, input_folder: str):
-        for input_file in list_cifs(input_folder):
-            struct = Structure.from_file(input_file)
-            ild = _calculate_ild(struct.lattice)
-
-            fz = struct.frac_coords[:, 2]
-            z0 = _unwrap_fractional_z(fz)
-            fz_unwrapped = np.mod(fz - z0, 1.0)
-            thickness = (np.max(fz_unwrapped) - np.min(fz_unwrapped)) * ild
-
-            print(
-                f"{os.path.basename(input_file)}: ILD = {ild:.6f} Å, Layer Thickness = {thickness:.6f} Å"
-            )
-
-    __call__ = run
-
 
 class Analyze:
     def _collect_cifs(self, folder: Path) -> list[str]:
@@ -209,6 +106,20 @@ class Analyze:
         ild = _calculate_ild(struct.lattice)
         return ild / 2.0 if divide_by_two else ild
 
+    def _resolve_modes(self, mode: str) -> list[str]:
+        mode_lower = mode.lower()
+        if mode_lower not in {"incl", "serr", "both"}:
+            raise ValueError("mode must be 'incl', 'serr', or 'both'.")
+        return ["serr", "incl"] if mode_lower == "both" else [mode_lower]
+
+    def _compute_metrics(self, input_file: str, selected_mode: str) -> tuple[float, float]:
+        ild = self._calc_ild(input_file, divide_by_two=selected_mode == "serr")
+        if selected_mode == "serr":
+            ils = self._calc_ils_dl(input_file)
+        else:
+            ils = self._calc_ils_sl(input_file)
+        return float(ild), float(ils)
+
     def run(
         self,
         cof_name: str,
@@ -228,17 +139,13 @@ class Analyze:
                 Defaults to the input base folder.
             print_values: If True, print ILD/ILS values to stdout.
         """
-        mode_lower = mode.lower()
-        if mode_lower not in {"incl", "serr", "both"}:
-            raise ValueError("mode must be 'incl', 'serr', or 'both'.")
-
         base = (
             Path(input_base)
             if input_base
             else Path(f"{cof_name}/4_{cof_name}_final_structures")
         )
         output_base_path = Path(output_base) if output_base else base
-        modes = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
+        modes = self._resolve_modes(mode)
 
         rows: list[dict[str, float | str]] = []
         for selected_mode in modes:
@@ -249,13 +156,7 @@ class Analyze:
                 print(f"{label}:")
                 print(" ILD (Å)  ILS (Å)")
             for input_file in files:
-                ild = self._calc_ild(
-                    input_file, divide_by_two=selected_mode == "serr"
-                )
-                if selected_mode == "serr":
-                    ils = self._calc_ils_dl(input_file)
-                else:
-                    ils = self._calc_ils_sl(input_file)
+                ild, ils = self._compute_metrics(input_file, selected_mode)
 
                 if print_values:
                     print(f" {ild:6.1f}  {ils:7.1f}")
@@ -317,18 +218,13 @@ class VisualizeCOF:
     style: str = "stick"
 
     def _find_files(self, path: Path) -> list[Path]:
-        candidates: list[Path] = []
-        for ext in ("cif", "xyz", "pdb", "mol", "mol2", "sdf"):
-            candidates.extend(sorted(path.glob(f"*.{ext}")))
-        return candidates
+        return sorted(path.glob("*.cif"))
 
     def _resolve_model(
-        self, source: str | Path | Structure, model_format: ModelFormat | None
+        self, source: str | Path | Structure
     ) -> tuple[str, str]:
         if isinstance(source, Structure):
-            fmt = model_format or "cif"
-            data = source.to(fmt=fmt)
-            return data, fmt
+            return source.to(fmt="cif"), "cif"
 
         path = Path(source)
         if not path.exists():
@@ -344,19 +240,15 @@ class VisualizeCOF:
                 )
             path = candidates[0]
 
-        fmt = model_format or path.suffix.lower().lstrip(".")
-        if fmt == "":
-            raise ValueError(
-                "Unable to infer model format. Pass model_format explicitly."
-            )
+        if path.suffix.lower() != ".cif":
+            raise ValueError(f"Only .cif files are supported: {path}")
 
         data = path.read_text()
-        return data, fmt
+        return data, "cif"
 
     def view(
         self,
         folder: str | Path,
-        model_format: ModelFormat | None = None,
         add_unit_cell: bool = True,
         style: str | dict[str, Any] | None = None,
         print_names: bool = True,
@@ -379,7 +271,6 @@ class VisualizeCOF:
                 print(file_path.name)
             view = self._view_single(
                 source=file_path,
-                model_format=model_format,
                 add_unit_cell=add_unit_cell,
                 style=style,
             )
@@ -390,7 +281,6 @@ class VisualizeCOF:
     def _view_single(
         self,
         source: str | Path | Structure,
-        model_format: ModelFormat | None = None,
         add_unit_cell: bool = True,
         style: str | dict[str, Any] | None = None,
     ):
@@ -401,7 +291,7 @@ class VisualizeCOF:
                 "py3Dmol is required for visualization. Install with: pip install py3Dmol"
             ) from exc
 
-        data, fmt = self._resolve_model(source, model_format)
+        data, fmt = self._resolve_model(source)
         view = py3Dmol.view(width=self.width, height=self.height)
         view.addModel(data, fmt)
         resolved_style = style or self.style
@@ -417,45 +307,6 @@ class VisualizeCOF:
 
 
 def visualize_cof(
-    folder: str | Path,
-    model_format: ModelFormat | None = None,
-    add_unit_cell: bool = True,
-    width: int = 800,
-    height: int = 600,
-    background: str = "white",
-    style: str | dict[str, Any] = "stick",
-    print_names: bool = True,
-):
-    """Visualize all structures in a folder with py3Dmol.
-
-    Args:
-        folder: Folder containing structure files.
-        model_format: Optional format override (e.g., "cif").
-        add_unit_cell: If True, draw the unit cell.
-        width: Viewer width in pixels.
-        height: Viewer height in pixels.
-        background: Viewer background color.
-        style: py3Dmol style string or dict (default "stick").
-        print_names: If True, print file names as they are shown.
-
-    Returns:
-        List of py3Dmol views.
-    """
-    return VisualizeCOF(
-        width=width,
-        height=height,
-        background=background,
-        style=style if isinstance(style, str) else "stick",
-    ).view(
-        folder=folder,
-        model_format=model_format,
-        add_unit_cell=add_unit_cell,
-        style=style,
-        print_names=print_names,
-    )
-
-
-def visualizecof(
     cof_name: str,
     mode: str = "both",
     input_base: str | Path | None = None,
@@ -486,16 +337,13 @@ def visualizecof(
         List of py3Dmol views.
     """
     analyzer = Analyze()
-    mode_lower = mode.lower()
-    if mode_lower not in {"incl", "serr", "both"}:
-        raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
     base = (
         Path(input_base)
         if input_base
         else Path(f"{cof_name}/4_{cof_name}_final_structures")
     )
-    modes = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
+    modes = analyzer._resolve_modes(mode)
 
     viewer = VisualizeCOF(
         width=width,
@@ -505,26 +353,9 @@ def visualizecof(
     )
     views = []
 
-    def _collect_cifs(folder: Path) -> list[str]:
-        files: list[str] = []
-        if not folder.exists():
-            raise FileNotFoundError(f"Input folder not found: {folder}")
-
-        for entry in sorted(folder.iterdir()):
-            if entry.is_file() and entry.suffix.lower() == ".cif":
-                files.append(str(entry))
-            elif entry.is_dir():
-                candidate = entry / f"{entry.name}.cif"
-                if candidate.exists():
-                    files.append(str(candidate))
-
-        if not files:
-            raise FileNotFoundError(f"No .cif files found in: {folder}")
-        return files
-
     for selected_mode in modes:
         folder = base / selected_mode
-        files = _collect_cifs(folder)
+        files = analyzer._collect_cifs(folder)
         label = "Serrated" if selected_mode == "serr" else "Inclined"
         supercell_size = (
             supercell_size_serr
@@ -532,13 +363,7 @@ def visualizecof(
             else supercell_size_incl
         )
         for input_file in files:
-            ild = analyzer._calc_ild(
-                input_file, divide_by_two=selected_mode == "serr"
-            )
-            if selected_mode == "serr":
-                ils = analyzer._calc_ils_dl(input_file)
-            else:
-                ils = analyzer._calc_ils_sl(input_file)
+            ild, ils = analyzer._compute_metrics(input_file, selected_mode)
 
             name = os.path.basename(input_file)
             print(f"{label} | {name}: ILD = {ild:.2f} Å, ILS = {ils:.2f} Å")

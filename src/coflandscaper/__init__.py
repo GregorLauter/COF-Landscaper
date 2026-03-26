@@ -2,13 +2,9 @@
 
 from ._internal.analyze import (
     Analyze,
-    CalcIlsDl,
-    CalcIlsSl,
-    CheckIld,
     VisualizeCOF,
     analyze,
     visualize_cof,
-    visualizecof,
 )
 from ._internal.build_cof_2d import BuildCOF2D
 from ._internal.dft import Crystal, CrystalOpt, CrystalSP, VaspSP
@@ -27,11 +23,8 @@ __all__ = [
     "Analyze",
     "BuildCOF2D",
     "BenchmarkOverview",
-    "CalcIlsDl",
-    "CalcIlsSl",
     "CenterZ",
     "ChangeIld",
-    "CheckIld",
     "CreateMatrix",
     "Crystal",
     "CrystalOpt",
@@ -54,5 +47,4 @@ __all__ = [
     "analyze",
     "get_mode_folders",
     "visualize_cof",
-    "visualizecof",
 ]
