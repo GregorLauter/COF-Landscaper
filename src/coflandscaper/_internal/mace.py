@@ -8,9 +8,11 @@ import warnings
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
+from ase.atoms import Atoms
 from ase.constraints import FixCartesian
 from ase.filters import UnitCellFilter
 from ase.io import read
@@ -58,7 +60,7 @@ class Mace:
         self,
         device: str = "cpu",
         dtype: str = "float64",
-        head: str = "omat_pbe",
+        head: str = "omol",
         model: str | None = None,
         dispersion: bool | None = None,
         verbose: bool = True,
@@ -154,12 +156,10 @@ class Mace:
                         f.write("\n")
 
                 metadata_source = calc
-                if (
-                    hasattr(calc, "mixer")
-                    and hasattr(calc.mixer, "calcs")
-                    and isinstance(calc.mixer.calcs, list)
-                ):
-                    for wrapped_calc in calc.mixer.calcs:
+                mixer = getattr(calc, "mixer", None)
+                mixer_calcs = getattr(mixer, "calcs", None)
+                if isinstance(mixer_calcs, list):
+                    for wrapped_calc in mixer_calcs:
                         if hasattr(wrapped_calc, "available_heads"):
                             metadata_source = wrapped_calc
                             break
@@ -202,7 +202,7 @@ class MaceSP(Mace):
         self,
         device: str = "cpu",
         dtype: str = "float64",
-        head: str = "omat_pbe",
+        head: str = "omol",
         model: str | None = None,
         dispersion: bool | None = None,
         verbose: bool = True,
@@ -235,7 +235,7 @@ class MaceSP(Mace):
     ) -> Path:
         input_path = Path(input_folder)
         folder_tag = input_path.name
-        mode_tag = folder_tag if folder_tag in {"serr", "incl"} else folder_tag
+        mode_tag = folder_tag
 
         cof_name = folder_tag
         if input_path.parent.name.endswith("_matrix"):
@@ -263,7 +263,7 @@ class MaceSP(Mace):
 
         for i, cif_path in enumerate(cif_files, start=1):
             try:
-                atoms = read(str(cif_path))
+                atoms = cast(Atoms, read(str(cif_path)))
                 atoms.calc = calc
 
                 e_ev = float(atoms.get_potential_energy())
@@ -333,7 +333,6 @@ class MaceSP(Mace):
             self._run_folder(
                 input_folder=folder, output_csv_dir=output_csv_dir
             )
-        return
 
 
 class OptMACE(Mace):
@@ -343,7 +342,7 @@ class OptMACE(Mace):
         self,
         fmax: float = 0.05,
         dtype: str = "float64",
-        head: str = "omat_pbe",
+        head: str = "omol",
         model: str | None = None,
         device: str = "cpu",
         fix_z: bool = True,
@@ -369,7 +368,7 @@ class OptMACE(Mace):
             dispersion=dispersion_used,
         )
 
-    def _apply_constraints(self, atoms) -> None:
+    def _apply_constraints(self, atoms: Atoms) -> None:
         if self.fix_z:
             indices = range(len(atoms))
             con = FixCartesian(indices, mask=[False, False, True])
@@ -381,19 +380,12 @@ class OptMACE(Mace):
             category=UserWarning,
             module="ase.io.cif",
         )
-        atoms = read(input_path)
+        atoms = cast(Atoms, read(input_path))
         self._apply_constraints(atoms)
         atoms.calc = self.calc
 
-        def _print_step_info():
-            f = atoms.get_forces()
-            max_force = np.abs(f).max()
-            _ = atoms.get_potential_energy()
-            _ = max_force
-
         ucf = UnitCellFilter(atoms)
-        dyn = LBFGS(ucf)
-        dyn.attach(_print_step_info, interval=1)
+        dyn = LBFGS(cast(Any, ucf))
         dyn.run(fmax=self.fmax)
         atoms.write(output_path)
 
@@ -450,7 +442,7 @@ class MacePreopt(OptMACE):
     1_{cof_name}_single_layer/{cof_name}_preopt.cif.
 
     Defaults:
-        fmax=0.01, dtype="float64", head="omat_pbe", model="mace-mh-1", device="cpu",
+        fmax=0.01, dtype="float64", head="omol", model="mace-mh-1", device="cpu",
         fix_z=True, dispersion=False.
 
     Options:
@@ -466,7 +458,7 @@ class MacePreopt(OptMACE):
         self,
         fmax: float = 0.01,
         dtype: str = "float64",
-        head: str = "omat_pbe",
+        head: str = "omol",
         model: str | None = None,
         device: str = "cpu",
         fix_z: bool = True,
@@ -519,7 +511,7 @@ class MaceFullOpt(OptMACE):
         self,
         fmax: float = 0.01,
         dtype: str = "float64",
-        head: str = "omat_pbe",
+        head: str = "omol",
         model: str | None = None,
         device: str = "cpu",
         dispersion: bool | None = None,

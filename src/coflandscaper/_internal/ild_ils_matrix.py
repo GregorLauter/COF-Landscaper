@@ -115,7 +115,7 @@ class ChangeIld:
         new_struct = Structure(
             lattice=lat_new,
             species=struct.species,
-            coords=frac_final,
+            coords=frac_final.tolist(),
             coords_are_cartesian=False,
         )
         CifWriter(new_struct).write_file(output_file, mode="wt")
@@ -345,7 +345,7 @@ class IlsIncl:
         new_struct = Structure(
             lattice=new_lattice,
             species=struct.species,
-            coords=new_frac,
+            coords=new_frac.tolist(),
             coords_are_cartesian=False,
         )
         CifWriter(new_struct).write_file(output_file, mode="wt")

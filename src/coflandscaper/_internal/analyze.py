@@ -7,7 +7,7 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from pymatgen.core import Structure
@@ -71,15 +71,15 @@ class Analyze:
         _, (lower_line, upper_line), (xl, yl, _), _ = (
             pick_lower_left_pair_from_lines(atom_lines)
         )
-        xu, yu, _ = parse_xyz_from_atom_line(upper_line)
+        xu, yu, _ = cast(
+            tuple[float, float, float], parse_xyz_from_atom_line(upper_line)
+        )
         xu_w, yu_w = wrap01(xu), wrap01(yu)
 
-        dxu = xu_w - xl
-        if dxu < 0.0:
-            dxu += 1.0
-        dyu = yu_w - yl
-        if dyu < 0.0:
-            dyu += 1.0
+        # Use minimum-image deltas in fractional space so shifts across
+        # periodic boundaries remain small (e.g., -0.08 instead of 0.92).
+        dxu = ((xu_w - xl + 0.5) % 1.0) - 0.5
+        dyu = ((yu_w - yl + 0.5) % 1.0) - 0.5
 
         a_vec, b_vec, _ = struct.lattice.matrix
         a_xy = np.array([a_vec[0], a_vec[1]])

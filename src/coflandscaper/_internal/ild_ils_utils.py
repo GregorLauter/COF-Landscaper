@@ -238,6 +238,14 @@ def pick_lower_left_pair_from_lines(
             best_lower_upper = (lower_line, upper_line)
             best_lower_xyz = (xw, yw, z)
 
+    if (
+        best_pair_idx is None
+        or best_lower_upper is None
+        or best_lower_xyz is None
+        or best_key is None
+    ):
+        raise ValueError("No valid atom pairs found.")
+
     return best_pair_idx, best_lower_upper, best_lower_xyz, best_key
 
 

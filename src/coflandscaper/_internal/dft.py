@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from ase.atoms import Atoms
 from ase.data import atomic_numbers
 
 HARTREE_TO_EV = 27.211386245988

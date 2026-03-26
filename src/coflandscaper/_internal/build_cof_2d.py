@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from contextlib import ExitStack
 from io import StringIO
 from pathlib import Path
+from typing import cast
 
 import ase.io
 import numpy as np
@@ -225,7 +226,9 @@ class CofLandscaperBuilder(pm.Builder):
         if not bb_atoms_list:
             return
 
-        updated_atoms = sum(bb_atoms_list[1:], bb_atoms_list[0])
+        updated_atoms = bb_atoms_list[0].copy()
+        for bb_atoms in bb_atoms_list[1:]:
+            updated_atoms += bb_atoms
         updated_atoms.set_pbc(True)
         updated_atoms.set_cell(topology.atoms.cell)
         del updated_atoms[[a.symbol == "X" for a in updated_atoms]]
@@ -410,7 +413,7 @@ def _prepare_xyz(
     xyz_files = sorted(glob.glob(os.path.join(input_folder, "*.xyz")))
 
     for path in xyz_files:
-        atoms = ase.io.read(path)
+        atoms = cast(Atoms, ase.io.read(path))
         if mode == "Se":
             xyz_block, x_indices = _replace_atoms(atoms, "Se", "O")
         else:
@@ -600,16 +603,6 @@ class BuildCOF2D:
     under a folder named by the user-specified COF name.
 
     """
-
-    def __init__(self) -> None:
-        """Initialize the builder."""
-
-    def _topology_paths(self, topo: str) -> tuple[str, str]:
-        """Resolve topology file paths for a given topology name."""
-        base = _package_topology_dir()
-        pickle_path = base / f"{topo}_modified.pickle"
-        cgd_path = base / f"{topo}_modified.cgd"
-        return (str(pickle_path), str(cgd_path))
 
     def _list_xyz(self, folder: str) -> list[tuple[str, str]]:
         """List XYZ files in a folder."""

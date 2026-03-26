@@ -1,6 +1,7 @@
 """Helper transformations for layered COF structures."""
 
 import os
+from typing import Any, cast
 
 import numpy as np
 from pymatgen.core import Lattice, Structure
@@ -117,7 +118,6 @@ class CenterZ:
         z_mid = 0.5 * (zmin + zmax)
 
         dz_frac = 0.5 - z_mid
-
         fz_centered = np.mod(fz_unwrapped + dz_frac, 1.0)
         frac_centered = frac.copy()
         frac_centered[:, 2] = fz_centered
@@ -125,7 +125,7 @@ class CenterZ:
         out = Structure(
             lattice=lat,
             species=struct.species,
-            coords=frac_centered,
+            coords=frac_centered.tolist(),
             coords_are_cartesian=False,
         )
         out.to(filename=output_file)
@@ -176,7 +176,7 @@ class RemoveLayer:
         c_len = float(np.linalg.norm(c_vec))
         c_hat = c_vec / c_len
 
-        keep_species: list[object] = []
+        keep_species: list[Any] = []
         keep_frac: list[np.ndarray] = []
 
         removed = 0
@@ -211,7 +211,7 @@ class RemoveLayer:
 
         out = Structure(
             lattice=lat,
-            species=keep_species,
+            species=cast(list[Any], keep_species),
             coords=keep_frac,
             coords_are_cartesian=False,
         )

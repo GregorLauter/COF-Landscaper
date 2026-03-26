@@ -199,7 +199,7 @@ class Landscape:
             y, x = min_pos
             if use_rect:
                 rect = patches.Rectangle(
-                    (x - 0.5, y - 0.5),
+                    (float(x) - 0.5, float(y) - 0.5),
                     1,
                     1,
                     linewidth=2.5,
@@ -921,7 +921,7 @@ class BenchmarkOverview:
                 ),
             )
 
-        plt.tight_layout(rect=[0, 0, 1, 0.98])
+        plt.tight_layout(rect=(0.0, 0.0, 1.0, 0.98))
         fig.subplots_adjust(wspace=0.02, hspace=0.08)
         plt.savefig(output_path, dpi=200)
         plt.close(fig)
