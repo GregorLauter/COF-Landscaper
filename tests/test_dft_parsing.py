@@ -1,0 +1,233 @@
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from coflandscaper._internal import dft
+
+
+@pytest.mark.unit
+def test_guess_symbol_handles_common_label_patterns() -> None:
+    """This test ensures atom labels are normalized to valid element symbols."""
+    assert dft.guess_symbol("C1") == "C"
+    assert dft.guess_symbol("si2") == "Si"
+    assert dft.guess_symbol("cl_12") == "Cl"
+    assert dft.guess_symbol("123") is None
+
+
+@pytest.mark.unit
+def test_parse_cell_reads_values_and_strips_uncertainty() -> None:
+    """This test ensures CIF cell fields are parsed even with uncertainty notation."""
+    text = """
+_cell_length_a  10.0(2)
+_cell_length_b  11.5
+_cell_length_c  22.100(5)
+_cell_angle_alpha 90
+_cell_angle_beta  90.0
+_cell_angle_gamma 120.0(1)
+"""
+    cell = dft.parse_cell(text)
+    assert cell == {
+        "a": 10.0,
+        "b": 11.5,
+        "c": 22.1,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0,
+    }
+
+
+@pytest.mark.unit
+def test_parse_cell_raises_when_parameter_missing() -> None:
+    """This test ensures missing required CIF cell fields fail loudly."""
+    text = "_cell_length_a 10\n_cell_length_b 10\n"
+    with pytest.raises(ValueError, match="Missing cell parameter"):
+        dft.parse_cell(text)
+
+
+@pytest.mark.unit
+def test_extract_atoms_reads_fractional_loop_block() -> None:
+    """This test ensures atom loops with fractional coordinates are extracted correctly."""
+    lines = [
+        "data_test",
+        "loop_",
+        "_atom_site_label",
+        "_atom_site_fract_x",
+        "_atom_site_fract_y",
+        "_atom_site_fract_z",
+        "C1 0.1 0.2 0.3",
+        "N2 0.4 0.5 0.6",
+        "",
+    ]
+    atoms = dft.extract_atoms(lines)
+    assert atoms[0][0] == 6
+    assert atoms[0][1:] == (0.1, 0.2, 0.3)
+    assert atoms[1][0] == 7
+    assert atoms[1][1:] == (0.4, 0.5, 0.6)
+
+
+@pytest.mark.unit
+def test_extract_atoms_raises_when_no_fractional_loop_exists() -> None:
+    """This test ensures invalid CIF content without fractional loops is rejected."""
+    lines = ["data_test", "loop_", "_atom_site_label", "C1"]
+    with pytest.raises(ValueError, match="No atom site loop"):
+        dft.extract_atoms(lines)
+
+
+@pytest.mark.unit
+def test_parse_z_L_from_stem_parses_decitags() -> None:
+    """This test ensures z and L tags in file stems are converted to decimal shifts."""
+    z, l_value = dft._parse_z_L_from_stem("cof_z015_L230")
+    assert z == 1.5
+    assert l_value == 23.0
+
+
+@pytest.mark.unit
+def test_crystal_sp_extract_energy_requires_completion_and_parses_last_value() -> (
+    None
+):
+    """This test ensures Crystal SP energy parsing uses converged outputs only."""
+    obj = dft.CrystalSP()
+    text = (
+        "random line\n"
+        "TOTAL ENERGY + DISP + GCP (AU)   -100.123\n"
+        "TOTAL ENERGY + DISP + GCP (AU)   -101.456\n"
+        " TELAPSE  0:00:01\n"
+        "footer"
+    )
+    assert obj._extract_energy_au(text) == -101.456
+
+    not_done_text = "TOTAL ENERGY + DISP + GCP (AU) -10.0\nnot finished\n"
+    assert obj._extract_energy_au(not_done_text) is None
+
+
+@pytest.mark.unit
+def test_vasp_sp_extract_e0_reads_last_non_empty_line(tmp_path: Path) -> None:
+    """This test ensures VASP E0 extraction uses the final non-empty OSZICAR line."""
+    oszicar = tmp_path / "OSZICAR"
+    oszicar.write_text(
+        " 1 F= -.1 E0= -12.0\n\n 2 F= -.2 E0= -22.25   dE=.1\n",
+        encoding="utf-8",
+    )
+    obj = dft.VaspSP()
+    assert obj._extract_e0_ev(oszicar) == -22.25
+
+
+@pytest.mark.unit
+def test_crystal_sp_read_writes_sorted_csv_with_relative_energy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures Crystal SP read writes deterministic CSV rows and relative energies."""
+    in_dir = tmp_path / "cof-x" / "2_cof-x_matrix" / "dft_serr"
+    s1 = in_dir / "cof-z10_L20"
+    s2 = in_dir / "cof-z20_L10"
+    s1.mkdir(parents=True)
+    s2.mkdir(parents=True)
+
+    s1_out = s1 / "cof-z10_L20.out"
+    s2_out = s2 / "cof-z20_L10.out"
+    tail = "\n TELAPSE  0:00:01\nfinal"
+    s1_out.write_text(
+        "TOTAL ENERGY + DISP + GCP (AU) -100.0" + tail,
+        encoding="utf-8",
+    )
+    s2_out.write_text(
+        "TOTAL ENERGY + DISP + GCP (AU) -101.0" + tail,
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    csv_path = dft.CrystalSP().read(str(in_dir))
+    df = pd.read_csv(csv_path)
+
+    assert list(df.columns) == [
+        "structure",
+        "z",
+        "L",
+        "energy_eV",
+        "energy_rel_eV",
+    ]
+    assert list(df["structure"]) == ["cof-z10_L20", "cof-z20_L10"]
+    assert pytest.approx(float(df["energy_rel_eV"].min()), abs=1e-12) == 0.0
+
+
+@pytest.mark.unit
+def test_vasp_sp_read_writes_csv_and_ignores_bad_oszicar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures VASP read tolerates bad files while writing valid energy rows."""
+    in_dir = tmp_path / "cof-y" / "2_cof-y_matrix" / "dft_incl"
+    good = in_dir / "cof_z010_L040"
+    bad = in_dir / "cof_z020_L010"
+    good.mkdir(parents=True)
+    bad.mkdir(parents=True)
+
+    (good / "OSZICAR").write_text(" 2 F= -.2 E0= -8.5\n", encoding="utf-8")
+    (bad / "OSZICAR").write_text("no energy field\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    csv_path = dft.VaspSP().read(str(in_dir))
+    df = pd.read_csv(csv_path)
+
+    assert list(df["structure"]) == ["cof_z010_L040"]
+    assert pytest.approx(float(df["energy_rel_eV"].iloc[0]), abs=1e-12) == 0.0
+
+
+@pytest.mark.unit
+def test_find_last_occurrence_returns_latest_match_index() -> None:
+    """This test ensures keyword scanning returns the last matching line index."""
+    lines = ["A", "B keyword", "C", "D keyword"]
+    assert dft._find_last_occurrence(lines, "keyword") == 3
+    assert dft._find_last_occurrence(lines, "missing") == -1
+
+
+@pytest.mark.unit
+def test_parse_atom_lines_skips_invalid_rows_then_collects_atoms() -> None:
+    """This test ensures atom parsing ignores noise and stops cleanly after parsed atoms."""
+    lines = [
+        "junk line",
+        "1 2 C 0.1 0.2 0.3",
+        "1 2 O 0.4 0.5 0.6",
+        "1 2 ZZ 0.7 0.8 0.9",
+        "tail",
+    ]
+    symbols, coords = dft._parse_atom_lines(lines, start_idx=0)
+    assert symbols == ["C", "O"]
+    assert coords == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+@pytest.mark.unit
+def test_crystal_run_mode_validates_mode_and_routes_subfolders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures Crystal run_mode validates mode and routes expected input and output folders."""
+    calls: list[tuple[str, str]] = []
+
+    def fake_run(
+        _self: dft.Crystal, input_folder: str, output_folder: str | None = None
+    ) -> None:
+        assert output_folder is not None
+        calls.append((input_folder, output_folder))
+
+    monkeypatch.setattr(dft.Crystal, "run", fake_run)
+
+    crystal = dft.Crystal(post_block="")
+    crystal.run_mode("cof-a", mode="both")
+    assert calls == [
+        ("cof-a/2_cof-a_matrix/serr", "cof-a/2_cof-a_matrix/dft_serr"),
+        ("cof-a/2_cof-a_matrix/incl", "cof-a/2_cof-a_matrix/dft_incl"),
+    ]
+
+    with pytest.raises(ValueError, match="mode must be"):
+        crystal.run_mode("cof-a", mode="bad")
+
+
+@pytest.mark.unit
+def test_vasp_sp_read_raises_when_no_oszicar_found(tmp_path: Path) -> None:
+    """This test ensures VaspSP read fails clearly when no OSZICAR files exist."""
+    empty_dir = tmp_path / "cof-z" / "2_cof-z_matrix" / "dft_serr"
+    empty_dir.mkdir(parents=True)
+    with pytest.raises(FileNotFoundError, match="No OSZICAR files found"):
+        dft.VaspSP().read(str(empty_dir))
