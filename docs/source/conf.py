@@ -23,6 +23,8 @@ extensions = [
 ]
 
 autosummary_imported_members = True
+autosummary_generate = True
+autosummary_generate_overwrite = True
 
 autodoc_typehints = "description"
 autodoc_member_order = "groupwise"

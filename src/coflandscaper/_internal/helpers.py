@@ -147,7 +147,9 @@ class RemoveLayer:
         for input_file in list_cifs(input_folder):
             base = os.path.splitext(os.path.basename(input_file))[0]
             if mode == "frac":
-                tag = f"rm_z{round(remove_z * 1000)}_t{round(remove_tol * 1000)}"
+                tag = (
+                    f"rm_z{round(remove_z * 1000)}_t{round(remove_tol * 1000)}"
+                )
             else:
                 tag = f"rm_Z{_slug(remove_z)}_t{_slug(remove_tol)}"
             outname = f"{base}_{tag}.cif"

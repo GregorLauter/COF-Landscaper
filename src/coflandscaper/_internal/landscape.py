@@ -975,7 +975,9 @@ class SelectCofs:
             raise ValueError(f"CSV has no valid z/L/energy rows: {csv_path}")
         min_val = df2["energy_eV"].min()
         sel = df2[df2["energy_eV"] == min_val]
-        selections = list(zip(sel["z"].astype(float), sel["L"].astype(float), strict=False))
+        selections = list(
+            zip(sel["z"].astype(float), sel["L"].astype(float), strict=False)
+        )
         return self._dedupe_selections(selections)
 
     def _local_minima_from_csv(
