@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pytest
@@ -66,7 +67,9 @@ def test_normalize_edge_types_supports_regular_and_fallback_inputs() -> None:
     assert np.array_equal(_normalize_edge_types(regular), regular)
 
     fallback = [[1, 2], np.array([5, 6])]
-    normalized = _normalize_edge_types(fallback)
+    normalized = _normalize_edge_types(
+        cast("np.ndarray | list[list[int]]", fallback)
+    )
     assert normalized.shape == (2, 2)
     assert np.array_equal(normalized, np.array([[1, 2], [5, 6]], dtype=int))
 
@@ -75,7 +78,9 @@ def test_normalize_edge_types_supports_regular_and_fallback_inputs() -> None:
 def test_sanitize_edge_types_inplace_converts_nested_lists_to_tuples() -> None:
     """This test ensures mutable list-based edge types are converted to hashable tuples in place."""
     edge_types: list[object] = [[1, 2], np.array([3, 4]), (5, 6)]
-    result = _sanitize_edge_types_inplace(edge_types)
+    result = _sanitize_edge_types_inplace(
+        cast("np.ndarray | list[list[int]]", edge_types)
+    )
 
     assert result is edge_types
     assert edge_types[0] == (1, 2)
