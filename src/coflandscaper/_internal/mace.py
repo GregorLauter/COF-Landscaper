@@ -416,6 +416,8 @@ class OptMACE(Mace):
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
             output_base: Base folder for outputs (relative to cof_name).
+                If the provided path already starts with `cof_name`, it is
+                used as-is.
             input_base: Optional base folder containing per-mode input subfolders.
         """
         from .ild_ils_utils import get_mode_folders
@@ -423,13 +425,20 @@ class OptMACE(Mace):
         if input_base is None:
             input_base = f"{cof_name}/3_{cof_name}_landscape/selection"
         if output_base is None:
-            output_base = f"4_{cof_name}_final_structures"
+            output_base = f"4_{cof_name}_optimization"
+
+        output_base_path = Path(output_base)
+        if not output_base_path.is_absolute() and (
+            not output_base_path.parts
+            or output_base_path.parts[0] != cof_name
+        ):
+            output_base_path = Path(cof_name) / output_base_path
 
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = os.path.basename(folder)
             self.run(
                 input_folder=f"{input_base}/{mode_tag}",
-                output_folder=f"{cof_name}/{output_base}/{mode_tag}",
+                output_folder=str(output_base_path / mode_tag),
             )
 
 
@@ -527,3 +536,105 @@ class MaceFullOpt(OptMACE):
             dispersion=dispersion,
             verbose=verbose,
         )
+
+    def _write_optimized_energy_csv(
+        self,
+        cof_name: str,
+        mode_output_folders: dict[str, Path],
+        output_base_path: Path,
+    ) -> Path:
+        rows: list[dict[str, str | float]] = []
+        failed: list[tuple[str, str]] = []
+
+        for mode_tag, folder in mode_output_folders.items():
+            cif_files = sorted(folder.glob("*.cif"))
+            for cif_path in cif_files:
+                try:
+                    atoms = cast(Atoms, read(str(cif_path)))
+                    atoms.calc = self.calc
+                    energy_ev = float(atoms.get_potential_energy())
+                    # Serrated mode stores a bilayer; report per-layer energies.
+                    energy_ev_per_layer = (
+                        energy_ev / 2.0 if mode_tag == "serr" else energy_ev
+                    )
+                    rows.append(
+                        {
+                            "structure": cif_path.stem,
+                            "stacking_mode": mode_tag,
+                            "energy_eV_per_layer": energy_ev_per_layer,
+                        }
+                    )
+                except Exception as exc:
+                    failed.append((str(cif_path), repr(exc)))
+
+        if not rows:
+            raise RuntimeError(
+                "No optimized energies could be evaluated for the generated CIFs."
+            )
+
+        df = pd.DataFrame(rows).sort_values(
+            ["stacking_mode", "structure"]
+        ).reset_index(drop=True)
+        min_e = float(df["energy_eV_per_layer"].min())
+        df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
+
+        output_base_path.mkdir(parents=True, exist_ok=True)
+        csv_path = output_base_path / f"{cof_name}_opt_energies_per_layer.csv"
+        df.to_csv(csv_path, index=False)
+
+        if failed:
+            print("\nFailed energy evaluations (first 10):")
+            for p, err in failed[:10]:
+                print(" -", p)
+                print("   ", err)
+            print("Total failed:", len(failed))
+
+        return csv_path
+
+    def run_mode(
+        self,
+        cof_name: str,
+        mode: str,
+        output_base: str | None = None,
+        input_base: str | None = None,
+    ) -> None:
+        """Run full MACE relaxations by mode and write combined energy CSV.
+
+        Args:
+            cof_name: COF name used for folder naming.
+            mode: "incl", "serr", or "both".
+            output_base: Base folder for optimized CIF outputs.
+                Defaults to 4_{cof_name}_optimization under cof_name.
+            input_base: Optional base folder containing per-mode input subfolders.
+                Defaults to {cof_name}/3_{cof_name}_landscape/selection.
+        """
+        from .ild_ils_utils import get_mode_folders
+
+        if input_base is None:
+            input_base = f"{cof_name}/3_{cof_name}_landscape/selection"
+        if output_base is None:
+            output_base = f"4_{cof_name}_optimization"
+
+        output_base_path = Path(output_base)
+        if not output_base_path.is_absolute() and (
+            not output_base_path.parts
+            or output_base_path.parts[0] != cof_name
+        ):
+            output_base_path = Path(cof_name) / output_base_path
+
+        mode_output_folders: dict[str, Path] = {}
+        for folder in get_mode_folders(cof_name, mode):
+            mode_tag = os.path.basename(folder)
+            target_output = output_base_path / mode_tag
+            self.run(
+                input_folder=f"{input_base}/{mode_tag}",
+                output_folder=str(target_output),
+            )
+            mode_output_folders[mode_tag] = target_output
+
+        csv_path = self._write_optimized_energy_csv(
+            cof_name=cof_name,
+            mode_output_folders=mode_output_folders,
+            output_base_path=output_base_path,
+        )
+        print(f"Saved optimized energies: {csv_path}")

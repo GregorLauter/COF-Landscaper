@@ -379,17 +379,17 @@ class Crystal:
         self,
         cof_name: str,
         mode: str,
-        input_base: str | None = None,
-        output_base: str | None = None,
+        input_base_folder: str | None = None,
+        output_base_folder: str | None = None,
     ) -> None:
         """Convert CIFs for stacking modes and write to dft_{mode} folders.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            input_base: Optional base folder containing mode subfolders.
+            input_base_folder: Optional base folder containing mode subfolders.
                 Defaults to {cof_name}/2_{cof_name}_matrix.
-            output_base: Optional base folder for outputs.
+            output_base_folder: Optional base folder for outputs.
                 Defaults to {cof_name}/2_{cof_name}_matrix.
 
         Returns:
@@ -400,13 +400,13 @@ class Crystal:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
         mode_tags = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
-        input_base_used = input_base or f"{cof_name}/2_{cof_name}_matrix"
-        output_base_used = output_base or f"{cof_name}/2_{cof_name}_matrix"
+        input_base_folder_used = input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        output_base_folder_used = output_base_folder or f"{cof_name}/2_{cof_name}_matrix"
 
         for mode_tag in mode_tags:
             self.run(
-                input_folder=f"{input_base_used}/{mode_tag}",
-                output_folder=f"{output_base_used}/dft_{mode_tag}",
+                input_folder=f"{input_base_folder_used}/{mode_tag}",
+                output_folder=f"{output_base_folder_used}/dft_{mode_tag}",
             )
 
 
@@ -554,44 +554,32 @@ END"""
         self,
         cof_name: str,
         mode: str,
-        output_csv_dir: str | None = None,
-        input_base: str | None = None,
-        input_folder: str | None = None,
+        output_base_folder: str | None = None,
+        input_base_folder: str | None = None,
     ) -> list[Path]:
         """Extract energies for stacking modes into CSVs.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            output_csv_dir: Optional output folder for CSVs.
+            output_base_folder: Optional output folder for CSVs.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
-            input_base: Optional base folder containing dft_{mode} subfolders.
+            input_base_folder: Optional base folder containing dft_{mode} subfolders.
                 Defaults to {cof_name}/2_{cof_name}_matrix.
-            input_folder: Optional explicit folder for one mode (e.g. dft_serr).
-                If set, this folder is used directly and `input_base`/`mode`
-                folder expansion is not used.
 
         Returns:
             List of CSV paths written.
         """
         from .ild_ils_utils import get_mode_folders
 
-        if input_folder:
-            return [
-                self.read(
-                    input_folder=input_folder,
-                    output_csv_dir=output_csv_dir,
-                )
-            ]
-
-        input_base_used = input_base or f"{cof_name}/2_{cof_name}_matrix"
+        input_base_used = input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
         csv_paths: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
             csv_paths.append(
                 self.read(
                     input_folder=f"{input_base_used}/dft_{mode_tag}",
-                    output_csv_dir=output_csv_dir,
+                    output_csv_dir=output_base_folder,
                 )
             )
         return csv_paths
@@ -699,8 +687,7 @@ class VaspSP:
         cof_name: str,
         mode: str,
         output_csv_dir: str | None = None,
-        input_base: str | None = None,
-        input_folder: str | None = None,
+        input_base_folder: str | None = None,
     ) -> list[Path]:
         """Extract energies for stacking modes into CSVs.
 
@@ -709,26 +696,15 @@ class VaspSP:
             mode: "incl", "serr", or "both".
             output_csv_dir: Optional output folder for CSVs.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
-            input_base: Optional base folder containing dft_{mode} subfolders.
+            input_base_folder: Optional base folder containing dft_{mode} subfolders.
                 Defaults to {cof_name}/2_{cof_name}_matrix.
-            input_folder: Optional explicit folder for one mode (e.g. dft_serr).
-                If set, this folder is used directly and `input_base`/`mode`
-                folder expansion is not used.
 
         Returns:
             List of CSV paths written.
         """
         from .ild_ils_utils import get_mode_folders
 
-        if input_folder:
-            return [
-                self.read(
-                    input_folder=input_folder,
-                    output_csv_dir=output_csv_dir,
-                )
-            ]
-
-        input_base_used = input_base or f"{cof_name}/2_{cof_name}_matrix"
+        input_base_used = input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
         csv_paths: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
@@ -818,7 +794,7 @@ END"""
                 Defaults to {cof_name}/3_{cof_name}_landscape/selection.
             output_base: Optional base folder for outputs (relative to cof_name).
                 Outputs are written to dft_{mode} subfolders under this base.
-                Defaults to {cof_name}/4_{cof_name}_final_structures.
+                Defaults to {cof_name}/4_{cof_name}_optimization.
 
         Returns:
             None.
@@ -828,7 +804,7 @@ END"""
         if input_base is None:
             input_base = f"{cof_name}/3_{cof_name}_landscape/selection"
         if output_base is None:
-            output_base = f"{cof_name}/4_{cof_name}_final_structures"
+            output_base = f"{cof_name}/4_{cof_name}_optimization"
 
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
@@ -860,13 +836,13 @@ END"""
         )
 
         cof_name = folder_tag
-        if input_path.parent.name.endswith("_final_structures"):
+        if input_path.parent.name.endswith(("_final_structures", "_optimization")):
             cof_name = input_path.parents[1].name
         elif input_path.parent.name:
             cof_name = input_path.parent.name
 
         csv_dir = Path(
-            output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures"
+            output_csv_dir or f"{cof_name}/4_{cof_name}_optimization"
         )
         os.makedirs(csv_dir, exist_ok=True)
 
@@ -877,9 +853,9 @@ END"""
                 f"No valid .out files found in: {input_path.resolve()} (expected system_name.out)"
             )
 
-        energies_csv_path = csv_dir / "final_energies.csv"
+        energies_csv_path = csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
 
-        rows = []
+        rows: list[dict[str, str | float]] = []
         failed = []
         for out_path in out_files:
             try:
@@ -888,13 +864,14 @@ END"""
                 if energy_au is None:
                     raise ValueError("Energy not found or not converged")
                 energy_ev = energy_au * HARTREE_TO_EV
-                z, L = _parse_z_L_from_stem(out_path.stem)
+                energy_ev_per_layer = (
+                    energy_ev / 2.0 if mode_tag == "serr" else energy_ev
+                )
                 rows.append(
                     {
                         "structure": out_path.stem,
-                        "z": z,
-                        "L": L,
-                        "energy_eV": energy_ev,
+                        "stacking_mode": mode_tag,
+                        "energy_eV_per_layer": energy_ev_per_layer,
                     }
                 )
             except Exception as exc:
@@ -902,8 +879,10 @@ END"""
 
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         if not df.empty:
-            min_e = float(df["energy_eV"].min())
-            df["energy_rel_eV"] = df["energy_eV"] - min_e
+            min_e = float(df["energy_eV_per_layer"].min())
+            df["energy_rel_eV_per_layer"] = (
+                df["energy_eV_per_layer"] - min_e
+            )
         df.to_csv(energies_csv_path, index=False)
 
         if failed:
@@ -940,50 +919,43 @@ END"""
         self,
         cof_name: str,
         mode: str,
-        output_csv_dir: str | None = None,
-        input_base: str | None = None,
-        input_folder: str | None = None,
+        output_base_folder: str | None = None,
+        input_base_folder: str | None = None,
     ) -> list[Path]:
         """Extract energies for all stacking modes into a single CSV.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            output_csv_dir: Optional output folder for the CSVs.
-                Defaults to {cof_name}/4_{cof_name}_final_structures.
-            input_base: Optional base folder containing dft_{mode} subfolders.
-                Defaults to {cof_name}/4_{cof_name}_final_structures.
-            input_folder: Optional explicit folder for one mode (e.g. dft_serr).
-                If set, this folder is used directly and `input_base`/`mode`
-                folder expansion is not used.
+            output_base_folder: Optional output folder for the CSVs.
+                Defaults to {cof_name}/4_{cof_name}_optimization.
+            input_base_folder: Optional base folder containing dft_{mode} subfolders.
+                Defaults to {cof_name}/4_{cof_name}_optimization.
 
         Returns:
             List containing the combined CSV path.
         """
         from .ild_ils_utils import get_mode_folders
 
-        if input_folder:
-            input_paths = [Path(input_folder)]
-        else:
-            if input_base is None:
-                input_base = f"{cof_name}/4_{cof_name}_final_structures"
-            input_paths = [
-                Path(f"{input_base}/dft_{Path(folder).name}")
-                for folder in get_mode_folders(cof_name, mode)
-            ]
+        if input_base_folder is None:
+            input_base_folder = f"{cof_name}/4_{cof_name}_optimization"
+        input_paths = [
+            Path(f"{input_base_folder}/dft_{Path(folder).name}")
+            for folder in get_mode_folders(cof_name, mode)
+        ]
         out_files = self._collect_out_files(input_paths)
         if not out_files:
             raise FileNotFoundError(
-                f"No valid .out files found in: {input_folder or input_base} (expected system_name.out)"
+                f"No valid .out files found in: {input_base_folder} (expected system_name.out)"
             )
 
         csv_dir = Path(
-            output_csv_dir or f"{cof_name}/4_{cof_name}_final_structures"
+            output_base_folder or f"{cof_name}/4_{cof_name}_optimization"
         )
         os.makedirs(csv_dir, exist_ok=True)
-        energies_csv_path = csv_dir / "final_energies.csv"
+        energies_csv_path = csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
 
-        rows = []
+        rows: list[dict[str, str | float]] = []
         failed = []
         for out_path in out_files:
             try:
@@ -992,22 +964,35 @@ END"""
                 if energy_au is None:
                     raise ValueError("Energy not found or not converged")
                 energy_ev = energy_au * HARTREE_TO_EV
-                z, L = _parse_z_L_from_stem(out_path.stem)
+                mode_from_parent = out_path.parent.name
+                if mode_from_parent.startswith("dft_"):
+                    mode_from_parent = mode_from_parent.replace("dft_", "")
+                if mode_from_parent not in {"serr", "incl"}:
+                    mode_from_parent = (
+                        "serr" if out_path.stem.endswith("_serr") else "incl"
+                    )
+
+                energy_ev_per_layer = (
+                    energy_ev / 2.0 if mode_from_parent == "serr" else energy_ev
+                )
                 rows.append(
                     {
                         "structure": out_path.stem,
-                        "z": z,
-                        "L": L,
-                        "energy_eV": energy_ev,
+                        "stacking_mode": mode_from_parent,
+                        "energy_eV_per_layer": energy_ev_per_layer,
                     }
                 )
             except Exception as exc:
                 failed.append((str(out_path), repr(exc)))
 
-        df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
+        df = pd.DataFrame(rows).sort_values(
+            ["stacking_mode", "structure"]
+        ).reset_index(drop=True)
         if not df.empty:
-            min_e = float(df["energy_eV"].min())
-            df["energy_rel_eV"] = df["energy_eV"] - min_e
+            min_e = float(df["energy_eV_per_layer"].min())
+            df["energy_rel_eV_per_layer"] = (
+                df["energy_eV_per_layer"] - min_e
+            )
         df.to_csv(energies_csv_path, index=False)
 
         if failed:
@@ -1072,8 +1057,7 @@ END"""
                 )
 
             if output_folder:
-                rel = out_path.parent.relative_to(input_path)
-                out_dir = Path(output_folder) / rel
+                out_dir = Path(output_folder)
             else:
                 out_dir = out_path.parent
             out_dir.mkdir(parents=True, exist_ok=True)
@@ -1088,48 +1072,35 @@ END"""
         self,
         cof_name: str,
         mode: str,
-        output_base: str | None = None,
-        input_base: str | None = None,
-        input_folder: str | None = None,
-        output_folder: str | None = None,
+        output_base_folder: str | None = None,
+        input_base_folder: str | None = None,
     ) -> list[Path]:
         """Extract optimized structures for all stacking modes.
 
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            output_base: Optional base folder for CIF outputs.
+            output_base_folder: Optional base folder for CIF outputs.
                 CIFs are written to dft_{mode} subfolders under this base.
-            input_base: Optional base folder containing dft_{mode} subfolders.
-            input_folder: Optional explicit folder for one mode (e.g. dft_serr).
-                If set, this folder is used directly and `input_base`/`mode`
-                folder expansion is not used.
-            output_folder: Optional explicit output folder for extracted CIFs.
-                Used with `input_folder` to control a single-mode extraction.
+            input_base_folder: Optional base folder containing dft_{mode} subfolders.
 
         Returns:
             List of CIF paths written.
         """
         from .ild_ils_utils import get_mode_folders
 
-        if input_folder:
-            return self.extract_structures(
-                input_folder=input_folder,
-                output_folder=output_folder,
-            )
-
-        if input_base is None:
-            input_base = f"{cof_name}/4_{cof_name}_final_structures"
-        if output_base is None:
-            output_base = input_base
+        if input_base_folder is None:
+            input_base_folder = f"{cof_name}/4_{cof_name}_optimization"
+        if output_base_folder is None:
+            output_base_folder = input_base_folder
 
         outputs: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
             outputs.extend(
                 self.extract_structures(
-                    input_folder=f"{input_base}/dft_{mode_tag}",
-                    output_folder=f"{output_base}/dft_{mode_tag}",
+                    input_folder=f"{input_base_folder}/dft_{mode_tag}",
+                    output_folder=f"{output_base_folder}/dft_{mode_tag}",
                 )
             )
         return outputs

@@ -37,9 +37,6 @@ class Supercell:
             supercell = struct * supercell_size
             CifWriter(supercell).write_file(outpath, mode="wt")
 
-    __call__ = run
-
-
 class SetVacuum:
     """Place the layer at the bottom of the cell and add vacuum above it.
 
@@ -85,9 +82,6 @@ class SetVacuum:
         )
         out.to(filename=output_file)
 
-    __call__ = run
-
-
 class CenterZ:
     """Center the layer along $z$ so vacuum is symmetric above and below.
 
@@ -129,9 +123,6 @@ class CenterZ:
             coords_are_cartesian=False,
         )
         out.to(filename=output_file)
-
-    __call__ = run
-
 
 class RemoveLayer:
     """Remove atoms near a target $z$ with a tolerance.
@@ -217,4 +208,3 @@ class RemoveLayer:
         )
         out.to(filename=output_file)
 
-    __call__ = run

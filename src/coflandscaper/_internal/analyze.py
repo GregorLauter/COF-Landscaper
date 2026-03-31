@@ -120,12 +120,47 @@ class Analyze:
             ils = self._calc_ils_sl(input_file)
         return float(ild), float(ils)
 
+    def _load_energy_map(
+        self,
+        *,
+        cof_name: str,
+        input_base_path: Path,
+        dft: bool,
+    ) -> dict[tuple[str, str], tuple[float, float]]:
+        filename = (
+            f"{cof_name}_opt_energies_per_layer_dft.csv"
+            if dft
+            else f"{cof_name}_opt_energies_per_layer.csv"
+        )
+        csv_path = input_base_path / filename
+        if not csv_path.exists():
+            return {}
+
+        energies: dict[tuple[str, str], tuple[float, float]] = {}
+        with csv_path.open(newline="") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                structure = (row.get("structure") or "").strip()
+                mode = (row.get("stacking_mode") or "").strip()
+                abs_e = row.get("energy_eV_per_layer")
+                rel_e = row.get("energy_rel_eV_per_layer")
+                if not structure or mode not in {"serr", "incl"}:
+                    continue
+                if abs_e is None or rel_e is None:
+                    continue
+                try:
+                    energies[(mode, structure)] = (float(abs_e), float(rel_e))
+                except ValueError:
+                    continue
+        return energies
+
     def run(
         self,
         cof_name: str,
         mode: str = "both",
         input_base: str | Path | None = None,
         output_base: str | Path | None = None,
+        dft: bool = False,
         print_values: bool = True,
     ):
         """Compute ILD/ILS metrics for optimized CIFs and write a summary CSV.
@@ -134,57 +169,84 @@ class Analyze:
             cof_name: COF name used for default folder naming.
             mode: "incl", "serr", or "both".
             input_base: Optional base folder containing per-mode subfolders.
-                Defaults to {cof_name}/4_{cof_name}_final_structures.
+                Defaults to {cof_name}/4_{cof_name}_optimization.
             output_base: Optional folder for the output CSV.
-                Defaults to the input base folder.
+                Defaults to {cof_name}/5_{cof_name}_analysis.
+            dft: If True, analyze dft_{mode} subfolders and write
+                final_structures_dft.csv.
             print_values: If True, print ILD/ILS values to stdout.
         """
         base = (
             Path(input_base)
             if input_base
-            else Path(f"{cof_name}/4_{cof_name}_final_structures")
+            else Path(f"{cof_name}/4_{cof_name}_optimization")
         )
-        output_base_path = Path(output_base) if output_base else base
+        output_base_path = (
+            Path(output_base)
+            if output_base
+            else Path(f"{cof_name}/5_{cof_name}_analysis")
+        )
         modes = self._resolve_modes(mode)
+        energy_map = self._load_energy_map(
+            cof_name=cof_name,
+            input_base_path=base,
+            dft=dft,
+        )
 
         rows: list[dict[str, float | str]] = []
         for selected_mode in modes:
-            folder = base / selected_mode
+            folder = base / (f"dft_{selected_mode}" if dft else selected_mode)
             files = self._collect_cifs(folder)
             label = "Serrated" if selected_mode == "serr" else "Inclined"
             if print_values:
                 print(f"{label}:")
-                print(" ILD (Å)  ILS (Å)")
+                print(" ILD (Å)  ILS (Å)  Erel (eV)")
             for input_file in files:
                 ild, ils = self._compute_metrics(input_file, selected_mode)
+                structure_name = os.path.splitext(os.path.basename(input_file))[0]
+                energy_abs, energy_rel = energy_map.get(
+                    (selected_mode, structure_name),
+                    (float("nan"), float("nan")),
+                )
 
                 if print_values:
-                    print(f" {ild:6.1f}  {ils:7.1f}")
+                    rel_display = "--" if np.isnan(energy_rel) else f"{energy_rel:.1f}"
+                    print(f" {ild:6.1f}  {ils:7.1f}  {rel_display:>9}")
                 rows.append(
                     {
                         "Stacking": selected_mode,
                         "filename": os.path.basename(input_file),
                         "ILD": float(ild),
                         "ILS": float(ils),
+                        "energy_eV_per_layer": energy_abs,
+                        "energy_rel_eV_per_layer": energy_rel,
                     }
                 )
 
-        output_csv = output_base_path / "final_structures.csv"
+        output_base_path.mkdir(parents=True, exist_ok=True)
+        output_csv_name = "final_structures_dft.csv" if dft else "final_structures.csv"
+        output_csv = output_base_path / output_csv_name
         with open(output_csv, "w", newline="") as csvfile:
             writer = csv.DictWriter(
-                csvfile, fieldnames=["Stacking", "filename", "ILD", "ILS"]
+                csvfile,
+                fieldnames=[
+                    "Stacking",
+                    "filename",
+                    "ILD",
+                    "ILS",
+                    "energy_eV_per_layer",
+                    "energy_rel_eV_per_layer",
+                ],
             )
             writer.writeheader()
             writer.writerows(rows)
-
-    __call__ = run
-
 
 def analyze(
     cof_name: str,
     mode: str = "both",
     input_base: str | Path | None = None,
     output_base: str | Path | None = None,
+    dft: bool = False,
     print_values: bool = True,
 ):
     """Compute ILD/ILS metrics and write a summary CSV.
@@ -193,9 +255,11 @@ def analyze(
         cof_name: COF name used for default folder naming.
         mode: "incl", "serr", or "both".
         input_base: Optional base folder containing per-mode subfolders.
-            Defaults to {cof_name}/4_{cof_name}_final_structures.
+            Defaults to {cof_name}/4_{cof_name}_optimization.
         output_base: Optional folder for the output CSV.
-            Defaults to the input base folder.
+            Defaults to {cof_name}/5_{cof_name}_analysis.
+        dft: If True, analyze dft_{mode} subfolders and write
+            final_structures_dft.csv.
         print_values: If True, print ILD/ILS values to stdout.
 
     Returns:
@@ -206,6 +270,7 @@ def analyze(
         mode=mode,
         input_base=input_base,
         output_base=output_base,
+        dft=dft,
         print_values=print_values,
     )
 
@@ -310,10 +375,7 @@ def visualize_cof(
     cof_name: str,
     mode: str = "both",
     input_base: str | Path | None = None,
-    width: int = 800,
-    height: int = 600,
-    background: str = "white",
-    style: str | dict[str, Any] = "stick",
+    dft: bool = False,
     add_unit_cell: bool = True,
     supercell_size_serr: tuple[int, int, int] = (2, 2, 1),
     supercell_size_incl: tuple[int, int, int] = (2, 2, 2),
@@ -324,11 +386,8 @@ def visualize_cof(
         cof_name: COF name used for folder naming.
         mode: "incl", "serr", or "both".
         input_base: Optional base folder containing per-mode subfolders.
-            Defaults to {cof_name}/4_{cof_name}_final_structures.
-        width: Viewer width in pixels.
-        height: Viewer height in pixels.
-        background: Viewer background color.
-        style: py3Dmol style string or dict (default "stick").
+            Defaults to {cof_name}/4_{cof_name}_optimization.
+        dft: If True, read structures from dft_{mode} subfolders.
         add_unit_cell: If True, draw the unit cell.
         supercell_size_serr: Supercell size for serrated structures.
         supercell_size_incl: Supercell size for inclined structures.
@@ -341,20 +400,15 @@ def visualize_cof(
     base = (
         Path(input_base)
         if input_base
-        else Path(f"{cof_name}/4_{cof_name}_final_structures")
+        else Path(f"{cof_name}/4_{cof_name}_optimization")
     )
     modes = analyzer._resolve_modes(mode)
 
-    viewer = VisualizeCOF(
-        width=width,
-        height=height,
-        background=background,
-        style=style if isinstance(style, str) else "stick",
-    )
+    viewer = VisualizeCOF()
     views = []
 
     for selected_mode in modes:
-        folder = base / selected_mode
+        folder = base / (f"dft_{selected_mode}" if dft else selected_mode)
         files = analyzer._collect_cifs(folder)
         label = "Serrated" if selected_mode == "serr" else "Inclined"
         supercell_size = (
@@ -374,7 +428,6 @@ def visualize_cof(
             view = viewer._view_single(
                 source=supercell_struct,
                 add_unit_cell=add_unit_cell,
-                style=style,
             )
             view.show()
             views.append(view)

@@ -18,6 +18,7 @@ from ._internal.landscape import (
     SelectCofs,
 )
 from ._internal.mace import Mace, MaceFullOpt, MacePreopt, MaceSP, OptMACE
+from ._internal.pxrd import Pxrd
 
 __all__ = [
     "Analyze",
@@ -38,6 +39,7 @@ __all__ = [
     "MacePreopt",
     "MaceSP",
     "OptMACE",
+    "Pxrd",
     "RemoveLayer",
     "SelectCofs",
     "SetVacuum",

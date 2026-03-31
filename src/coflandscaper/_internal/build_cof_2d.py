@@ -412,6 +412,26 @@ def _prepare_xyz(
     os.makedirs(output_folder, exist_ok=True)
     xyz_files = sorted(glob.glob(os.path.join(input_folder, "*.xyz")))
 
+    return _prepare_xyz_files(xyz_files, output_folder, mode)
+
+
+def _prepare_xyz_files(
+    xyz_files: list[str],
+    output_folder: str,
+    mode: str,
+) -> list[str]:
+    """Prepare explicit XYZ files for pormake.
+
+    Args:
+        xyz_files: Absolute or relative paths to input .xyz files.
+        output_folder: Folder to write prepared XYZ files.
+        mode: Dummy atom mode, either "Se" or "He".
+
+    Returns:
+        The list of processed XYZ input file paths.
+    """
+    os.makedirs(output_folder, exist_ok=True)
+
     for path in xyz_files:
         atoms = cast(Atoms, ase.io.read(path))
         if mode == "Se":
@@ -430,6 +450,17 @@ def _prepare_xyz(
         _write_xyz_with_bonds(mol, out_path)
 
     return xyz_files
+
+
+def _copy_xyz_file_to_folder(input_file: str, output_folder: str) -> str:
+    """Copy one xyz file into a folder and return its new path."""
+    path = Path(input_file)
+    if not path.exists() or not path.is_file() or path.suffix.lower() != ".xyz":
+        raise FileNotFoundError(f"Input xyz file not found: {input_file}")
+    os.makedirs(output_folder, exist_ok=True)
+    target = Path(output_folder) / path.name
+    target.write_text(path.read_text())
+    return str(target)
 
 
 def _normalize_edge_pair(pair: Sequence[int] | np.ndarray) -> tuple[int, int]:
@@ -614,6 +645,8 @@ class BuildCOF2D:
         topo: str,
         cof_name: str,
         bond_type: str | None = None,
+        input_node: str | os.PathLike[str] | None = None,
+        input_linker: str | os.PathLike[str] | None = None,
         output_folder: str | None = None,
     ) -> list[str]:
         """Build a 2D COF from one node and one linker.
@@ -621,6 +654,12 @@ class BuildCOF2D:
         Args:
             topo: Topology name (currently "hcb" or "sql").
             bond_type: Bond type, "single" or "double".
+            input_node: Optional explicit path to a node .xyz file.
+                If None, defaults to scanning 0_node/*.xyz when bond_type is
+                provided, or nodes/*.xyz when bond_type is None.
+            input_linker: Optional explicit path to a linker .xyz file.
+                If None, defaults to scanning 0_linker/*.xyz when bond_type is
+                provided, or linker/*.xyz when bond_type is None.
             output_folder: Optional base output folder for CIF files.
             cof_name: COF name used for output folder and filename.
                 Outputs default to {cof_name}/1_{cof_name}_single_layer.
@@ -631,14 +670,50 @@ class BuildCOF2D:
                 nodes_dir_used = stack.enter_context(
                     tempfile.TemporaryDirectory()
                 )
-                _prepare_xyz("0_node", nodes_dir_used, bond_type)
+                if input_node is not None:
+                    mode = "Se" if bond_type in {"double", "Se"} else "He"
+                    _prepare_xyz_files(
+                        [os.fspath(input_node)],
+                        nodes_dir_used,
+                        mode,
+                    )
+                else:
+                    _prepare_xyz("0_node", nodes_dir_used, bond_type)
+
                 linker_dir_used = stack.enter_context(
                     tempfile.TemporaryDirectory()
                 )
-                _prepare_xyz("0_linker", linker_dir_used, bond_type)
+                if input_linker is not None:
+                    mode = "Se" if bond_type in {"double", "Se"} else "He"
+                    _prepare_xyz_files(
+                        [os.fspath(input_linker)],
+                        linker_dir_used,
+                        mode,
+                    )
+                else:
+                    _prepare_xyz("0_linker", linker_dir_used, bond_type)
             else:
-                nodes_dir_used = "nodes"
-                linker_dir_used = "linker"
+                if input_node is not None:
+                    nodes_dir_used = stack.enter_context(
+                        tempfile.TemporaryDirectory()
+                    )
+                    _copy_xyz_file_to_folder(
+                        os.fspath(input_node),
+                        nodes_dir_used,
+                    )
+                else:
+                    nodes_dir_used = "nodes"
+
+                if input_linker is not None:
+                    linker_dir_used = stack.enter_context(
+                        tempfile.TemporaryDirectory()
+                    )
+                    _copy_xyz_file_to_folder(
+                        os.fspath(input_linker),
+                        linker_dir_used,
+                    )
+                else:
+                    linker_dir_used = "linker"
 
             nodes = self._list_xyz(nodes_dir_used)
             linkers = self._list_xyz(linker_dir_used)

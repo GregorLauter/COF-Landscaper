@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import tempfile
+from pathlib import Path
 
 import numpy as np
 from pymatgen.core import Lattice, Structure
@@ -119,9 +120,6 @@ class ChangeIld:
             coords_are_cartesian=False,
         )
         CifWriter(new_struct).write_file(output_file, mode="wt")
-
-    __call__ = run
-
 
 class IlsSerr:
     """Generate serrated ILS structures by shifting the top layer in a bilayer.
@@ -238,9 +236,6 @@ class IlsSerr:
         )
         CifWriter(out).write_file(output_file, mode="wt")
 
-    __call__ = run
-
-
 class IlsIncl:
     """Generate inclined ILS structures by tilting the $c$ vector.
 
@@ -350,9 +345,6 @@ class IlsIncl:
         )
         CifWriter(new_struct).write_file(output_file, mode="wt")
 
-    __call__ = run
-
-
 class CreateMatrix:
     """Create an ILD×ILS matrix of stacking variants for a fixed COF layer.
 
@@ -407,7 +399,7 @@ class CreateMatrix:
         topo: str,
         mode: str,
         input_cif: str | None = None,
-        output_base: str | None = None,
+        output_base_folder: str | None = None,
     ) -> None:
         """Create the ILD×ILS matrix for a given COF.
 
@@ -417,7 +409,7 @@ class CreateMatrix:
             mode: "incl", "serr", or "both" to select ILS mode(s).
             input_cif: Optional path to a pre-optimized CIF file.
                 Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
-            output_base: Optional base folder for outputs (relative to cof_name).
+            output_base_folder: Optional base folder for outputs (relative to cof_name).
                 Defaults to 2_{cof_name}_matrix, which yields
                 {cof_name}/2_{cof_name}_matrix/{serr|incl}.
 
@@ -436,7 +428,13 @@ class CreateMatrix:
         if not os.path.exists(input_preopt):
             raise FileNotFoundError(f"Missing input CIF: {input_preopt}")
 
-        output_base_used = output_base or f"2_{cof_name}_matrix"
+        output_base_folder_used = output_base_folder or f"2_{cof_name}_matrix"
+        output_base_path = Path(output_base_folder_used)
+        if not output_base_path.is_absolute() and (
+            not output_base_path.parts
+            or output_base_path.parts[0] != cof_name
+        ):
+            output_base_path = Path(cof_name) / output_base_path
 
         with tempfile.TemporaryDirectory() as tmp_ild:
             tmp_input_dir = os.path.join(tmp_ild, "input")
@@ -454,7 +452,7 @@ class CreateMatrix:
             )
 
             if mode in {"incl", "both"}:
-                out_incl = os.path.join(cof_name, output_base_used, "incl")
+                out_incl = str(output_base_path / "incl")
                 IlsIncl().run(
                     input_folder=tmp_ild,
                     output_folder=out_incl,
@@ -468,7 +466,7 @@ class CreateMatrix:
                 )
 
             if mode in {"serr", "both"}:
-                out_serr = os.path.join(cof_name, output_base_used, "serr")
+                out_serr = str(output_base_path / "serr")
                 IlsSerr().run(
                     input_folder=tmp_ild,
                     output_folder=out_serr,
@@ -481,4 +479,3 @@ class CreateMatrix:
                     print_shift=self.print_shift,
                 )
 
-    __call__ = run

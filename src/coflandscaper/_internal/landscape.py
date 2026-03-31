@@ -51,8 +51,8 @@ class Landscape:
                 used via `run_mode`.
             output_folder: Optional output folder for plots.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
-            colorscheme: Heatmap colorscheme. Options: "grey",
-                "colorblind" ("cividis"), or "viridis" (default).
+            colorscheme: Any valid Matplotlib colormap name.
+                Defaults to "viridis".
             plot_mode: "heatmap", "isolines", or "both".
             rel_energy_max: Optional max value (eV) to cap relative energies.
                 Values above this are clipped in the plots.
@@ -294,8 +294,8 @@ class Landscape:
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
-            colorscheme: Heatmap colorscheme. Options: "grey",
-                "colorblind" ("cividis"), or "viridis" (default).
+            colorscheme: Any valid Matplotlib colormap name.
+                Defaults to "viridis".
             plot_mode: "heatmap", "isolines", or "both".
             rel_energy_max: Optional max value for relative energies.
             show_minima_markers: If True (default), mark minima on plots.
@@ -1156,4 +1156,3 @@ class SelectCofs:
                 mode_label=label,
             )
 
-    __call__ = run
