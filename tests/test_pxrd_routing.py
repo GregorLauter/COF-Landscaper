@@ -1,0 +1,118 @@
+from pathlib import Path
+
+import pytest
+
+from coflandscaper._internal.pxrd import Pxrd
+
+
+@pytest.mark.unit
+def test_resolve_modes() -> None:
+    pxrd = Pxrd()
+    assert pxrd._resolve_modes("incl") == ["incl"]
+    assert pxrd._resolve_modes("serr") == ["serr"]
+    assert pxrd._resolve_modes("both") == ["serr", "incl"]
+
+    with pytest.raises(ValueError, match="mode must be"):
+        pxrd._resolve_modes("bad")
+
+
+@pytest.mark.unit
+def test_run_default_routing_both_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    pxrd = Pxrd()
+    calls: list[tuple[Path, Path]] = []
+
+    def fake_produce_xy(_self: Pxrd, input_folder: str | Path, output_folder: str | Path | None = None) -> str:
+        assert output_folder is not None
+        in_path = Path(input_folder)
+        out_path = Path(output_folder)
+        calls.append((in_path, out_path))
+        return str(out_path)
+
+    monkeypatch.setattr(Pxrd, "produce_xy", fake_produce_xy)
+
+    outputs = pxrd.run(cof_name="cof-a", mode="both", dft=False)
+
+    assert outputs == {
+        "serr": "cof-a/5_cof-a_analysis/pxrd_xy/serr",
+        "incl": "cof-a/5_cof-a_analysis/pxrd_xy/incl",
+    }
+    assert calls == [
+        (
+            Path("cof-a/4_cof-a_optimization/serr"),
+            Path("cof-a/5_cof-a_analysis/pxrd_xy/serr"),
+        ),
+        (
+            Path("cof-a/4_cof-a_optimization/incl"),
+            Path("cof-a/5_cof-a_analysis/pxrd_xy/incl"),
+        ),
+    ]
+
+
+@pytest.mark.unit
+def test_run_custom_parent_folder_routing(monkeypatch: pytest.MonkeyPatch) -> None:
+    pxrd = Pxrd()
+    calls: list[tuple[Path, Path]] = []
+
+    def fake_produce_xy(_self: Pxrd, input_folder: str | Path, output_folder: str | Path | None = None) -> str:
+        assert output_folder is not None
+        in_path = Path(input_folder)
+        out_path = Path(output_folder)
+        calls.append((in_path, out_path))
+        return str(out_path)
+
+    monkeypatch.setattr(Pxrd, "produce_xy", fake_produce_xy)
+
+    outputs = pxrd.run(
+        cof_name="cof-a",
+        mode="both",
+        dft=True,
+        input_folder="my_inputs",
+        output_folder="my_outputs",
+    )
+
+    assert outputs == {
+        "serr": "my_outputs/serr",
+        "incl": "my_outputs/incl",
+    }
+    assert calls == [
+        (Path("my_inputs/dft_serr"), Path("my_outputs/serr")),
+        (Path("my_inputs/dft_incl"), Path("my_outputs/incl")),
+    ]
+
+
+@pytest.mark.unit
+def test_plot_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
+    pxrd = Pxrd()
+    calls: list[tuple[Path, Path, bool]] = []
+
+    def fake_plot_xy(
+        _self: Pxrd,
+        xy_folder: str | Path,
+        output_path: str | Path,
+        show: bool = True,
+    ) -> str:
+        xy_path = Path(xy_folder)
+        out_path = Path(output_path)
+        calls.append((xy_path, out_path, show))
+        return str(out_path)
+
+    monkeypatch.setattr(Pxrd, "plot_xy", fake_plot_xy)
+
+    outputs = pxrd.plot(cof_name="cof-b", mode="both", dft=True, show=False)
+
+    assert outputs == {
+        "serr": "cof-b/5_cof-b_analysis/pxrd_stacked_serr_dft.png",
+        "incl": "cof-b/5_cof-b_analysis/pxrd_stacked_incl_dft.png",
+    }
+    assert calls == [
+        (
+            Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/serr"),
+            Path("cof-b/5_cof-b_analysis/pxrd_stacked_serr_dft.png"),
+            False,
+        ),
+        (
+            Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/incl"),
+            Path("cof-b/5_cof-b_analysis/pxrd_stacked_incl_dft.png"),
+            False,
+        ),
+    ]
