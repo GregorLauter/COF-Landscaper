@@ -13,14 +13,14 @@ from pymatgen.core import Structure
 class Pxrd:
     """Simulate PXRD patterns from optimized CIFs and create stacked plots.
 
-        Default workflow:
+    Default workflow:
 
-        * Read CIFs from ``{cof_name}/4_{cof_name}_optimization/{serr|incl}``
-            (or ``dft_{serr|incl}`` when ``dft=True``).
-        * Write ``.xy`` files under
-            ``{cof_name}/5_{cof_name}_analysis/pxrd_xy``
-            (or ``pxrd_xy_dft`` when ``dft=True``).
-        * Write plots under ``{cof_name}/5_{cof_name}_analysis``.
+    * Read CIFs from ``{cof_name}/4_{cof_name}_optimization/{serr|incl}``
+        (or ``dft_{serr|incl}`` when ``dft=True``).
+    * Write ``.xy`` files under
+        ``{cof_name}/5_{cof_name}_analysis/pxrd_xy``
+        (or ``pxrd_xy_dft`` when ``dft=True``).
+    * Write plots under ``{cof_name}/5_{cof_name}_analysis``.
     """
 
     def __init__(
