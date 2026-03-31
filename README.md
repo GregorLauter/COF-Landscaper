@@ -1,24 +1,19 @@
-1. Install mamba/conda (but mamba)
-2. Create new mamba environment
+# COF-Landscaper
+
+COF-Landscaper is a Python package for building and analyzing 2D COF stacking-energy landscapes.
+
+## Install From Source
 
 ```bash
-mamba create -n "cof-landscaping" python=3.12
-```
-
-
-1. Create uv environment
-uv init
-2. Install cof-landscape
-uv add cof-landscaper
-
-3. Install cof-landscape
-
-```bash
-pip install cof-landscaper
-```
-
-4. How to add mamba environment to jupyter kernals:
-
-```bash
-That code here.
+python3 -m venv test-coflandscaper
+source test-coflandscaper/bin/activate
+which python
+python --version
+pip install --upgrade pip
+pip --version
+git clone https://github.com/GregorLauter/COF-Landscaper.git
+cd COF-Landscaper
+pwd
+ls
+pip install .
 ```

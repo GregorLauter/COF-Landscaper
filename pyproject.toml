@@ -137,7 +137,7 @@ module = []
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=src --cov-report term-missing"
+addopts = "--cov=coflandscaper --cov-report term-missing"
 markers = [
   "unit: fast deterministic unit tests",
   "integration: file-IO and cross-module integration tests",

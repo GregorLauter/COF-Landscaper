@@ -245,14 +245,14 @@ class MaceSP(Mace):
         elif input_path.parent.name:
             cof_name = input_path.parent.name
 
-        csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
-        os.makedirs(csv_dir, exist_ok=True)
-
         cif_files = sorted(input_path.glob("*.cif"))
         if not cif_files:
             raise FileNotFoundError(
                 f"No .cif files found in: {input_path.resolve()}"
             )
+
+        csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
+        os.makedirs(csv_dir, exist_ok=True)
 
         device, dtype, head, model, dispersion = self._resolve_params()
 

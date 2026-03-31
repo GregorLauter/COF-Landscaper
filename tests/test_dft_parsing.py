@@ -231,3 +231,35 @@ def test_vasp_sp_read_raises_when_no_oszicar_found(tmp_path: Path) -> None:
     empty_dir.mkdir(parents=True)
     with pytest.raises(FileNotFoundError, match="No OSZICAR files found"):
         dft.VaspSP().read(str(empty_dir))
+
+
+@pytest.mark.unit
+def test_crystal_sp_read_does_not_create_default_output_dir_on_missing_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures failing CrystalSP reads do not leave empty default output folders."""
+    in_dir = tmp_path / "cof-x" / "2_cof-x_matrix" / "dft_serr"
+    in_dir.mkdir(parents=True)
+
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(FileNotFoundError, match=r"No valid \.out files found"):
+        dft.CrystalSP().read(str(in_dir))
+
+    assert not (tmp_path / "cof-x" / "3_cof-x_landscape").exists()
+
+
+@pytest.mark.unit
+def test_vasp_sp_read_does_not_create_default_output_dir_on_missing_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures failing VaspSP reads do not leave empty default output folders."""
+    in_dir = tmp_path / "cof-y" / "2_cof-y_matrix" / "dft_incl"
+    in_dir.mkdir(parents=True)
+
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(FileNotFoundError, match="No OSZICAR files found"):
+        dft.VaspSP().read(str(in_dir))
+
+    assert not (tmp_path / "cof-y" / "3_cof-y_landscape").exists()

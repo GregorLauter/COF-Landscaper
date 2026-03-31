@@ -504,9 +504,6 @@ END"""
         elif input_path.parent.name:
             cof_name = input_path.parent.name
 
-        csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
-        os.makedirs(csv_dir, exist_ok=True)
-
         out_files: list[Path] = []
         for out_path in sorted(input_path.rglob("*.out")):
             if out_path.name.lower().startswith("slurm"):
@@ -521,6 +518,9 @@ END"""
             raise FileNotFoundError(
                 f"No valid .out files found in: {input_path.resolve()} (expected system_name.out)"
             )
+
+        csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
+        os.makedirs(csv_dir, exist_ok=True)
 
         energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
 
@@ -650,14 +650,14 @@ class VaspSP:
         elif input_path.parent.name:
             cof_name = input_path.parent.name
 
-        csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
-        os.makedirs(csv_dir, exist_ok=True)
-
         oszicar_paths = sorted(input_path.rglob("OSZICAR"))
         if not oszicar_paths:
             raise FileNotFoundError(
                 f"No OSZICAR files found in: {input_path.resolve()}"
             )
+
+        csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
+        os.makedirs(csv_dir, exist_ok=True)
 
         energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
 
@@ -857,17 +857,17 @@ END"""
         elif input_path.parent.name:
             cof_name = input_path.parent.name
 
-        csv_dir = Path(
-            output_csv_dir or f"{cof_name}/4_{cof_name}_optimization"
-        )
-        os.makedirs(csv_dir, exist_ok=True)
-
         out_files = self._collect_out_files([input_path])
 
         if not out_files:
             raise FileNotFoundError(
                 f"No valid .out files found in: {input_path.resolve()} (expected system_name.out)"
             )
+
+        csv_dir = Path(
+            output_csv_dir or f"{cof_name}/4_{cof_name}_optimization"
+        )
+        os.makedirs(csv_dir, exist_ok=True)
 
         energies_csv_path = (
             csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"

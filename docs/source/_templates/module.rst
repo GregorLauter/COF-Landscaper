@@ -22,7 +22,9 @@
       :toctree:
       :nosignatures:
    {% for item in functions %}
+   {% if item != "analyze" %}
       {{ item }}
+   {% endif %}
    {%- endfor %}
    {% endif %}
    {% endblock %}

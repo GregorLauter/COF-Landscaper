@@ -10,3 +10,4 @@ docs/source/_autosummary
 .pytest_cache/
 .ruff_cache/
 htmlcov/
+/cof-*/
