@@ -16,4 +16,6 @@ cd COF-Landscaper
 pwd
 ls
 pip install .
+pip install ipykernel
+python -m ipykernel install --user --name test-coflandscaper --display-name "Python (test-coflandscaper)"
 ```
