@@ -12,6 +12,7 @@ from typing import Any, cast
 
 import numpy as np
 import pandas as pd
+import torch
 from ase.atoms import Atoms
 from ase.constraints import FixCartesian
 from ase.filters import UnitCellFilter
@@ -19,7 +20,6 @@ from ase.io import read
 from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 from mace.modules.models import ScaleShiftMACE
-import torch
 
 
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
@@ -263,7 +263,7 @@ class MaceSP(Mace):
 
         for i, cif_path in enumerate(cif_files, start=1):
             try:
-                atoms = cast(Atoms, read(str(cif_path)))
+                atoms = cast("Atoms", read(str(cif_path)))
                 atoms.calc = calc
 
                 e_ev = float(atoms.get_potential_energy())
@@ -380,12 +380,12 @@ class OptMACE(Mace):
             category=UserWarning,
             module="ase.io.cif",
         )
-        atoms = cast(Atoms, read(input_path))
+        atoms = cast("Atoms", read(input_path))
         self._apply_constraints(atoms)
         atoms.calc = self.calc
 
         ucf = UnitCellFilter(atoms)
-        dyn = LBFGS(cast(Any, ucf))
+        dyn = LBFGS(cast("Any", ucf))
         dyn.run(fmax=self.fmax)
         atoms.write(output_path)
 
@@ -429,8 +429,7 @@ class OptMACE(Mace):
 
         output_base_path = Path(output_base)
         if not output_base_path.is_absolute() and (
-            not output_base_path.parts
-            or output_base_path.parts[0] != cof_name
+            not output_base_path.parts or output_base_path.parts[0] != cof_name
         ):
             output_base_path = Path(cof_name) / output_base_path
 
@@ -551,7 +550,7 @@ class MaceFullOpt(OptMACE):
             cif_files = sorted(folder.glob("*.cif"))
             for cif_path in cif_files:
                 try:
-                    atoms = cast(Atoms, read(str(cif_path)))
+                    atoms = cast("Atoms", read(str(cif_path)))
                     atoms.calc = self.calc
                     energy_ev = float(atoms.get_potential_energy())
                     # Serrated mode stores a bilayer; report per-layer energies.
@@ -573,9 +572,11 @@ class MaceFullOpt(OptMACE):
                 "No optimized energies could be evaluated for the generated CIFs."
             )
 
-        df = pd.DataFrame(rows).sort_values(
-            ["stacking_mode", "structure"]
-        ).reset_index(drop=True)
+        df = (
+            pd.DataFrame(rows)
+            .sort_values(["stacking_mode", "structure"])
+            .reset_index(drop=True)
+        )
         min_e = float(df["energy_eV_per_layer"].min())
         df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
 
@@ -622,8 +623,7 @@ class MaceFullOpt(OptMACE):
 
         output_base_path = Path(output_base)
         if not output_base_path.is_absolute() and (
-            not output_base_path.parts
-            or output_base_path.parts[0] != cof_name
+            not output_base_path.parts or output_base_path.parts[0] != cof_name
         ):
             output_base_path = Path(cof_name) / output_base_path
 

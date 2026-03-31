@@ -22,8 +22,8 @@ from ._internal.pxrd import Pxrd
 
 __all__ = [
     "Analyze",
-    "BuildCOF2D",
     "BenchmarkOverview",
+    "BuildCOF2D",
     "CenterZ",
     "ChangeIld",
     "CreateMatrix",

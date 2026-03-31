@@ -121,6 +121,7 @@ class ChangeIld:
         )
         CifWriter(new_struct).write_file(output_file, mode="wt")
 
+
 class IlsSerr:
     """Generate serrated ILS structures by shifting the top layer in a bilayer.
 
@@ -236,6 +237,7 @@ class IlsSerr:
         )
         CifWriter(out).write_file(output_file, mode="wt")
 
+
 class IlsIncl:
     """Generate inclined ILS structures by tilting the $c$ vector.
 
@@ -345,6 +347,7 @@ class IlsIncl:
         )
         CifWriter(new_struct).write_file(output_file, mode="wt")
 
+
 class CreateMatrix:
     """Create an ILD×ILS matrix of stacking variants for a fixed COF layer.
 
@@ -431,8 +434,7 @@ class CreateMatrix:
         output_base_folder_used = output_base_folder or f"2_{cof_name}_matrix"
         output_base_path = Path(output_base_folder_used)
         if not output_base_path.is_absolute() and (
-            not output_base_path.parts
-            or output_base_path.parts[0] != cof_name
+            not output_base_path.parts or output_base_path.parts[0] != cof_name
         ):
             output_base_path = Path(cof_name) / output_base_path
 
@@ -478,4 +480,3 @@ class CreateMatrix:
                     ils_angle=self.ils_angle,
                     print_shift=self.print_shift,
                 )
-

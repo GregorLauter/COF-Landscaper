@@ -126,7 +126,9 @@ class Pxrd:
         if not cifs:
             raise FileNotFoundError(f"No .cif files found in: {cif_dir}")
 
-        xy_dir = Path(output_folder) if output_folder else cif_dir / "simulated_xy"
+        xy_dir = (
+            Path(output_folder) if output_folder else cif_dir / "simulated_xy"
+        )
         xy_dir.mkdir(parents=True, exist_ok=True)
 
         calculator = XRDCalculator(wavelength=self.wavelength)

@@ -433,7 +433,7 @@ def _prepare_xyz_files(
     os.makedirs(output_folder, exist_ok=True)
 
     for path in xyz_files:
-        atoms = cast(Atoms, ase.io.read(path))
+        atoms = cast("Atoms", ase.io.read(path))
         if mode == "Se":
             xyz_block, x_indices = _replace_atoms(atoms, "Se", "O")
         else:
@@ -455,7 +455,11 @@ def _prepare_xyz_files(
 def _copy_xyz_file_to_folder(input_file: str, output_folder: str) -> str:
     """Copy one xyz file into a folder and return its new path."""
     path = Path(input_file)
-    if not path.exists() or not path.is_file() or path.suffix.lower() != ".xyz":
+    if (
+        not path.exists()
+        or not path.is_file()
+        or path.suffix.lower() != ".xyz"
+    ):
         raise FileNotFoundError(f"Input xyz file not found: {input_file}")
     os.makedirs(output_folder, exist_ok=True)
     target = Path(output_folder) / path.name

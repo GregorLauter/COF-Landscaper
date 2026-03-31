@@ -19,6 +19,7 @@ from .ild_ils_utils import (
     wrap01,
 )
 
+
 class Analyze:
     def _collect_cifs(self, folder: Path) -> list[str]:
         files: list[str] = []
@@ -72,7 +73,7 @@ class Analyze:
             pick_lower_left_pair_from_lines(atom_lines)
         )
         xu, yu, _ = cast(
-            tuple[float, float, float], parse_xyz_from_atom_line(upper_line)
+            "tuple[float, float, float]", parse_xyz_from_atom_line(upper_line)
         )
         xu_w, yu_w = wrap01(xu), wrap01(yu)
 
@@ -112,7 +113,9 @@ class Analyze:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
         return ["serr", "incl"] if mode_lower == "both" else [mode_lower]
 
-    def _compute_metrics(self, input_file: str, selected_mode: str) -> tuple[float, float]:
+    def _compute_metrics(
+        self, input_file: str, selected_mode: str
+    ) -> tuple[float, float]:
         ild = self._calc_ild(input_file, divide_by_two=selected_mode == "serr")
         if selected_mode == "serr":
             ils = self._calc_ils_dl(input_file)
@@ -176,7 +179,7 @@ class Analyze:
                 final_structures_dft.csv.
             print_values: If True, print ILD/ILS values to stdout.
 
-                Notes:
+        Notes:
                         - dft=False reads from {input_base}/{serr|incl} and writes
                             final_structures.csv.
                         - dft=True reads from {input_base}/dft_{serr|incl} and writes
@@ -209,14 +212,18 @@ class Analyze:
                 print(" ILD (Å)  ILS (Å)  Erel (eV)")
             for input_file in files:
                 ild, ils = self._compute_metrics(input_file, selected_mode)
-                structure_name = os.path.splitext(os.path.basename(input_file))[0]
+                structure_name = os.path.splitext(
+                    os.path.basename(input_file)
+                )[0]
                 energy_abs, energy_rel = energy_map.get(
                     (selected_mode, structure_name),
                     (float("nan"), float("nan")),
                 )
 
                 if print_values:
-                    rel_display = "--" if np.isnan(energy_rel) else f"{energy_rel:.1f}"
+                    rel_display = (
+                        "--" if np.isnan(energy_rel) else f"{energy_rel:.1f}"
+                    )
                     print(f" {ild:6.1f}  {ils:7.1f}  {rel_display:>9}")
                 rows.append(
                     {
@@ -230,7 +237,9 @@ class Analyze:
                 )
 
         output_base_path.mkdir(parents=True, exist_ok=True)
-        output_csv_name = "final_structures_dft.csv" if dft else "final_structures.csv"
+        output_csv_name = (
+            "final_structures_dft.csv" if dft else "final_structures.csv"
+        )
         output_csv = output_base_path / output_csv_name
         with open(output_csv, "w", newline="") as csvfile:
             writer = csv.DictWriter(
@@ -246,6 +255,7 @@ class Analyze:
             )
             writer.writeheader()
             writer.writerows(rows)
+
 
 def analyze(
     cof_name: str,
@@ -271,7 +281,7 @@ def analyze(
     Returns:
         None.
 
-        Notes:
+    Notes:
                 - dft=False reads from {input_base}/{serr|incl} and writes
                     final_structures.csv.
                 - dft=True reads from {input_base}/dft_{serr|incl} and writes

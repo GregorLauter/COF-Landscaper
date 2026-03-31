@@ -75,7 +75,9 @@ class Landscape:
         if match:
             lot_suffix = match.group(3)
 
-        use_mode_naming = folder_tag in {"serr", "incl"} and cof_name is not None
+        use_mode_naming = (
+            folder_tag in {"serr", "incl"} and cof_name is not None
+        )
 
         if output_folder:
             heatmap_dir = Path(output_folder)
@@ -312,7 +314,9 @@ class Landscape:
         mode_tags = (
             ["serr", "incl"]
             if mode_norm == "both"
-            else [mode_norm] if mode_norm in {"serr", "incl"} else []
+            else [mode_norm]
+            if mode_norm in {"serr", "incl"}
+            else []
         )
         if not mode_tags:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
@@ -343,7 +347,6 @@ class Landscape:
             raise FileNotFoundError(
                 "Missing expected CSV(s): " + ", ".join(missing_csvs)
             )
-        return
 
     def _find_local_minima(self, data: np.ndarray) -> list[tuple[int, int]]:
         minima: list[tuple[int, int]] = []
@@ -419,7 +422,9 @@ class LandscapeDifference(Landscape):
             raise FileNotFoundError(f"CSV not found: {csv_path}")
 
         df = pd.read_csv(csv_path)
-        value_col = "energy_rel_eV" if "energy_rel_eV" in df.columns else "energy_eV"
+        value_col = (
+            "energy_rel_eV" if "energy_rel_eV" in df.columns else "energy_eV"
+        )
         df2 = df.dropna(subset=["z", "L", value_col]).copy()
         if df2.empty:
             raise ValueError(
@@ -511,7 +516,8 @@ class LandscapeDifference(Landscape):
         comparison_tag = f"diff_{subfolder_1_tag}_vs_{subfolder_2_tag}"
 
         heatmap_path = (
-            heatmap_dir / f"pes_{cof_name}_{mode_tag}_heatmap_{comparison_tag}.png"
+            heatmap_dir
+            / f"pes_{cof_name}_{mode_tag}_heatmap_{comparison_tag}.png"
         )
         isolines_path = (
             heatmap_dir
@@ -649,7 +655,9 @@ class LandscapeDifference(Landscape):
         mode_tags = (
             ["serr", "incl"]
             if mode_norm == "both"
-            else [mode_norm] if mode_norm in {"serr", "incl"} else []
+            else [mode_norm]
+            if mode_norm in {"serr", "incl"}
+            else []
         )
         if not mode_tags:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
@@ -667,7 +675,6 @@ class LandscapeDifference(Landscape):
                 rel_energy_max=rel_energy_max,
                 show_header=show_header,
             )
-        return
 
 
 class BenchmarkOverview:
@@ -709,12 +716,15 @@ class BenchmarkOverview:
         level_1_tag = self._sanitize_level_tag(level_1)
         level_2_tag = self._sanitize_level_tag(level_2)
         candidate_paths = [
-            base_dir / level_2 / f"energy_relative_diff_{level_1}_vs_{level_2}.csv",
+            base_dir
+            / level_2
+            / f"energy_relative_diff_{level_1}_vs_{level_2}.csv",
             base_dir
             / level_2
             / f"energy_relative_diff_{level_1_tag}_vs_{level_2_tag}.csv",
             base_dir / f"energy_relative_diff_{level_1}_vs_{level_2}.csv",
-            base_dir / f"energy_relative_diff_{level_1_tag}_vs_{level_2_tag}.csv",
+            base_dir
+            / f"energy_relative_diff_{level_1_tag}_vs_{level_2_tag}.csv",
         ]
         for csv_path in candidate_paths:
             if not csv_path.exists():
@@ -743,13 +753,19 @@ class BenchmarkOverview:
             sorted(level_dir.glob(f"{cof_name}_sp_energies_{mode}_*.csv"))
         )
 
-        csv_path = next((path for path in candidate_paths if path.exists()), None)
+        csv_path = next(
+            (path for path in candidate_paths if path.exists()), None
+        )
         if csv_path is None:
             return []
 
         try:
             df = pd.read_csv(csv_path)
-            value_col = "energy_rel_eV" if "energy_rel_eV" in df.columns else "energy_eV"
+            value_col = (
+                "energy_rel_eV"
+                if "energy_rel_eV" in df.columns
+                else "energy_eV"
+            )
             df2 = df.dropna(subset=["z", "L", value_col]).copy()
             if df2.empty:
                 return []
@@ -767,7 +783,9 @@ class BenchmarkOverview:
 
             z_vals = list(grid.index)
             L_vals = list(grid.columns)
-            minima = [(float(z_vals[i]), float(L_vals[j])) for i, j in minima_idx]
+            minima = [
+                (float(z_vals[i]), float(L_vals[j])) for i, j in minima_idx
+            ]
             minima = sorted(set(minima), key=lambda pair: (pair[0], pair[1]))
             return minima
         except Exception:
@@ -794,8 +812,10 @@ class BenchmarkOverview:
         if not lines:
             return "minima: []"
 
-        return "minima: " + lines[0] + (
-            "\n" + "\n".join(lines[1:]) if len(lines) > 1 else ""
+        return (
+            "minima: "
+            + lines[0]
+            + ("\n" + "\n".join(lines[1:]) if len(lines) > 1 else "")
         )
 
     def run(
@@ -828,7 +848,10 @@ class BenchmarkOverview:
         out_dir = Path(output_folder or base_dir)
         os.makedirs(out_dir, exist_ok=True)
 
-        output_file = output_name or f"benchmark_overview_{cof_name}_{mode}_{level_1}.png"
+        output_file = (
+            output_name
+            or f"benchmark_overview_{cof_name}_{mode}_{level_1}.png"
+        )
         output_path = out_dir / output_file
 
         rows = 1 + len(level_2_list)
@@ -848,7 +871,9 @@ class BenchmarkOverview:
 
         title_ax = axes[0, 0]
         title_ax.axis("off")
-        level_1_minima = self._read_minima_tuples(base_dir, cof_name, level_1, mode)
+        level_1_minima = self._read_minima_tuples(
+            base_dir, cof_name, level_1, mode
+        )
         level_1_minima_text = self._format_minima_text(level_1_minima)
         title_ax.text(
             0.5,
@@ -877,7 +902,9 @@ class BenchmarkOverview:
             min_v, max_v, avg_v = self._read_diff_stats(
                 base_dir, level_2, level_1
             )
-            level_2_minima = self._read_minima_tuples(base_dir, cof_name, level_2, mode)
+            level_2_minima = self._read_minima_tuples(
+                base_dir, cof_name, level_2, mode
+            )
             level_2_minima_text = self._format_minima_text(level_2_minima)
             if min_v is None or max_v is None or avg_v is None:
                 stats_text = "min: n/a\nmax: n/a\navg: n/a"
@@ -1154,4 +1181,3 @@ class SelectCofs:
                 selections=mode_selections,
                 mode_label=label,
             )
-

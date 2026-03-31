@@ -403,8 +403,12 @@ class Crystal:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
         mode_tags = ["serr", "incl"] if mode_lower == "both" else [mode_lower]
-        input_base_folder_used = input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
-        output_base_folder_used = output_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        input_base_folder_used = (
+            input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        )
+        output_base_folder_used = (
+            output_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        )
 
         for mode_tag in mode_tags:
             self.run(
@@ -575,7 +579,9 @@ END"""
         """
         from .ild_ils_utils import get_mode_folders
 
-        input_base_used = input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        input_base_used = (
+            input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        )
         csv_paths: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
@@ -707,7 +713,9 @@ class VaspSP:
         """
         from .ild_ils_utils import get_mode_folders
 
-        input_base_used = input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        input_base_used = (
+            input_base_folder or f"{cof_name}/2_{cof_name}_matrix"
+        )
         csv_paths: list[Path] = []
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
@@ -839,7 +847,9 @@ END"""
         )
 
         cof_name = folder_tag
-        if input_path.parent.name.endswith(("_final_structures", "_optimization")):
+        if input_path.parent.name.endswith(
+            ("_final_structures", "_optimization")
+        ):
             cof_name = input_path.parents[1].name
         elif input_path.parent.name:
             cof_name = input_path.parent.name
@@ -856,7 +866,9 @@ END"""
                 f"No valid .out files found in: {input_path.resolve()} (expected system_name.out)"
             )
 
-        energies_csv_path = csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
+        energies_csv_path = (
+            csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
+        )
 
         rows: list[dict[str, str | float]] = []
         failed = []
@@ -883,9 +895,7 @@ END"""
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         if not df.empty:
             min_e = float(df["energy_eV_per_layer"].min())
-            df["energy_rel_eV_per_layer"] = (
-                df["energy_eV_per_layer"] - min_e
-            )
+            df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
         df.to_csv(energies_csv_path, index=False)
 
         if failed:
@@ -960,7 +970,9 @@ END"""
             output_base_folder or f"{cof_name}/4_{cof_name}_optimization"
         )
         os.makedirs(csv_dir, exist_ok=True)
-        energies_csv_path = csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
+        energies_csv_path = (
+            csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
+        )
 
         rows: list[dict[str, str | float]] = []
         failed = []
@@ -980,7 +992,9 @@ END"""
                     )
 
                 energy_ev_per_layer = (
-                    energy_ev / 2.0 if mode_from_parent == "serr" else energy_ev
+                    energy_ev / 2.0
+                    if mode_from_parent == "serr"
+                    else energy_ev
                 )
                 rows.append(
                     {
@@ -992,14 +1006,14 @@ END"""
             except Exception as exc:
                 failed.append((str(out_path), repr(exc)))
 
-        df = pd.DataFrame(rows).sort_values(
-            ["stacking_mode", "structure"]
-        ).reset_index(drop=True)
+        df = (
+            pd.DataFrame(rows)
+            .sort_values(["stacking_mode", "structure"])
+            .reset_index(drop=True)
+        )
         if not df.empty:
             min_e = float(df["energy_eV_per_layer"].min())
-            df["energy_rel_eV_per_layer"] = (
-                df["energy_eV_per_layer"] - min_e
-            )
+            df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
         df.to_csv(energies_csv_path, index=False)
 
         if failed:
