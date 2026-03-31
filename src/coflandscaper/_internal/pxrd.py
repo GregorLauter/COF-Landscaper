@@ -11,7 +11,15 @@ from pymatgen.core import Structure
 
 
 class Pxrd:
-    """Generate simulated PXRD XY files and plot them in a stacked style."""
+    """Simulate PXRD patterns from optimized CIFs and create stacked plots.
+
+    Default workflow:
+    - Read CIFs from {cof_name}/4_{cof_name}_optimization/{serr|incl}
+        (or dft_{serr|incl} when dft=True).
+    - Write .xy files under {cof_name}/5_{cof_name}_analysis/pxrd_xy
+        (or pxrd_xy_dft when dft=True).
+    - Write plots under {cof_name}/5_{cof_name}_analysis.
+    """
 
     def __init__(
         self,
@@ -52,6 +60,10 @@ class Pxrd:
 
         Returns:
             Mapping of mode to generated XY folder path.
+
+        Notes:
+            - mode='both' writes into {output_root}/serr and {output_root}/incl.
+            - mode='incl' or mode='serr' writes directly into output_folder.
         """
         modes = self._resolve_modes(mode)
 
@@ -144,6 +156,9 @@ class Pxrd:
 
         Returns:
             Output image path as a string.
+
+        Notes:
+            Each subplot is labeled with its CIF stem in the top-right corner.
         """
         xy_dir = Path(xy_folder)
         if not xy_dir.exists() or not xy_dir.is_dir():
@@ -238,6 +253,10 @@ class Pxrd:
 
         Returns:
             Mapping of mode to output plot path.
+
+        Notes:
+            Output files are named pxrd_stacked_{mode}.png and use
+            pxrd_stacked_{mode}_dft.png when dft=True.
         """
         modes = self._resolve_modes(mode)
 

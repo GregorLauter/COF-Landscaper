@@ -12,7 +12,7 @@ from .ild_ils_utils import get_mode_folders
 
 
 class Landscape:
-    """Generate potential energy landscapes from SP energy CSVs."""
+    """Generate potential energy landscape plots from single-point CSV data."""
 
     def _resolve_input_csv(
         self, input_folder: str, cof_name: str | None
@@ -43,12 +43,11 @@ class Landscape:
         show_minima_markers: bool = True,
         show_header: bool = True,
     ) -> None:
-        """Build the PES plots for a given stacking folder.
+        """Build PES plots for one stacking mode.
 
         Args:
-            input_folder: Folder containing the CIFs for a stacking mode.
-                Defaults to {cof_name}/3_{cof_name}_landscape when
-                used via `run_mode`.
+            input_folder: Mode folder path (serr or incl) used to infer mode;
+                its parent must contain {cof_name}_sp_energies_{mode}.csv.
             output_folder: Optional output folder for plots.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
             colorscheme: Any valid Matplotlib colormap name.
@@ -289,7 +288,7 @@ class Landscape:
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
-        """Generate landscapes for the selected mode(s) using MaceSP CSVs.
+        """Generate landscapes for selected stacking mode(s).
 
         Args:
             cof_name: COF name used for folder naming.
@@ -300,9 +299,9 @@ class Landscape:
             rel_energy_max: Optional max value for relative energies.
             show_minima_markers: If True (default), mark minima on plots.
             show_header: If True (default), draw title and header text.
-            input_folder: Optional explicit folder containing CIFs for one mode.
-                If set, this folder is used directly and `mode` folder defaults
-                are not used.
+            input_folder: Optional base folder containing mode folders and
+                {cof_name}_sp_energies_{mode}.csv files.
+                Defaults to {cof_name}/3_{cof_name}_landscape.
             output_folder: Optional output folder for plots.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
 
@@ -930,7 +929,7 @@ class BenchmarkOverview:
 
 
 class SelectCofs:
-    """Select CIFs based on ILD/ILS pairs."""
+    """Select CIFs for downstream optimization based on ILD/ILS pairs."""
 
     def _dedupe_selections(
         self, selections: list[tuple[float, float]]
@@ -1063,7 +1062,7 @@ class SelectCofs:
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
-        """Select CIFs for the selected mode(s).
+        """Select CIFs for selected mode(s) and copy them into selection folders.
 
         Args:
             cof_name: COF name used for folder naming.

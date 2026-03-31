@@ -163,7 +163,7 @@ class Analyze:
         dft: bool = False,
         print_values: bool = True,
     ):
-        """Compute ILD/ILS metrics for optimized CIFs and write a summary CSV.
+        """Compute ILD/ILS metrics and write an analysis CSV.
 
         Args:
             cof_name: COF name used for default folder naming.
@@ -175,6 +175,12 @@ class Analyze:
             dft: If True, analyze dft_{mode} subfolders and write
                 final_structures_dft.csv.
             print_values: If True, print ILD/ILS values to stdout.
+
+                Notes:
+                        - dft=False reads from {input_base}/{serr|incl} and writes
+                            final_structures.csv.
+                        - dft=True reads from {input_base}/dft_{serr|incl} and writes
+                            final_structures_dft.csv.
         """
         base = (
             Path(input_base)
@@ -249,7 +255,7 @@ def analyze(
     dft: bool = False,
     print_values: bool = True,
 ):
-    """Compute ILD/ILS metrics and write a summary CSV.
+    """Compute ILD/ILS metrics and write an analysis CSV.
 
     Args:
         cof_name: COF name used for default folder naming.
@@ -264,6 +270,12 @@ def analyze(
 
     Returns:
         None.
+
+        Notes:
+                - dft=False reads from {input_base}/{serr|incl} and writes
+                    final_structures.csv.
+                - dft=True reads from {input_base}/dft_{serr|incl} and writes
+                    final_structures_dft.csv.
     """
     return Analyze().run(
         cof_name=cof_name,
@@ -394,6 +406,10 @@ def visualize_cof(
 
     Returns:
         List of py3Dmol views.
+
+    Notes:
+        Viewer appearance is fixed to defaults
+        (width=800, height=600, background="white", style="stick").
     """
     analyzer = Analyze()
 

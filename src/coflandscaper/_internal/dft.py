@@ -382,7 +382,7 @@ class Crystal:
         input_base_folder: str | None = None,
         output_base_folder: str | None = None,
     ) -> None:
-        """Convert CIFs for stacking modes and write to dft_{mode} folders.
+        """Convert CIFs for selected stacking modes into CRYSTAL .d12 inputs.
 
         Args:
             cof_name: COF name used for folder naming.
@@ -391,6 +391,9 @@ class Crystal:
                 Defaults to {cof_name}/2_{cof_name}_matrix.
             output_base_folder: Optional base folder for outputs.
                 Defaults to {cof_name}/2_{cof_name}_matrix.
+
+        Notes:
+            Outputs are written to dft_{serr|incl} subfolders.
 
         Returns:
             None.
@@ -557,7 +560,7 @@ END"""
         output_base_folder: str | None = None,
         input_base_folder: str | None = None,
     ) -> list[Path]:
-        """Extract energies for stacking modes into CSVs.
+        """Extract CRYSTAL single-point energies for selected mode(s).
 
         Args:
             cof_name: COF name used for folder naming.
@@ -785,7 +788,7 @@ END"""
         input_base: str | None = None,
         output_base: str | None = None,
     ) -> None:
-        """Convert CIFs for stacking modes and write to dft_{mode} folders.
+        """Generate CRYSTAL geometry-optimization inputs for selected mode(s).
 
         Args:
             cof_name: COF name used for folder naming.
@@ -922,7 +925,7 @@ END"""
         output_base_folder: str | None = None,
         input_base_folder: str | None = None,
     ) -> list[Path]:
-        """Extract energies for all stacking modes into a single CSV.
+        """Extract optimization energies for selected mode(s) into one CSV.
 
         Args:
             cof_name: COF name used for folder naming.
@@ -934,6 +937,10 @@ END"""
 
         Returns:
             List containing the combined CSV path.
+
+        Notes:
+            Output file name is {cof_name}_opt_energies_per_layer_dft.csv.
+            Serrated energies are reported per layer (E/2).
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -1075,7 +1082,7 @@ END"""
         output_base_folder: str | None = None,
         input_base_folder: str | None = None,
     ) -> list[Path]:
-        """Extract optimized structures for all stacking modes.
+        """Extract optimized CIFs from CRYSTAL outputs for selected mode(s).
 
         Args:
             cof_name: COF name used for folder naming.
@@ -1083,6 +1090,10 @@ END"""
             output_base_folder: Optional base folder for CIF outputs.
                 CIFs are written to dft_{mode} subfolders under this base.
             input_base_folder: Optional base folder containing dft_{mode} subfolders.
+
+        Notes:
+            Defaults for both input and output bases are
+            {cof_name}/4_{cof_name}_optimization.
 
         Returns:
             List of CIF paths written.

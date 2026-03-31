@@ -308,7 +308,7 @@ class MaceSP(Mace):
         input_folder: str | None = None,
         output_csv_dir: str | None = None,
     ) -> None:
-        """Run single-point energies for stacking modes or a specific folder.
+        """Run MACE single-point energies for one or more stacking modes.
 
         Args:
             cof_name: COF name used for folder naming.
@@ -443,12 +443,10 @@ class OptMACE(Mace):
 
 
 class MacePreopt(OptMACE):
-    """Pre-optimize a single CIF to improve the subsequent energy landscape.
+    """Pre-optimize a single-layer CIF before ILD×ILS matrix generation.
 
-    This step refines the CIF produced by pormake so that later landscape
-    calculations are more stable. Assumes input is in
-    1_{cof_name}_single_layer/{cof_name}_unopt.cif and writes
-    1_{cof_name}_single_layer/{cof_name}_preopt.cif.
+    Assumes input is {cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif
+    and writes {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
 
     Defaults:
         fmax=0.01, dtype="float64", head="omol", model="mace-mh-1", device="cpu",
@@ -511,9 +509,12 @@ class MacePreopt(OptMACE):
 
 
 class MaceFullOpt(OptMACE):
-    """Full geometry optimization with MACE allowing unconstrained 3D relaxation.
+    """Full MACE geometry optimization of selected stacking structures.
 
-    Processes all CIFs in a folder without fixed Z, optional dispersion.
+    Optimized CIFs are written to
+    {cof_name}/4_{cof_name}_optimization/{serr|incl} by default, and a
+    combined per-layer energy CSV is written to
+    {cof_name}/4_{cof_name}_optimization/{cof_name}_opt_energies_per_layer.csv.
     """
 
     def __init__(
@@ -598,7 +599,7 @@ class MaceFullOpt(OptMACE):
         output_base: str | None = None,
         input_base: str | None = None,
     ) -> None:
-        """Run full MACE relaxations by mode and write combined energy CSV.
+        """Run full MACE relaxations by mode and write a combined energy CSV.
 
         Args:
             cof_name: COF name used for folder naming.
@@ -607,6 +608,10 @@ class MaceFullOpt(OptMACE):
                 Defaults to 4_{cof_name}_optimization under cof_name.
             input_base: Optional base folder containing per-mode input subfolders.
                 Defaults to {cof_name}/3_{cof_name}_landscape/selection.
+
+        Notes:
+            Serrated structures are bilayers; reported energies are divided by 2
+            to produce per-layer values before relative energies are computed.
         """
         from .ild_ils_utils import get_mode_folders
 
