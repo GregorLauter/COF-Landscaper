@@ -123,7 +123,7 @@ class ChangeIld:
 
 
 class IlsSerr:
-    """Generate serrated ILS structures by shifting the top layer in a bilayer.
+    r"""Generate serrated ILS structures by shifting the top layer in a bilayer.
 
     A $2\times$ supercell is built along $z$ and the upper layer is shifted in
     the $ab$ plane. The shift length and angle can be scanned; the default
@@ -326,7 +326,7 @@ class IlsIncl:
         """
         struct = Structure.from_file(input_file)
 
-        a_vec, b_vec, c_vec = struct.lattice.matrix
+        a_vec, b_vec, _c_vec = struct.lattice.matrix
         c_len = struct.lattice.c
 
         angle_rad = math.radians(ils_angle_deg)

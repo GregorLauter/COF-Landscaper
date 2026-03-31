@@ -185,10 +185,7 @@ class Pxrd:
             sharex=True,
         )
 
-        if nrows == 1:
-            axes_list = [axes]
-        else:
-            axes_list = list(axes)
+        axes_list = [axes] if nrows == 1 else list(axes)
 
         for ax, xy_file in zip(axes_list, xy_files, strict=True):
             data = np.loadtxt(xy_file)

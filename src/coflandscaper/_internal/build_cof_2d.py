@@ -10,7 +10,7 @@ import glob
 import os
 import tempfile
 from collections.abc import Sequence
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from io import StringIO
 from pathlib import Path
 from typing import cast
@@ -246,14 +246,10 @@ def _disable_pormake_file_logging() -> None:
     try:
         from pormake import log as pmlog
 
-        try:
+        with suppress(Exception):
             pmlog.logger.removeHandler(pmlog.file_log_handler)
-        except Exception:
-            pass
-        try:
+        with suppress(Exception):
             pmlog.file_log_handler.close()
-        except Exception:
-            pass
     except Exception:
         return
 

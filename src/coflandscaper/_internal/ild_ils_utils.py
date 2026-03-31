@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import math
 import os
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 import numpy as np
 from pymatgen.core import Lattice, Structure
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def list_cifs(input_folder: str) -> list[str]:
@@ -60,8 +63,7 @@ def _calculate_ild(lat: Lattice) -> float:
             - np.cos(gamma_r) ** 2
         )
     )
-    ild = V / (a * b * np.sin(gamma_r))
-    return ild
+    return V / (a * b * np.sin(gamma_r))
 
 
 def _unwrap_fractional_z(frac_z: np.ndarray) -> float:
@@ -79,8 +81,7 @@ def _unwrap_fractional_z(frac_z: np.ndarray) -> float:
     gaps = np.diff(np.r_[z_sorted, z_sorted[0] + 1.0])
     cut = int(np.argmax(gaps))
     start = (cut + 1) % len(z_sorted)
-    z0 = float(z_sorted[start])
-    return z0
+    return float(z_sorted[start])
 
 
 def _periodic_delta_frac(z: float, z0: float) -> float:
@@ -106,7 +107,7 @@ def _z_tag(val: float) -> str:
     Returns:
         Tag like "z34" for 3.4 Å.
     """
-    return f"z{int(round(float(val) * 10.0))}"
+    return f"z{round(float(val) * 10.0)}"
 
 
 def _slug(val: float) -> str:
@@ -118,7 +119,7 @@ def _slug(val: float) -> str:
     Returns:
         Slug like "034" for 3.4 Å.
     """
-    val_tenths = int(round(float(val) * 10))
+    val_tenths = round(float(val) * 10)
     return f"{val_tenths:03d}"
 
 
@@ -146,8 +147,7 @@ def _generate_values(start: float, end: float, step: float) -> list[float]:
         values.append(round(v, 10))
     if abs(values[-1] - end) > eps:
         values.append(float(end))
-    values = sorted(set(values))
-    return values
+    return sorted(set(values))
 
 
 def wrap01(u: float) -> float:

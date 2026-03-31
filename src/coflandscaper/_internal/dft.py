@@ -13,11 +13,14 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from ase.atoms import Atoms
 from ase.data import atomic_numbers
+
+if TYPE_CHECKING:
+    from ase.atoms import Atoms
 
 HARTREE_TO_EV = 27.211386245988
 
@@ -75,7 +78,7 @@ def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
             atoms: list[tuple[int, float, float, float]] = []
             while j < len(lines):
                 s = lines[j].strip()
-                if not s or s.startswith("loop_") or s.startswith("_"):
+                if not s or s.startswith(("loop_", "_")):
                     break
                 parts = lines[j].split()
                 if len(parts) >= len(headers):
@@ -1077,10 +1080,7 @@ END"""
                     f"Could not parse structure from: {out_path}"
                 )
 
-            if output_folder:
-                out_dir = Path(output_folder)
-            else:
-                out_dir = out_path.parent
+            out_dir = Path(output_folder) if output_folder else out_path.parent
             out_dir.mkdir(parents=True, exist_ok=True)
 
             out_cif = out_dir / f"{out_path.stem}.cif"

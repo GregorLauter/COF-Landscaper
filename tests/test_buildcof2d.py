@@ -1,16 +1,26 @@
+from pathlib import Path
+
 import coflandscaper as cl
 
-from .conftest import CaseData
 
+def test_buildcof2d(tmp_path: Path) -> None:
+    """Build a COF from example inputs and assert output is written."""
+    repo_root = Path(__file__).resolve().parents[1]
+    node_file = repo_root / "examples/COF-1/0_all/0_node/boronate_ester.xyz"
+    linker_file = repo_root / "examples/COF-1/0_all/0_linker/2-Benzene.xyz"
 
-def test_buildcof2d(case_data: CaseData) -> None:
-    """Test class."""
+    cof_name = "cof-test"
+    output_folder = tmp_path / cof_name / f"1_{cof_name}_single_layer"
+
     builder = cl.BuildCOF2D()
-    builder.build(
-        topo=case_data.topology,
-        bond_type=case_data.bond_type,
-        cof_name=case_data.cof_name,
-        output_folder=case_data.running_directory,
+    outputs = builder.build(
+        topo="hcb",
+        bond_type="single",
+        cof_name=cof_name,
+        input_node=node_file,
+        input_linker=linker_file,
+        output_folder=str(output_folder),
     )
-    preopt = cl.MacePreopt()
-    preopt.run(cof_name=case_data.cof_name)
+
+    assert len(outputs) == 1
+    assert Path(outputs[0]).exists()

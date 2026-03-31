@@ -16,7 +16,7 @@ from .ild_ils_utils import (
 
 
 class Supercell:
-    """Build a supercell $a\times b\times c$ from each input unit cell.
+    r"""Build a supercell $a\times b\times c$ from each input unit cell.
 
     Physically, this replicates the periodic unit cell in-plane and along $c$
     to create a larger slab for visualization or downstream calculations.
@@ -51,7 +51,7 @@ class SetVacuum:
         os.makedirs(output_folder, exist_ok=True)
         for input_file in list_cifs(input_folder):
             base = os.path.splitext(os.path.basename(input_file))[0]
-            outname = f"{base}_vacuum_{int(round(vacuum_top * 10)):03d}.cif"
+            outname = f"{base}_vacuum_{round(vacuum_top * 10):03d}.cif"
             outpath = os.path.join(output_folder, outname)
             self._set_vacuum_on_top(input_file, outpath, vacuum_top)
 
@@ -147,7 +147,7 @@ class RemoveLayer:
         for input_file in list_cifs(input_folder):
             base = os.path.splitext(os.path.basename(input_file))[0]
             if mode == "frac":
-                tag = f"rm_z{int(round(remove_z * 1000))}_t{int(round(remove_tol * 1000))}"
+                tag = f"rm_z{round(remove_z * 1000)}_t{round(remove_tol * 1000)}"
             else:
                 tag = f"rm_Z{_slug(remove_z)}_t{_slug(remove_tol)}"
             outname = f"{base}_{tag}.cif"

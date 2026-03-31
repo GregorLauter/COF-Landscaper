@@ -61,7 +61,7 @@ class Analyze:
                 continue
 
             if in_atom_loop and saw_atom_headers:
-                if not ls or ls.startswith("_") or ls.startswith("loop_"):
+                if not ls or ls.startswith(("_", "loop_")):
                     break
                 if ls and ls[0].isalpha():
                     atom_lines.append(ls)
@@ -69,7 +69,7 @@ class Analyze:
         if not atom_lines:
             raise ValueError("No atom lines found in CIF")
 
-        _, (lower_line, upper_line), (xl, yl, _), _ = (
+        _, (_lower_line, upper_line), (xl, yl, _), _ = (
             pick_lower_left_pair_from_lines(atom_lines)
         )
         xu, yu, _ = cast(
@@ -165,7 +165,7 @@ class Analyze:
         output_base: str | Path | None = None,
         dft: bool = False,
         print_values: bool = True,
-    ):
+    ) -> None:
         """Compute ILD/ILS metrics and write an analysis CSV.
 
         Args:

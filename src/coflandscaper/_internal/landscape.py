@@ -62,7 +62,7 @@ class Landscape:
         Returns:
             None.
         """
-        input_path = Path(input_folder)
+        Path(input_folder)
         csv_dir, csv_path, folder_tag, cof_name = self._resolve_input_csv(
             input_folder, cof_name
         )
@@ -121,7 +121,7 @@ class Landscape:
                 "No matching rows for a z/L grid. Check CSV content."
             )
 
-        vals = np.array(abs_grid.values, dtype=float)
+        vals = np.array(abs_grid.to_numpy(), dtype=float)
         mask = np.isfinite(vals)
         if not mask.any():
             raise ValueError("Grid has no finite energies (unexpected).")
@@ -135,14 +135,14 @@ class Landscape:
             rel_grid.to_csv(rel_grid_csv_path, index=True)
 
         plt.figure(figsize=(10, 6))
-        data = rel_grid.values
+        data = rel_grid.to_numpy()
 
         cmap = self._resolve_cmap(colorscheme)
         mode = (plot_mode or "heatmap").lower()
         nrows, ncols = data.shape
         vmax = float(rel_energy_max) if rel_energy_max is not None else None
 
-        def _style_axes():
+        def _style_axes() -> None:
             plt.xlim(-0.5, ncols - 0.5)
             plt.ylim(-0.5, nrows - 0.5)
             plt.xticks(
@@ -227,7 +227,7 @@ class Landscape:
                         )
                         plt.gca().add_patch(rect)
                 else:
-                    ys, xs = zip(*local_minima)
+                    ys, xs = zip(*local_minima, strict=False)
                     plt.scatter(
                         xs,
                         ys,
@@ -262,10 +262,7 @@ class Landscape:
 
         if mode in {"isolines", "contour", "contours", "both"}:
             plt.figure(figsize=(10, 6))
-            if vmax is not None:
-                levels = np.linspace(0.0, vmax, 12)
-            else:
-                levels = 12
+            levels = np.linspace(0.0, vmax, 12) if vmax is not None else 12
             im = plt.contour(data, levels=levels, cmap=cmap)
             cbar = plt.colorbar(im, pad=0.02)
             cbar.set_label("Relative energy (eV)", labelpad=18, fontsize=12)
@@ -441,7 +438,7 @@ class LandscapeDifference(Landscape):
                 f"No matching rows for a z/L grid in: {csv_path}. Check CSV content."
             )
 
-        vals = np.array(abs_grid.values, dtype=float)
+        vals = np.array(abs_grid.to_numpy(), dtype=float)
         mask = np.isfinite(vals)
         if not mask.any():
             raise ValueError(f"Grid has no finite energies: {csv_path}")
@@ -529,7 +526,7 @@ class LandscapeDifference(Landscape):
         diff_csv_path = diff_csv_dir / f"energy_relative_{comparison_tag}.csv"
         diff_grid.to_csv(diff_csv_path, index=True)
 
-        data = diff_grid.values
+        data = diff_grid.to_numpy()
         cmap = self._resolve_cmap(colorscheme)
         mode = (plot_mode or "heatmap").lower()
         nrows, ncols = data.shape
@@ -619,10 +616,7 @@ class LandscapeDifference(Landscape):
 
         if mode in {"isolines", "contour", "contours", "both"}:
             plt.figure(figsize=(10, 6))
-            if vmax > vmin:
-                levels = np.linspace(vmin, vmax, 12)
-            else:
-                levels = 12
+            levels = np.linspace(vmin, vmax, 12) if vmax > vmin else 12
             im = plt.contour(data, levels=levels, cmap=cmap)
             cbar = plt.colorbar(im, pad=0.02)
             cbar.set_label(
@@ -731,7 +725,7 @@ class BenchmarkOverview:
                 continue
             try:
                 df = pd.read_csv(csv_path, index_col=0)
-                vals = np.array(df.values, dtype=float)
+                vals = np.array(df.to_numpy(), dtype=float)
                 finite = vals[np.isfinite(vals)]
                 if finite.size == 0:
                     continue
@@ -776,7 +770,7 @@ class BenchmarkOverview:
             if grid.empty:
                 return []
 
-            data = np.array(grid.values, dtype=float)
+            data = np.array(grid.to_numpy(), dtype=float)
             minima_idx = Landscape()._find_local_minima(data)
             if not minima_idx:
                 return []
@@ -786,8 +780,7 @@ class BenchmarkOverview:
             minima = [
                 (float(z_vals[i]), float(L_vals[j])) for i, j in minima_idx
             ]
-            minima = sorted(set(minima), key=lambda pair: (pair[0], pair[1]))
-            return minima
+            return sorted(set(minima), key=lambda pair: (pair[0], pair[1]))
         except Exception:
             return []
 
@@ -982,7 +975,7 @@ class SelectCofs:
             raise ValueError(f"CSV has no valid z/L/energy rows: {csv_path}")
         min_val = df2["energy_eV"].min()
         sel = df2[df2["energy_eV"] == min_val]
-        selections = list(zip(sel["z"].astype(float), sel["L"].astype(float)))
+        selections = list(zip(sel["z"].astype(float), sel["L"].astype(float), strict=False))
         return self._dedupe_selections(selections)
 
     def _local_minima_from_csv(
@@ -1001,7 +994,7 @@ class SelectCofs:
         if abs_grid.empty:
             return []
 
-        data = np.array(abs_grid.values, dtype=float)
+        data = np.array(abs_grid.to_numpy(), dtype=float)
         minima_idx = Landscape()._find_local_minima(data)
         if not minima_idx:
             return []

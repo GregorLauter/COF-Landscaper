@@ -8,18 +8,20 @@ import warnings
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
 import torch
-from ase.atoms import Atoms
 from ase.constraints import FixCartesian
 from ase.filters import UnitCellFilter
 from ase.io import read
 from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 from mace.modules.models import ScaleShiftMACE
+
+if TYPE_CHECKING:
+    from ase.atoms import Atoms
 
 
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
