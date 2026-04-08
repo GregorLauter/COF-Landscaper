@@ -1,0 +1,4 @@
+Stacking,filename,ILD,ILS,energy_eV_per_layer,energy_rel_eV_per_layer
+serr,cof-1_z31_L087_serr.cif,3.1000943026192753,8.68457182746948,nan,nan
+serr,cof-1_z33_L030_serr.cif,3.2998140768958533,2.995249348382002,nan,nan
+serr,cof-1_z36_L000_serr.cif,3.5996316777245667,3.1379361424505645e-11,nan,nan

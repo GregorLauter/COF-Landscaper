@@ -138,6 +138,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "--cov=coflandscaper --cov-report term-missing"
+filterwarnings = [
+  "ignore:Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected.*:UserWarning:e3nn\\.o3\\._wigner",
+  "ignore:`torch\\.jit\\.script` is deprecated\\. Please switch to `torch\\.compile` or `torch\\.export`\\.:DeprecationWarning:torch\\.jit\\._script",
+]
 markers = [
   "unit: fast deterministic unit tests",
   "integration: file-IO and cross-module integration tests",

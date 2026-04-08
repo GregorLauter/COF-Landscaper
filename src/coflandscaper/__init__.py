@@ -2,13 +2,13 @@
 
 from ._internal.analyze import (
     AnalyzeStacking,
+    Supercell,
     VisualizeCOF,
     analyze,
     visualize_cof,
 )
 from ._internal.build_cof_2d import BuildCOF2D
-from ._internal.dft import Crystal, CrystalOpt, CrystalSP, VaspSP
-from ._internal.helpers import CenterZ, RemoveLayer, SetVacuum, Supercell
+from ._internal.dft import Crystal, CrystalOpt, CrystalSP
 from ._internal.ild_ils_matrix import ChangeIld, CreateMatrix, IlsIncl, IlsSerr
 from ._internal.ild_ils_utils import get_mode_folders
 from ._internal.landscape import (
@@ -24,7 +24,6 @@ __all__ = [
     "AnalyzeStacking",
     "BenchmarkOverview",
     "BuildCOF2D",
-    "CenterZ",
     "ChangeIld",
     "CreateMatrix",
     "Crystal",
@@ -40,11 +39,8 @@ __all__ = [
     "MaceSP",
     "OptMACE",
     "Pxrd",
-    "RemoveLayer",
     "SelectCofs",
-    "SetVacuum",
     "Supercell",
-    "VaspSP",
     "VisualizeCOF",
     "analyze",
     "get_mode_folders",

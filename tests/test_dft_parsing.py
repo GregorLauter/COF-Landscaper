@@ -102,18 +102,6 @@ def test_crystal_sp_extract_energy_requires_completion_and_parses_last_value() -
 
 
 @pytest.mark.unit
-def test_vasp_sp_extract_e0_reads_last_non_empty_line(tmp_path: Path) -> None:
-    """This test ensures VASP E0 extraction uses the final non-empty OSZICAR line."""
-    oszicar = tmp_path / "OSZICAR"
-    oszicar.write_text(
-        " 1 F= -.1 E0= -12.0\n\n 2 F= -.2 E0= -22.25   dE=.1\n",
-        encoding="utf-8",
-    )
-    obj = dft.VaspSP()
-    assert obj._extract_e0_ev(oszicar) == -22.25
-
-
-@pytest.mark.unit
 def test_crystal_sp_read_writes_sorted_csv_with_relative_energy(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -152,30 +140,6 @@ def test_crystal_sp_read_writes_sorted_csv_with_relative_energy(
     assert pytest.approx(float(df["energy_rel_eV"].min()), abs=1e-12) == 0.0
 
 
-@pytest.mark.unit
-def test_vasp_sp_read_writes_csv_and_ignores_bad_oszicar(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """This test ensures VASP read tolerates bad files while writing valid energy rows."""
-    in_dir = tmp_path / "cof-y" / "2_cof-y_matrix" / "dft_incl"
-    good = in_dir / "cof_z010_L040"
-    bad = in_dir / "cof_z020_L010"
-    good.mkdir(parents=True)
-    bad.mkdir(parents=True)
-
-    (good / "OSZICAR").write_text(" 2 F= -.2 E0= -8.5\n", encoding="utf-8")
-    (bad / "OSZICAR").write_text("no energy field\n", encoding="utf-8")
-
-    monkeypatch.chdir(tmp_path)
-    csv_path = dft.VaspSP().read(str(in_dir))
-    df = pd.read_csv(csv_path)
-
-    assert list(df["structure"]) == ["cof_z010_L040"]
-    assert pytest.approx(float(df["energy_rel_eV"].iloc[0]), abs=1e-12) == 0.0
-
-
-@pytest.mark.unit
 def test_find_last_occurrence_returns_latest_match_index() -> None:
     """This test ensures keyword scanning returns the last matching line index."""
     lines = ["A", "B keyword", "C", "D keyword"]
@@ -259,15 +223,6 @@ def test_crystal_sp_read_mode_appends_dft_suffix_to_default_csv_names(
 
 
 @pytest.mark.unit
-def test_vasp_sp_read_raises_when_no_oszicar_found(tmp_path: Path) -> None:
-    """This test ensures VaspSP read fails clearly when no OSZICAR files exist."""
-    empty_dir = tmp_path / "cof-z" / "2_cof-z_matrix" / "dft_serr"
-    empty_dir.mkdir(parents=True)
-    with pytest.raises(FileNotFoundError, match="No OSZICAR files found"):
-        dft.VaspSP().read(str(empty_dir))
-
-
-@pytest.mark.unit
 def test_crystal_sp_read_does_not_create_default_output_dir_on_missing_input(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -281,19 +236,3 @@ def test_crystal_sp_read_does_not_create_default_output_dir_on_missing_input(
         dft.CrystalSP().read(str(in_dir))
 
     assert not (tmp_path / "cof-x" / "3_cof-x_landscape").exists()
-
-
-@pytest.mark.unit
-def test_vasp_sp_read_does_not_create_default_output_dir_on_missing_input(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """This test ensures failing VaspSP reads do not leave empty default output folders."""
-    in_dir = tmp_path / "cof-y" / "2_cof-y_matrix" / "dft_incl"
-    in_dir.mkdir(parents=True)
-
-    monkeypatch.chdir(tmp_path)
-    with pytest.raises(FileNotFoundError, match="No OSZICAR files found"):
-        dft.VaspSP().read(str(in_dir))
-
-    assert not (tmp_path / "cof-y" / "3_cof-y_landscape").exists()

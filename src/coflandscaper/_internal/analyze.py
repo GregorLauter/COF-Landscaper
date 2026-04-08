@@ -7,20 +7,54 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import numpy as np
 from pymatgen.core import Structure
+from pymatgen.io.cif import CifWriter
 
 from .ild_ils_utils import (
     _calculate_ild,
+    list_cifs,
     parse_xyz_from_atom_line,
     pick_lower_left_pair_from_lines,
     wrap01,
 )
 
 
+class Supercell:
+    r"""Build a supercell $a\times b\times c$ from each input unit cell.
+
+    Physically, this replicates the periodic unit cell in-plane and along $c$
+    to create a larger slab for visualization or downstream calculations.
+    """
+
+    def run(
+        self,
+        input_folder: str,
+        output_folder: str,
+        supercell_size: tuple[int, int, int] = (2, 2, 2),
+    ) -> None:
+        os.makedirs(output_folder, exist_ok=True)
+        for input_file in list_cifs(input_folder):
+            base = os.path.splitext(os.path.basename(input_file))[0]
+            outname = f"{base}_supercell_{supercell_size[0]}x{supercell_size[1]}x{supercell_size[2]}.cif"
+            outpath = os.path.join(output_folder, outname)
+            struct = Structure.from_file(input_file)
+            supercell = struct * supercell_size
+            CifWriter(supercell).write_file(outpath, mode="wt")
+
+
 class AnalyzeStacking:
+    _FINAL_STRUCT_FIELDS: ClassVar[list[str]] = [
+        "Stacking",
+        "filename",
+        "ILD",
+        "ILS",
+        "energy_eV_per_layer",
+        "energy_rel_eV_per_layer",
+    ]
+
     def _collect_cifs(self, folder: Path) -> list[str]:
         files: list[str] = []
         if not folder.exists():
@@ -157,6 +191,41 @@ class AnalyzeStacking:
                     continue
         return energies
 
+    def _merge_existing_rows(
+        self,
+        output_csv: Path,
+        new_rows: list[dict[str, float | str]],
+    ) -> list[dict[str, float | str]]:
+        modes_to_replace = {
+            str(row.get("Stacking", ""))
+            for row in new_rows
+            if str(row.get("Stacking", ""))
+        }
+
+        preserved: list[dict[str, float | str]] = []
+        if output_csv.exists():
+            with output_csv.open(newline="") as handle:
+                reader = csv.DictReader(handle)
+                for row in reader:
+                    mode = str(row.get("Stacking", ""))
+                    if mode in modes_to_replace:
+                        continue
+                    preserved.append(
+                        {
+                            field: row.get(field, "")
+                            for field in self._FINAL_STRUCT_FIELDS
+                        }
+                    )
+
+        merged = preserved + new_rows
+        merged.sort(
+            key=lambda row: (
+                str(row.get("Stacking", "")),
+                str(row.get("filename", "")),
+            )
+        )
+        return merged
+
     def run(
         self,
         cof_name: str,
@@ -241,20 +310,19 @@ class AnalyzeStacking:
             "final_structures_dft.csv" if dft else "final_structures.csv"
         )
         output_csv = output_base_path / output_csv_name
+
+        merged_rows = self._merge_existing_rows(
+            output_csv=output_csv,
+            new_rows=rows,
+        )
+
         with open(output_csv, "w", newline="") as csvfile:
             writer = csv.DictWriter(
                 csvfile,
-                fieldnames=[
-                    "Stacking",
-                    "filename",
-                    "ILD",
-                    "ILS",
-                    "energy_eV_per_layer",
-                    "energy_rel_eV_per_layer",
-                ],
+                fieldnames=self._FINAL_STRUCT_FIELDS,
             )
             writer.writeheader()
-            writer.writerows(rows)
+            writer.writerows(merged_rows)
 
 
 def analyze(

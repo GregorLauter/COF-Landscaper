@@ -3,6 +3,14 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected.*",
+    category=UserWarning,
+)
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 

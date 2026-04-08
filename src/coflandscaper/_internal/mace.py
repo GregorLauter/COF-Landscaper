@@ -345,12 +345,13 @@ class OptMACE(Mace):
 
     def __init__(
         self,
-        fmax: float = 0.05,
+        fmax: float = 0.01,
         dtype: str = "float64",
         head: str = "omol",
         model: str | None = None,
         device: str = "cpu",
-        fix_z: bool = True,
+        fix_z: bool = False,
+        max_steps: int = 500,
         dispersion: bool | None = None,
         verbose: bool = True,
     ) -> None:
@@ -364,6 +365,7 @@ class OptMACE(Mace):
         )
         self.fmax = fmax
         self.fix_z = fix_z
+        self.max_steps = max_steps
         _, _, _, model_used, dispersion_used = self._resolve_params()
         self.calc = self._make_calc(
             device=self.device,
@@ -379,7 +381,7 @@ class OptMACE(Mace):
             con = FixCartesian(indices, mask=[False, False, True])
             atoms.set_constraint(con)
 
-    def optimize_cof(self, input_path: str, output_path: str) -> None:
+    def optimize_cof(self, input_path: str, output_path: str) -> bool:
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
@@ -391,20 +393,36 @@ class OptMACE(Mace):
 
         ucf = UnitCellFilter(atoms)
         dyn = LBFGS(cast("Any", ucf))
-        dyn.run(fmax=self.fmax)
+        converged = dyn.run(fmax=self.fmax, steps=self.max_steps)
+        if not converged:
+            warnings.warn(
+                (
+                    "MACE optimization did not converge within "
+                    f"{self.max_steps} steps for {input_path}. "
+                    "Writing current structure and continuing."
+                ),
+                category=UserWarning,
+                stacklevel=2,
+            )
         atoms.write(output_path)
+        return bool(converged)
 
-    def process_cifs(self, input_folder: str, output_folder: str) -> None:
+    def process_cifs(
+        self, input_folder: str, output_folder: str
+    ) -> dict[str, bool]:
         os.makedirs(output_folder, exist_ok=True)
+        convergence_by_structure: dict[str, bool] = {}
         for file_name in os.listdir(input_folder):
             if file_name.endswith(".cif"):
                 input_path = os.path.join(input_folder, file_name)
                 output_path = os.path.join(output_folder, file_name)
-                self.optimize_cof(input_path, output_path)
+                converged = self.optimize_cof(input_path, output_path)
+                convergence_by_structure[Path(file_name).stem] = converged
+        return convergence_by_structure
 
-    def run(self, input_folder: str, output_folder: str) -> None:
+    def run(self, input_folder: str, output_folder: str) -> dict[str, bool]:
         """Alias for batch optimization over a folder of CIFs."""
-        self.process_cifs(
+        return self.process_cifs(
             input_folder=input_folder, output_folder=output_folder
         )
 
@@ -482,6 +500,7 @@ class MacePreopt(OptMACE):
         model: str | None = None,
         device: str = "cpu",
         fix_z: bool = True,
+        max_steps: int = 500,
         verbose: bool = True,
     ) -> None:
         super().__init__(
@@ -491,6 +510,7 @@ class MacePreopt(OptMACE):
             model=model,
             device=device,
             fix_z=fix_z,
+            max_steps=max_steps,
             dispersion=False,
             verbose=verbose,
         )
@@ -537,6 +557,7 @@ class MaceFullOpt(OptMACE):
         head: str = "omol",
         model: str | None = None,
         device: str = "cpu",
+        max_steps: int = 500,
         dispersion: bool | None = None,
         verbose: bool = True,
     ) -> None:
@@ -547,15 +568,80 @@ class MaceFullOpt(OptMACE):
             model=model,
             device=device,
             fix_z=False,
+            max_steps=max_steps,
             dispersion=dispersion,
             verbose=verbose,
         )
+
+    def _merge_with_existing_energy_csv(
+        self,
+        new_df: pd.DataFrame,
+        csv_path: Path,
+    ) -> pd.DataFrame:
+        columns = [
+            "structure",
+            "stacking_mode",
+            "energy_eV_per_layer",
+            "energy_rel_eV_per_layer",
+            "stopped_due_to_max_steps",
+        ]
+        for col in columns:
+            if col not in new_df.columns:
+                new_df[col] = np.nan
+
+        if csv_path.exists():
+            existing_df = pd.read_csv(csv_path)
+            for col in columns:
+                if col not in existing_df.columns:
+                    existing_df[col] = np.nan
+            existing_df = existing_df[columns]
+            existing_df["energy_eV_per_layer"] = pd.to_numeric(
+                existing_df["energy_eV_per_layer"], errors="coerce"
+            )
+            existing_df["stopped_due_to_max_steps"] = (
+                existing_df["stopped_due_to_max_steps"]
+                .fillna(value=False)
+                .astype(bool)
+            )
+            modes_to_replace = set(new_df["stacking_mode"].astype(str))
+            existing_df = existing_df[
+                ~existing_df["stacking_mode"]
+                .astype(str)
+                .isin(modes_to_replace)
+            ]
+        else:
+            existing_df = pd.DataFrame(columns=columns)
+
+        combined = pd.concat(
+            [existing_df, new_df[columns]],
+            ignore_index=True,
+        )
+        combined = combined.dropna(
+            subset=["structure", "stacking_mode", "energy_eV_per_layer"]
+        )
+        combined = combined.drop_duplicates(
+            subset=["stacking_mode", "structure"], keep="last"
+        )
+        combined = combined.sort_values(["stacking_mode", "structure"])
+        combined = combined.reset_index(drop=True)
+        combined["stopped_due_to_max_steps"] = (
+            combined["stopped_due_to_max_steps"]
+            .fillna(value=False)
+            .astype(bool)
+        )
+
+        min_e = float(combined["energy_eV_per_layer"].min())
+        combined["energy_rel_eV_per_layer"] = (
+            combined["energy_eV_per_layer"] - min_e
+        )
+        return combined
 
     def _write_optimized_energy_csv(
         self,
         cof_name: str,
         mode_output_folders: dict[str, Path],
         output_base_path: Path,
+        convergence_map: dict[tuple[str, str], bool] | None = None,
     ) -> Path:
         rows: list[dict[str, str | float]] = []
         failed: list[tuple[str, str]] = []
@@ -576,6 +662,13 @@ class MaceFullOpt(OptMACE):
                             "structure": cif_path.stem,
                             "stacking_mode": mode_tag,
                             "energy_eV_per_layer": energy_ev_per_layer,
+                            "stopped_due_to_max_steps": (
+                                not convergence_map.get(
+                                    (mode_tag, cif_path.stem), True
+                                )
+                                if convergence_map is not None
+                                else False
+                            ),
                         }
                     )
                 except Exception as exc:
@@ -586,16 +679,17 @@ class MaceFullOpt(OptMACE):
                 "No optimized energies could be evaluated for the generated CIFs."
             )
 
-        df = (
+        new_df = (
             pd.DataFrame(rows)
             .sort_values(["stacking_mode", "structure"])
             .reset_index(drop=True)
         )
-        min_e = float(df["energy_eV_per_layer"].min())
-        df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
 
         output_base_path.mkdir(parents=True, exist_ok=True)
         csv_path = output_base_path / f"{cof_name}_opt_energies_per_layer.csv"
+        df = self._merge_with_existing_energy_csv(
+            new_df=new_df, csv_path=csv_path
+        )
         df.to_csv(csv_path, index=False)
 
         if failed:
@@ -642,18 +736,22 @@ class MaceFullOpt(OptMACE):
             output_base_path = Path(cof_name) / output_base_path
 
         mode_output_folders: dict[str, Path] = {}
+        convergence_map: dict[tuple[str, str], bool] = {}
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = os.path.basename(folder)
             target_output = output_base_path / mode_tag
-            self.run(
+            mode_convergence = self.run(
                 input_folder=f"{input_base}/{mode_tag}",
                 output_folder=str(target_output),
             )
+            for structure_name, converged in mode_convergence.items():
+                convergence_map[(mode_tag, structure_name)] = converged
             mode_output_folders[mode_tag] = target_output
 
         csv_path = self._write_optimized_energy_csv(
             cof_name=cof_name,
             mode_output_folders=mode_output_folders,
             output_base_path=output_base_path,
+            convergence_map=convergence_map,
         )
         print(f"Saved optimized energies: {csv_path}")

@@ -130,3 +130,54 @@ def test_run_dft_mode_uses_dft_folder_and_filename(
 
     assert seen_folders == ["dft_serr"]
     assert (out_dir / "final_structures_dft.csv").exists()
+
+
+def test_run_merges_with_existing_final_structures_csv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures single-mode reruns update only their rows and preserve others."""
+    analyzer = AnalyzeStacking()
+
+    def fake_collect(folder: Path) -> list[str]:
+        if folder.name == "serr":
+            return [str(tmp_path / "serr_new.cif")]
+        return [str(tmp_path / "incl_keep.cif")]
+
+    def fake_metrics(
+        input_file: str, _selected_mode: str
+    ) -> tuple[float, float]:
+        if input_file.endswith("serr_new.cif"):
+            return (3.3, 0.7)
+        return (4.4, 1.1)
+
+    monkeypatch.setattr(analyzer, "_collect_cifs", fake_collect)
+    monkeypatch.setattr(analyzer, "_compute_metrics", fake_metrics)
+    monkeypatch.setattr(analyzer, "_load_energy_map", lambda **_kwargs: {})
+
+    out_dir = tmp_path / "analysis"
+    out_dir.mkdir(parents=True)
+    output_csv = out_dir / "final_structures.csv"
+    output_csv.write_text(
+        "Stacking,filename,ILD,ILS,energy_eV_per_layer,energy_rel_eV_per_layer\n"
+        "serr,serr_old.cif,1.0,2.0,-10.0,0.0\n"
+        "incl,incl_keep.cif,5.0,6.0,-9.0,1.0\n",
+        encoding="utf-8",
+    )
+
+    analyzer.run(
+        cof_name="cof-a",
+        mode="serr",
+        input_base=tmp_path / "in",
+        output_base=out_dir,
+        print_values=False,
+    )
+
+    with output_csv.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    by_key = {(row["Stacking"], row["filename"]): row for row in rows}
+
+    assert ("incl", "incl_keep.cif") in by_key
+    assert ("serr", "serr_new.cif") in by_key
+    assert ("serr", "serr_old.cif") not in by_key
+    assert by_key[("incl", "incl_keep.cif")]["ILD"] == "5.0"
