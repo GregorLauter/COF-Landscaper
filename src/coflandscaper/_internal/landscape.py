@@ -15,7 +15,10 @@ class Landscape:
     """Generate potential energy landscape plots from single-point CSV data."""
 
     def _resolve_input_csv(
-        self, input_folder: str, cof_name: str | None
+        self,
+        input_folder: str,
+        cof_name: str | None,
+        dft: bool = False,
     ) -> tuple[Path, Path, str, str | None]:
         input_path = Path(input_folder)
         folder_tag = input_path.name
@@ -28,7 +31,10 @@ class Landscape:
         csv_dir = input_path.parent
         if cof_name is None:
             raise ValueError("cof_name must be provided explicitly.")
-        csv_path = csv_dir / f"{cof_name}_sp_energies_{folder_tag}.csv"
+        dft_suffix = "_dft" if dft else ""
+        csv_path = (
+            csv_dir / f"{cof_name}_sp_energies_{folder_tag}{dft_suffix}.csv"
+        )
 
         return csv_dir, csv_path, folder_tag, cof_name
 
@@ -36,6 +42,7 @@ class Landscape:
         self,
         input_folder: str,
         cof_name: str | None = None,
+        dft: bool = False,
         output_folder: str | None = None,
         colorscheme: str = "viridis",
         plot_mode: str = "both",
@@ -47,7 +54,9 @@ class Landscape:
 
         Args:
             input_folder: Mode folder path (serr or incl) used to infer mode;
-                its parent must contain {cof_name}_sp_energies_{mode}.csv.
+                its parent must contain {cof_name}_sp_energies_{mode}.csv
+                (or {cof_name}_sp_energies_{mode}_dft.csv when dft=True).
+            dft: If True, read input CSVs with _dft suffix.
             output_folder: Optional output folder for plots.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
             colorscheme: Any valid Matplotlib colormap name.
@@ -64,7 +73,7 @@ class Landscape:
         """
         Path(input_folder)
         csv_dir, csv_path, folder_tag, cof_name = self._resolve_input_csv(
-            input_folder, cof_name
+            input_folder, cof_name, dft=dft
         )
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
@@ -279,6 +288,7 @@ class Landscape:
         self,
         cof_name: str,
         mode: str,
+        dft: bool = False,
         colorscheme: str = "viridis",
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
@@ -292,6 +302,7 @@ class Landscape:
         Args:
             cof_name: COF name used for folder naming.
             mode: "incl", "serr", or "both".
+            dft: If True, read input CSVs with _dft suffix.
             colorscheme: Any valid Matplotlib colormap name.
                 Defaults to "viridis".
             plot_mode: "heatmap", "isolines", or "both".
@@ -299,7 +310,8 @@ class Landscape:
             show_minima_markers: If True (default), mark minima on plots.
             show_header: If True (default), draw title and header text.
             input_folder: Optional base folder containing mode folders and
-                {cof_name}_sp_energies_{mode}.csv files.
+                {cof_name}_sp_energies_{mode}.csv files, or
+                {cof_name}_sp_energies_{mode}_dft.csv when dft=True.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
             output_folder: Optional output folder for plots.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
@@ -323,8 +335,11 @@ class Landscape:
             raise FileNotFoundError(f"Input folder not found: {base_path}")
 
         missing_csvs: list[str] = []
+        dft_suffix = "_dft" if dft else ""
         for mode_tag in mode_tags:
-            expected_csv = base_path / f"{cof_name}_sp_energies_{mode_tag}.csv"
+            expected_csv = (
+                base_path / f"{cof_name}_sp_energies_{mode_tag}{dft_suffix}.csv"
+            )
             if not expected_csv.exists():
                 missing_csvs.append(str(expected_csv))
                 continue
@@ -332,6 +347,7 @@ class Landscape:
             self.run(
                 input_folder=str(base_path / mode_tag),
                 cof_name=cof_name,
+                dft=dft,
                 output_folder=output_folder,
                 colorscheme=colorscheme,
                 plot_mode=plot_mode,
@@ -1078,7 +1094,7 @@ class SelectCofs:
         mode: str,
         selections_serr: list[tuple[float, float]] | None = None,
         selections_incl: list[tuple[float, float]] | None = None,
-        include_autoselect: bool = True,
+        include_autoselect: bool = False,
         input_base: str | None = None,
         output_base: str | None = None,
         input_folder: str | None = None,

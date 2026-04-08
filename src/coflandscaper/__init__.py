@@ -1,7 +1,7 @@
 """Cof landscaper package."""
 
 from ._internal.analyze import (
-    Analyze,
+    AnalyzeStacking,
     VisualizeCOF,
     analyze,
     visualize_cof,
@@ -21,7 +21,7 @@ from ._internal.mace import Mace, MaceFullOpt, MacePreopt, MaceSP, OptMACE
 from ._internal.pxrd import Pxrd
 
 __all__ = [
-    "Analyze",
+    "AnalyzeStacking",
     "BenchmarkOverview",
     "BuildCOF2D",
     "CenterZ",

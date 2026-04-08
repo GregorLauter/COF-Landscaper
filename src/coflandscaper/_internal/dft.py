@@ -479,6 +479,7 @@ END"""
         self,
         input_folder: str,
         output_csv_dir: str | None = None,
+        output_filename_suffix: str = "",
     ) -> Path:
         """Extract converged energies from CRYSTAL .out files.
 
@@ -486,6 +487,8 @@ END"""
             input_folder: Folder containing CRYSTAL output files.
             output_csv_dir: Optional output folder for the CSV.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
+            output_filename_suffix: Optional suffix appended to the default
+                CSV filename stem (before .csv), e.g. "_dft".
 
         Returns:
             Path to the energies CSV.
@@ -522,7 +525,10 @@ END"""
         csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
         os.makedirs(csv_dir, exist_ok=True)
 
-        energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
+        energies_csv_path = (
+            csv_dir
+            / f"{cof_name}_sp_energies_{mode_tag}{output_filename_suffix}.csv"
+        )
 
         rows = []
         failed = []
@@ -574,6 +580,7 @@ END"""
             mode: "incl", "serr", or "both".
             output_base_folder: Optional output folder for CSVs.
                 Defaults to {cof_name}/3_{cof_name}_landscape.
+                Default filenames are written with a _dft suffix.
             input_base_folder: Optional base folder containing dft_{mode} subfolders.
                 Defaults to {cof_name}/2_{cof_name}_matrix.
 
@@ -592,6 +599,7 @@ END"""
                 self.read(
                     input_folder=f"{input_base_used}/dft_{mode_tag}",
                     output_csv_dir=output_base_folder,
+                    output_filename_suffix="_dft",
                 )
             )
         return csv_paths

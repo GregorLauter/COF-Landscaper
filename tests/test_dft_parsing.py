@@ -225,6 +225,40 @@ def test_crystal_run_mode_validates_mode_and_routes_subfolders(
 
 
 @pytest.mark.unit
+def test_crystal_sp_read_mode_appends_dft_suffix_to_default_csv_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures CrystalSP read_mode writes _dft-suffixed CSV names by default."""
+    calls: list[tuple[str, str | None, str]] = []
+
+    def fake_read(
+        _self: dft.CrystalSP,
+        input_folder: str,
+        output_csv_dir: str | None = None,
+        output_filename_suffix: str = "",
+    ) -> Path:
+        calls.append((input_folder, output_csv_dir, output_filename_suffix))
+        out_dir = output_csv_dir or "cof-a/3_cof-a_landscape"
+        mode_tag = Path(input_folder).name.replace("dft_", "")
+        return Path(
+            f"{out_dir}/cof-a_sp_energies_{mode_tag}{output_filename_suffix}.csv"
+        )
+
+    monkeypatch.setattr(dft.CrystalSP, "read", fake_read)
+
+    outputs = dft.CrystalSP().read_mode("cof-a", mode="both")
+
+    assert calls == [
+        ("cof-a/2_cof-a_matrix/dft_serr", None, "_dft"),
+        ("cof-a/2_cof-a_matrix/dft_incl", None, "_dft"),
+    ]
+    assert outputs == [
+        Path("cof-a/3_cof-a_landscape/cof-a_sp_energies_serr_dft.csv"),
+        Path("cof-a/3_cof-a_landscape/cof-a_sp_energies_incl_dft.csv"),
+    ]
+
+
+@pytest.mark.unit
 def test_vasp_sp_read_raises_when_no_oszicar_found(tmp_path: Path) -> None:
     """This test ensures VaspSP read fails clearly when no OSZICAR files exist."""
     empty_dir = tmp_path / "cof-z" / "2_cof-z_matrix" / "dft_serr"

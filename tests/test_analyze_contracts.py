@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from coflandscaper import Analyze
+from coflandscaper import AnalyzeStacking
 
 
 def test_resolve_modes_accepts_supported_values() -> None:
     """This test ensures mode parsing stays stable for valid CLI/API inputs."""
-    analyzer = Analyze()
+    analyzer = AnalyzeStacking()
 
     assert analyzer._resolve_modes("incl") == ["incl"]
     assert analyzer._resolve_modes("serr") == ["serr"]
@@ -17,7 +17,7 @@ def test_resolve_modes_accepts_supported_values() -> None:
 
 def test_resolve_modes_rejects_invalid_mode() -> None:
     """This test ensures invalid mode values fail fast with a clear error."""
-    analyzer = Analyze()
+    analyzer = AnalyzeStacking()
 
     with pytest.raises(
         ValueError, match="mode must be 'incl', 'serr', or 'both'"
@@ -27,7 +27,7 @@ def test_resolve_modes_rejects_invalid_mode() -> None:
 
 def test_load_energy_map_skips_malformed_rows(tmp_path: Path) -> None:
     """This test ensures CSV parsing keeps only valid rows used by downstream analysis."""
-    analyzer = Analyze()
+    analyzer = AnalyzeStacking()
     csv_path = tmp_path / "cof-a_opt_energies_per_layer.csv"
     csv_path.write_text(
         "structure,stacking_mode,energy_eV_per_layer,energy_rel_eV_per_layer\n"
@@ -52,7 +52,7 @@ def test_run_writes_expected_csv_schema_for_both_modes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """This test ensures the exported analysis CSV keeps the expected reviewer-facing schema."""
-    analyzer = Analyze()
+    analyzer = AnalyzeStacking()
 
     def fake_collect(_folder: Path) -> list[str]:
         return [str(tmp_path / "mock-a.cif")]
@@ -105,7 +105,7 @@ def test_run_dft_mode_uses_dft_folder_and_filename(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """This test ensures DFT analysis writes to the dft-specific output contract."""
-    analyzer = Analyze()
+    analyzer = AnalyzeStacking()
     seen_folders: list[str] = []
 
     def fake_collect(folder: Path) -> list[str]:

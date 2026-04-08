@@ -53,7 +53,9 @@ class Mace:
         dtype: Default dtype for the model.
         head: Model head name.
         model: MACE checkpoint key or local path. If None, inferred from head.
-        dispersion: Whether to enable dispersion. If None, defaults by head.
+        dispersion: Whether to enable Grimme-D3 dispersion correction via
+            `TorchDFTD3Calculator` in the MACE backend. If None, defaults by
+            head.
         verbose: If True, write raw MACE output and runtime summary to
             `mace_calculator.log`.
     """
@@ -219,7 +221,8 @@ class MaceSP(Mace):
                 model: Optional MACE checkpoint key/path. If omitted, inferred
                     from `head` (e.g., "medium-omat-0" for "omat_pbe").
                 device: Compute device, e.g. "cpu" or "cuda" (if available).
-            dispersion: Whether to enable dispersion. If None, defaults by head.
+            dispersion: Whether to enable Grimme-D3 dispersion correction via
+                `TorchDFTD3Calculator`. If None, defaults by head.
         """
         super().__init__(
             device=device,
@@ -450,12 +453,21 @@ class MacePreopt(OptMACE):
     and writes {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
 
     Defaults:
-        fmax=0.01, dtype="float64", head="omol", model="mace-mh-1", device="cpu",
-        fix_z=True, dispersion=False.
+        fmax=0.01 eV/Angstrom, dtype="float64", head="omol",
+        model="mace-mh-1", device="cpu", fix_z=True, dispersion=False.
 
     Options:
         - fix_z: Whether to constrain Z during optimization.
         - head: Any available MACE head for the mace-mh-1 model.
+        - dispersion: Uses Grimme-D3 correction through
+          `TorchDFTD3Calculator` when enabled.
+
+    Dispersion guidance:
+        For single-layer pre-optimization, dispersion is typically less
+        relevant and is disabled by default. If dispersion is needed, it is
+        most appropriate for `omat_pbe` and `matpes_r2scan`. Other heads are
+        often trained against reference DFT data that already includes
+        dispersion effects; adding D3 on top may introduce double counting.
 
     MACE model & heads:
         Uses mace-mh-1 (https://huggingface.co/mace-foundations/mace-mh-1).

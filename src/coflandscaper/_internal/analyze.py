@@ -20,7 +20,7 @@ from .ild_ils_utils import (
 )
 
 
-class Analyze:
+class AnalyzeStacking:
     def _collect_cifs(self, folder: Path) -> list[str]:
         files: list[str] = []
         if not folder.exists():
@@ -287,7 +287,7 @@ def analyze(
                 - dft=True reads from {input_base}/dft_{serr|incl} and writes
                     final_structures_dft.csv.
     """
-    return Analyze().run(
+    return AnalyzeStacking().run(
         cof_name=cof_name,
         mode=mode,
         input_base=input_base,
@@ -421,7 +421,7 @@ def visualize_cof(
         Viewer appearance is fixed to defaults
         (width=800, height=600, background="white", style="stick").
     """
-    analyzer = Analyze()
+    analyzer = AnalyzeStacking()
 
     base = (
         Path(input_base)

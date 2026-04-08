@@ -27,11 +27,9 @@ class Pxrd:
         self,
         wavelength: str = "CuKa",
         two_theta_range: tuple[float, float] = (1.5, 60.0),
-        xlim: tuple[float, float] = (1.5, 60.0),
     ) -> None:
         self.wavelength = wavelength
         self.two_theta_range = two_theta_range
-        self.xlim = xlim
 
     def _resolve_modes(self, mode: str) -> list[str]:
         mode_lower = mode.lower()
@@ -149,6 +147,7 @@ class Pxrd:
         self,
         xy_folder: str | Path,
         output_path: str | Path,
+        xlim: tuple[float, float] = (1.5, 60.0),
         show: bool = True,
     ) -> str:
         """Plot all .xy files in one stacked figure and save it.
@@ -156,6 +155,7 @@ class Pxrd:
         Args:
             xy_folder: Folder containing simulated .xy files.
             output_path: Path for the output image file.
+            xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
             show: If True, display the plot in the active notebook/session.
 
         Returns:
@@ -217,7 +217,7 @@ class Pxrd:
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
 
-        axes_list[-1].set_xlim(*self.xlim)
+        axes_list[-1].set_xlim(*xlim)
         axes_list[-1].set_xlabel(r"2$\theta$ (deg)")
         fig.supylabel("Intensity (a.u.)")
         fig.tight_layout(rect=(0.07, 0.03, 1.0, 1.0))
@@ -238,6 +238,7 @@ class Pxrd:
         dft: bool = False,
         xy_folder: str | Path | None = None,
         output_folder: str | Path | None = None,
+        xlim: tuple[float, float] = (1.5, 60.0),
         show: bool = True,
     ) -> dict[str, str]:
         """Plot stacked PXRD patterns for one or both modes.
@@ -250,6 +251,7 @@ class Pxrd:
                 this is treated as a parent folder with per-mode subfolders.
             output_folder: Optional explicit output folder for plot image(s).
                 Defaults to {cof_name}/5_{cof_name}_analysis.
+            xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
             show: If True, display generated plot(s) in the notebook/session.
 
         Returns:
@@ -291,6 +293,7 @@ class Pxrd:
             outputs[selected_mode] = self.plot_xy(
                 xy_folder=xy_dir,
                 output_path=target_output,
+                xlim=xlim,
                 show=show,
             )
 

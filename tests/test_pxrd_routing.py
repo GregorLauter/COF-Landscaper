@@ -100,17 +100,18 @@ def test_run_custom_parent_folder_routing(
 def test_plot_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
     """This test ensures PXRD plot routing writes mode-specific output image paths."""
     pxrd = Pxrd()
-    calls: list[tuple[Path, Path, bool]] = []
+    calls: list[tuple[Path, Path, tuple[float, float], bool]] = []
 
     def fake_plot_xy(
         _self: Pxrd,
         xy_folder: str | Path,
         output_path: str | Path,
+        xlim: tuple[float, float] = (1.5, 60.0),
         show: bool = True,
     ) -> str:
         xy_path = Path(xy_folder)
         out_path = Path(output_path)
-        calls.append((xy_path, out_path, show))
+        calls.append((xy_path, out_path, xlim, show))
         return str(out_path)
 
     monkeypatch.setattr(Pxrd, "plot_xy", fake_plot_xy)
@@ -125,11 +126,13 @@ def test_plot_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/serr"),
             Path("cof-b/5_cof-b_analysis/pxrd_stacked_serr_dft.png"),
+            (1.5, 60.0),
             False,
         ),
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/incl"),
             Path("cof-b/5_cof-b_analysis/pxrd_stacked_incl_dft.png"),
+            (1.5, 60.0),
             False,
         ),
     ]
