@@ -833,9 +833,10 @@ END"""
 
         if input_base_folder is None:
             input_base_folder = f"{cof_name}/4_{cof_name}_optimization"
+        mode_tags = [Path(folder).name for folder in get_mode_folders(cof_name, mode)]
         input_paths = [
-            Path(f"{input_base_folder}/dft_{Path(folder).name}")
-            for folder in get_mode_folders(cof_name, mode)
+            Path(f"{input_base_folder}/dft_{mode_tag}")
+            for mode_tag in mode_tags
         ]
         out_files = self._collect_out_files(input_paths)
         if not out_files:
@@ -883,11 +884,34 @@ END"""
             except Exception as exc:
                 failed.append((str(out_path), repr(exc)))
 
-        df = (
-            pd.DataFrame(rows)
-            .sort_values(["stacking_mode", "structure"])
-            .reset_index(drop=True)
-        )
+        df_new = pd.DataFrame(rows)
+
+        # Merge with existing CSV so rerunning a single mode updates only that
+        # mode and preserves rows for other modes.
+        if energies_csv_path.exists():
+            try:
+                df_existing = pd.read_csv(energies_csv_path)
+            except Exception:
+                df_existing = pd.DataFrame()
+        else:
+            df_existing = pd.DataFrame()
+
+        if not df_existing.empty and "stacking_mode" in df_existing.columns:
+            df_existing = df_existing[
+                ~df_existing["stacking_mode"].isin(mode_tags)
+            ]
+
+        if df_existing.empty:
+            df = df_new
+        elif df_new.empty:
+            df = df_existing
+        else:
+            df = pd.concat([df_existing, df_new], ignore_index=True)
+
+        if not df.empty and {"stacking_mode", "structure"}.issubset(df.columns):
+            df = df.sort_values(["stacking_mode", "structure"]).reset_index(
+                drop=True
+            )
         if not df.empty:
             min_e = float(df["energy_eV_per_layer"].min())
             df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
