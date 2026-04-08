@@ -833,7 +833,9 @@ END"""
 
         if input_base_folder is None:
             input_base_folder = f"{cof_name}/4_{cof_name}_optimization"
-        mode_tags = [Path(folder).name for folder in get_mode_folders(cof_name, mode)]
+        mode_tags = [
+            Path(folder).name for folder in get_mode_folders(cof_name, mode)
+        ]
         input_paths = [
             Path(f"{input_base_folder}/dft_{mode_tag}")
             for mode_tag in mode_tags
@@ -908,7 +910,9 @@ END"""
         else:
             df = pd.concat([df_existing, df_new], ignore_index=True)
 
-        if not df.empty and {"stacking_mode", "structure"}.issubset(df.columns):
+        if not df.empty and {"stacking_mode", "structure"}.issubset(
+            df.columns
+        ):
             df = df.sort_values(["stacking_mode", "structure"]).reset_index(
                 drop=True
             )
