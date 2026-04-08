@@ -338,7 +338,8 @@ class Landscape:
         dft_suffix = "_dft" if dft else ""
         for mode_tag in mode_tags:
             expected_csv = (
-                base_path / f"{cof_name}_sp_energies_{mode_tag}{dft_suffix}.csv"
+                base_path
+                / f"{cof_name}_sp_energies_{mode_tag}{dft_suffix}.csv"
             )
             if not expected_csv.exists():
                 missing_csvs.append(str(expected_csv))
