@@ -551,6 +551,9 @@ def _build_cof(
     Returns:
         Path to the written CIF file.
     """
+    runtime_dir = Path.cwd() / "_tmp_topologies"
+    runtime_dir.mkdir(exist_ok=True)
+
     database = PackageDatabase()
     topo_initial = database.get_topo(f"{topo}_initial")
     _sanitize_edge_types_inplace(topo_initial.edge_types)
@@ -587,10 +590,13 @@ def _build_cof(
     gamma = (alpha * DEFAULT_ILD_GUESS) / a
 
     base = _package_topology_dir()
-    pickle_path = base / f"{topo}_modified.pickle"
-    cgd_path = base / f"{topo}_modified.cgd"
+    pickle_path = runtime_dir / f"{topo}_modified.pickle"
+    cgd_path = runtime_dir / f"{topo}_modified.cgd"
+    source_cgd_path = base / f"{topo}_modified.cgd"
     if pickle_path.exists():
         pickle_path.unlink()
+
+    cgd_path.write_text(source_cgd_path.read_text(), encoding="utf-8")
 
     with cgd_path.open() as file:
         lines = file.readlines()
@@ -600,7 +606,8 @@ def _build_cof(
     with cgd_path.open("w") as file:
         file.writelines(lines)
 
-    topo_modified = database.get_topo(f"{topo}_modified")
+    runtime_database = PackageDatabase(topo_dir=runtime_dir)
+    topo_modified = runtime_database.get_topo(f"{topo}_modified")
     _sanitize_edge_types_inplace(topo_modified.edge_types)
     cof = builder.build_by_type(
         topology=topo_modified,

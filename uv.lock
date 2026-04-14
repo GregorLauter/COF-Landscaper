@@ -160,6 +160,15 @@ wheels = [
 ]
 
 [[package]]
+name = "bibtexparser"
+version = "1.4.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/1c/577d3ce406e88f370e80a6ebf76ae52a2866521e0b585e8ec612759894f1/bibtexparser-1.4.4.tar.gz", hash = "sha256:093b6c824f7a71d3a748867c4057b71f77c55b8dbc07efc993b781771520d8fb", size = 55594, upload-time = "2026-01-29T18:58:01.366Z" }
+
+[[package]]
 name = "bleach"
 version = "6.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -238,14 +247,19 @@ name = "cof-landscaper"
 source = { editable = "." }
 dependencies = [
     { name = "ase" },
-    { name = "ipykernel" },
-    { name = "jupyter" },
     { name = "mace-torch" },
     { name = "numpy" },
     { name = "pormake" },
     { name = "py3dmol" },
+    { name = "pymatgen" },
     { name = "rdkit" },
     { name = "torch-dftd" },
+]
+
+[package.optional-dependencies]
+notebook = [
+    { name = "ipykernel" },
+    { name = "jupyter" },
 ]
 
 [package.dev-dependencies]
@@ -262,15 +276,17 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ase", specifier = ">=3.27.0" },
-    { name = "ipykernel", specifier = ">=7.1.0" },
-    { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "ipykernel", marker = "extra == 'notebook'", specifier = ">=7.1.0" },
+    { name = "jupyter", marker = "extra == 'notebook'", specifier = ">=1.1.1" },
     { name = "mace-torch", specifier = ">=0.3.15" },
     { name = "numpy", specifier = "<2.0" },
-    { name = "pormake", specifier = ">=0.2.2" },
+    { name = "pormake", git = "https://github.com/Sangwon91/PORMAKE.git" },
     { name = "py3dmol", specifier = ">=2.5.4" },
+    { name = "pymatgen", specifier = ">=2024.4.12" },
     { name = "rdkit", specifier = ">=2025.9.3" },
     { name = "torch-dftd", specifier = ">=0.5.2" },
 ]
+provides-extras = ["notebook"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1062,15 +1078,6 @@ wheels = [
 ]
 
 [[package]]
-name = "latexcodec"
-version = "3.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/27/dd/4270b2c5e2ee49316c3859e62293bd2ea8e382339d63ab7bbe9f39c0ec3b/latexcodec-3.0.1.tar.gz", hash = "sha256:e78a6911cd72f9dec35031c6ec23584de6842bfbc4610a9678868d14cdfb0357", size = 31222, upload-time = "2025-06-17T18:47:34.051Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/40/23569737873cc9637fd488606347e9dd92b9fa37ba4fcda1f98ee5219a97/latexcodec-3.0.1-py3-none-any.whl", hash = "sha256:a9eb8200bff693f0437a69581f7579eb6bca25c4193515c09900ce76451e452e", size = 18532, upload-time = "2025-06-17T18:47:30.726Z" },
-]
-
-[[package]]
 name = "librt"
 version = "0.8.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1739,16 +1746,12 @@ wheels = [
 [[package]]
 name = "pormake"
 version = "0.2.2"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/Sangwon91/PORMAKE.git#639caad9d315ef6cb4838d0f8e44336d4a41aa7a" }
 dependencies = [
     { name = "ase" },
     { name = "jax" },
     { name = "networkx" },
     { name = "pymatgen" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/22/c2/0b8ce705072c2c7aa52bcd15c08d1ee96ef1abb5971c6c6195e827e12a25/pormake-0.2.2.tar.gz", hash = "sha256:d5b73897cf4f3b3828073f7ba71ece535172318e709a9a2186b925c40c37a04e", size = 1484385, upload-time = "2024-06-27T11:50:07.499Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/a5/f374f804c02b2be4d31f2f70452d5028f28753ce9a19bc664efdf36e4893/pormake-0.2.2-py3-none-any.whl", hash = "sha256:cdcd945ed9146781cb05154b34cc4fb283c84e0d12cd6e0bb6c31e223c293c20", size = 2250472, upload-time = "2024-06-27T11:50:03.962Z" },
 ]
 
 [[package]]
@@ -1828,19 +1831,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pybtex"
-version = "0.25.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "latexcodec" },
-    { name = "pyyaml" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5f/bc/c2be05ca72f8c103670e983df8be26d1e288bc6556f487fa8cccaa27779f/pybtex-0.25.1.tar.gz", hash = "sha256:9eaf90267c7e83e225af89fea65c370afbf65f458220d3946a9e3049e1eca491", size = 406157, upload-time = "2025-06-26T13:27:41.903Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/68/ceb5d6679baa326261f5d3e5113d9cfed6efef2810afd9f18bffb8ed312b/pybtex-0.25.1-py2.py3-none-any.whl", hash = "sha256:9053b0d619409a0a83f38abad5d9921de5f7b3ede00742beafcd9f10ad0d8c5c", size = 127437, upload-time = "2025-06-26T13:27:43.585Z" },
-]
-
-[[package]]
 name = "pycparser"
 version = "3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1860,20 +1850,32 @@ wheels = [
 
 [[package]]
 name = "pymatgen"
-version = "2023.12.18"
+version = "2026.3.23"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "pymatgen-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/de/6d/247a7167913846e30e35b113e91a12e4b1df8fb3881350a02786c505359d/pymatgen-2026.3.23.tar.gz", hash = "sha256:66d3ab6d6e875fa201dfce6475ef02ecb098840cb974ab725ea292ffb746371f", size = 793957, upload-time = "2026-03-23T02:19:14.249Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/5d/f61bda8fa2b94b6c422b5c7471039cbcc00ee3c24f9eb4852ad043243f85/pymatgen-2026.3.23-py3-none-any.whl", hash = "sha256:b7eb0102c8b79d257ae6dfeb47b91ad270e6de32c73e5ce51a5a1ef536472491", size = 883412, upload-time = "2026-03-23T02:19:12.267Z" },
+]
+
+[[package]]
+name = "pymatgen-core"
+version = "2026.4.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bibtexparser" },
     { name = "joblib" },
     { name = "matplotlib" },
     { name = "monty" },
     { name = "networkx" },
     { name = "numpy" },
+    { name = "orjson" },
     { name = "palettable" },
     { name = "pandas" },
     { name = "plotly" },
-    { name = "pybtex" },
     { name = "requests" },
-    { name = "ruamel-yaml" },
     { name = "scipy" },
     { name = "spglib" },
     { name = "sympy" },
@@ -1881,7 +1883,14 @@ dependencies = [
     { name = "tqdm" },
     { name = "uncertainties" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/67/f6/31cfbcf941391f5165085643e134d2bb3b8a61967035a2abd522ef0f4fe7/pymatgen-2023.12.18.tar.gz", hash = "sha256:56c0041fe5431ac1b8f8c0c17d06091c4d61082c3a99924f3940d73ebb6656eb", size = 7155025, upload-time = "2023-12-19T02:58:23.838Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/be/e4/f42d12df7493b59138d9e78cf5360e0d0764e1667cdef7be7ecebfb1c0a6/pymatgen_core-2026.4.7.tar.gz", hash = "sha256:6b1c3a9a9e1d6a029321466f59f060dc28023b6d55fba325c48d0874667a868a", size = 2518585, upload-time = "2026-04-07T22:50:49.896Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/43/ef/e3a50e1b7a4e9a0b60b3d59e9ed78c552b374e746e6cfd6eef0d3b1bbd94/pymatgen_core-2026.4.7-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f3c050d0f8e626f488c1ce354d235acd9ed3de156036399eeb39277ecdc73436", size = 2874841, upload-time = "2026-04-07T23:23:04.998Z" },
+    { url = "https://files.pythonhosted.org/packages/51/30/bfe13e4d7dd04926e2503fa3ef441689acc1b5d81766bf4d36f8d54d159d/pymatgen_core-2026.4.7-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7e9e2969879f467b8ef6dbaba3ce7f0bb11f2aff1456f3ff768a638eb00c537a", size = 3893020, upload-time = "2026-04-07T23:23:06.455Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/89/2eb174684df3b500289396824e255b83b395961ecf211cbc3e60a59fe127/pymatgen_core-2026.4.7-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:85c76a511b0ab9693d0e7f3dab30b5993484d287cf519ebc0394e2fe3ff9fd5b", size = 3932493, upload-time = "2026-04-07T23:23:08.093Z" },
+    { url = "https://files.pythonhosted.org/packages/30/6e/4fb88d3de1cb418e4cf6e5df7fa165d29cfed3fec9384a0f22895469d6e1/pymatgen_core-2026.4.7-cp312-cp312-win32.whl", hash = "sha256:0e25da64932dc0a89eafc6a6e94a124fdb5605c79e94f63c81c512418894b61d", size = 2827699, upload-time = "2026-04-07T23:23:09.563Z" },
+    { url = "https://files.pythonhosted.org/packages/55/ff/50f1154ef5580db3b86e40c79c25ead7314cd5ce2f91ac75fd45f00b2c00/pymatgen_core-2026.4.7-cp312-cp312-win_amd64.whl", hash = "sha256:dff43a7d93c8ab35df8f58fb1f3381f82b8063a8f6d89f2dd70bcd4a2277bdc7", size = 2858409, upload-time = "2026-04-07T23:23:11.073Z" },
+]
 
 [[package]]
 name = "pyparsing"
@@ -2432,6 +2441,7 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d3/54/a2ba279afcca44bbd320d4e73675b282fcee3d81400ea1b53934efca6462/torch-2.10.0-2-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:13ec4add8c3faaed8d13e0574f5cd4a323c11655546f91fbe6afa77b57423574", size = 79498202, upload-time = "2026-02-10T21:44:52.603Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/7a/abada41517ce0011775f0f4eacc79659bc9bc6c361e6bfe6f7052a6b9363/torch-2.10.0-3-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:98c01b8bb5e3240426dcde1446eed6f40c778091c8544767ef1168fc663a05a6", size = 915622781, upload-time = "2026-03-11T14:17:11.354Z" },
     { url = "https://files.pythonhosted.org/packages/cc/af/758e242e9102e9988969b5e621d41f36b8f258bb4a099109b7a4b4b50ea4/torch-2.10.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:5fd4117d89ffd47e3dcc71e71a22efac24828ad781c7e46aaaf56bf7f2796acf", size = 145996088, upload-time = "2026-01-21T16:24:44.171Z" },
     { url = "https://files.pythonhosted.org/packages/23/8e/3c74db5e53bff7ed9e34c8123e6a8bfef718b2450c35eefab85bb4a7e270/torch-2.10.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:787124e7db3b379d4f1ed54dd12ae7c741c16a4d29b49c0226a89bea50923ffb", size = 915711952, upload-time = "2026-01-21T16:23:53.503Z" },
     { url = "https://files.pythonhosted.org/packages/6e/01/624c4324ca01f66ae4c7cd1b74eb16fb52596dce66dbe51eff95ef9e7a4c/torch-2.10.0-cp312-cp312-win_amd64.whl", hash = "sha256:2c66c61f44c5f903046cc696d088e21062644cbe541c7f1c4eaae88b2ad23547", size = 113757972, upload-time = "2026-01-21T16:24:39.516Z" },
