@@ -8,6 +8,7 @@ or "double"), and a COF name for output organization.
 
 import glob
 import os
+import shutil
 import tempfile
 from collections.abc import Sequence
 from contextlib import ExitStack, suppress
@@ -622,6 +623,7 @@ def _build_cof(
 
     output_filename = os.path.join(output_folder, filename)
     cof.write_cif(output_filename)
+    shutil.rmtree(runtime_dir, ignore_errors=True)
     return output_filename
 
 
