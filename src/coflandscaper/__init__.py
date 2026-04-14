@@ -17,7 +17,7 @@ from ._internal.landscape import (
     LandscapeDifference,
     SelectCofs,
 )
-from ._internal.mace import Mace, MaceFullOpt, MacePreopt, MaceSP, OptMACE
+from ._internal.mace import Mace, MaceOpt, MaceSP
 from ._internal.pxrd import Pxrd
 
 __all__ = [
@@ -34,10 +34,8 @@ __all__ = [
     "Landscape",
     "LandscapeDifference",
     "Mace",
-    "MaceFullOpt",
-    "MacePreopt",
+    "MaceOpt",
     "MaceSP",
-    "OptMACE",
     "Pxrd",
     "SelectCofs",
     "Supercell",

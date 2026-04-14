@@ -1,4 +1,4 @@
-"""MACE base and derived classes for COF workflows."""
+"""MACE single-point and optimization classes for COF workflows."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import torch
 from ase.constraints import FixCartesian
-from ase.filters import UnitCellFilter
+from ase.filters import FrechetCellFilter
 from ase.io import read
 from ase.optimize import LBFGS
 from mace.calculators import mace_mp
@@ -34,31 +34,40 @@ def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     return z, L
 
 
-def _default_dispersion_for_head(head: str) -> bool:
+def _calculator_settings_for_head(head: str) -> dict[str, Any]:
     head_key = (head or "").lower()
-    if head_key in {"omat_pbe", "matpes_r2scan"}:
-        return True
-    if head_key in {"omol", "spice_wb97m", "spice"}:
-        return False
-    return False
+    if head_key == "omat_pbe":
+        return {
+            "head": "omat_pbe",
+            "dispersion": True,
+            "dispersion_xc": "pbe",
+            "dispersion_cutoff": 21.167088422553647,
+        }
+    if head_key == "matpes_r2scan":
+        return {
+            "head": "matpes_r2scan",
+            "dispersion": True,
+            "dispersion_xc": "r2scan",
+            "dispersion_cutoff": 40.0,
+        }
+    if head_key == "omol":
+        return {
+            "head": "omol",
+            "dispersion": False,
+        }
+    if head_key in {"spice_wb97m", "spice"}:
+        return {
+            "head": "spice_wB97M",
+            "dispersion": False,
+        }
+    supported = ["omat_pbe", "matpes_r2scan", "omol", "spice_wB97M"]
+    raise ValueError(
+        f"Unsupported MACE head '{head}'. Supported heads: {supported}."
+    )
 
 
 class Mace:
-    """Base class for MACE calculators.
-
-    Stores common configuration and calculator construction.
-
-    Args:
-        device: Torch device.
-        dtype: Default dtype for the model.
-        head: Model head name.
-        model: MACE checkpoint key or local path. If None, inferred from head.
-        dispersion: Whether to enable Grimme-D3 dispersion correction via
-            `TorchDFTD3Calculator` in the MACE backend. If None, defaults by
-            head.
-        verbose: If True, write raw MACE output and runtime summary to
-            `mace_calculator.log`.
-    """
+    """Base class for MACE calculators with fixed per-head settings."""
 
     def __init__(
         self,
@@ -66,14 +75,12 @@ class Mace:
         dtype: str = "float64",
         head: str = "omol",
         model: str | None = None,
-        dispersion: bool | None = None,
         verbose: bool = True,
     ) -> None:
         self.device = device
         self.dtype = dtype
         self.head = head
         self.model = model
-        self.dispersion = dispersion
         self.verbose = verbose
 
     def _resolve_params(
@@ -82,34 +89,23 @@ class Mace:
         dtype: str | None = None,
         head: str | None = None,
         model: str | None = None,
-        dispersion: bool | None = None,
-    ) -> tuple[str, str, str, str, bool]:
+    ) -> tuple[str, str, str, dict[str, Any]]:
         resolved_head = head or self.head
         resolved_model = model or self.model or "mh-1"
-        if dispersion is None:
-            if self.dispersion is None:
-                resolved_dispersion = _default_dispersion_for_head(
-                    resolved_head
-                )
-            else:
-                resolved_dispersion = self.dispersion
-        else:
-            resolved_dispersion = dispersion
+        calc_settings = _calculator_settings_for_head(resolved_head)
         return (
             device or self.device,
             dtype or self.dtype,
-            resolved_head,
             resolved_model,
-            resolved_dispersion,
+            calc_settings,
         )
 
     def _make_calc(
         self,
         device: str,
         dtype: str,
-        head: str,
         model: str,
-        dispersion: bool,
+        calc_settings: dict[str, Any],
     ):
         os.environ["TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"] = "1"
         with warnings.catch_warnings():
@@ -122,20 +118,18 @@ class Mace:
                 "ignore", category=UserWarning, module="e3nn"
             )
             return self._make_calc_inner(
-                device,
-                dtype,
-                head,
-                model,
-                dispersion,
+                device=device,
+                dtype=dtype,
+                model=model,
+                calc_settings=calc_settings,
             )
 
     def _make_calc_inner(
         self,
         device: str,
         dtype: str,
-        head: str,
         model: str,
-        dispersion: bool,
+        calc_settings: dict[str, Any],
     ):
         if hasattr(torch.serialization, "add_safe_globals"):
             torch.serialization.add_safe_globals([ScaleShiftMACE])
@@ -147,8 +141,7 @@ class Mace:
                     model=model,
                     default_dtype=dtype,
                     device=device,
-                    head=head,
-                    dispersion=dispersion,
+                    **calc_settings,
                 )
 
             raw_mace_output = mace_stdout.getvalue()
@@ -182,56 +175,20 @@ class Mace:
                     f"available_heads={available_heads}\n"
                     f"device={effective_device}\n"
                     f"d3_detected={d3_detected}\n"
-                    f"requested_dispersion={dispersion}\n"
+                    f"requested_calc_settings={calc_settings}\n"
                 )
         else:
             calc = mace_mp(
                 model=model,
                 default_dtype=dtype,
                 device=device,
-                head=head,
-                dispersion=dispersion,
+                **calc_settings,
             )
         return calc
 
 
 class MaceSP(Mace):
-    """Single-point MACE energies over a folder of CIFs.
-
-    This computes energies for a set of CIFs (no geometry optimization). It is
-    intended for evaluating ILD/ILS grids and generating energy landscapes.
-    """
-
-    def __init__(
-        self,
-        device: str = "cpu",
-        dtype: str = "float64",
-        head: str = "omol",
-        model: str | None = None,
-        dispersion: bool | None = None,
-        verbose: bool = True,
-    ) -> None:
-        """Configure the MACE single-point calculator.
-
-        Args:
-                dtype: Numerical precision; use "float64" (more accurate, slower)
-                    or "float32" (faster, less accurate).
-                head: MACE head to use (e.g., "omat_pbe", "omol",
-                    "spice_wB97M", "matpes_r2scan").
-                model: Optional MACE checkpoint key/path. If omitted, inferred
-                    from `head` (e.g., "medium-omat-0" for "omat_pbe").
-                device: Compute device, e.g. "cpu" or "cuda" (if available).
-            dispersion: Whether to enable Grimme-D3 dispersion correction via
-                `TorchDFTD3Calculator`. If None, defaults by head.
-        """
-        super().__init__(
-            device=device,
-            dtype=dtype,
-            head=head,
-            model=model,
-            dispersion=dispersion,
-            verbose=verbose,
-        )
+    """Single-point MACE energies over a folder of CIFs."""
 
     def _run_folder(
         self,
@@ -257,11 +214,9 @@ class MaceSP(Mace):
         csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
         os.makedirs(csv_dir, exist_ok=True)
 
-        device, dtype, head, model, dispersion = self._resolve_params()
-
+        device, dtype, model, calc_settings = self._resolve_params()
         energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
-
-        calc = self._make_calc(device, dtype, head, model, dispersion)
+        calc = self._make_calc(device, dtype, model, calc_settings)
 
         rows = []
         failed = []
@@ -272,7 +227,6 @@ class MaceSP(Mace):
                 atoms.calc = calc
 
                 e_ev = float(atoms.get_potential_energy())
-
                 z, L = _parse_z_L_from_stem(cif_path.stem)
 
                 rows.append(
@@ -283,8 +237,8 @@ class MaceSP(Mace):
                         "energy_eV": e_ev,
                     }
                 )
-            except Exception as e:
-                failed.append((str(cif_path), repr(e)))
+            except Exception as exc:
+                failed.append((str(cif_path), repr(exc)))
 
             if i % 25 == 0 or i == len(cif_files):
                 print(
@@ -313,19 +267,6 @@ class MaceSP(Mace):
         input_folder: str | None = None,
         output_csv_dir: str | None = None,
     ) -> None:
-        """Run MACE single-point energies for one or more stacking modes.
-
-        Args:
-            cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
-            input_folder: Optional folder containing CIFs to process.
-                Defaults to {cof_name}/2_{cof_name}_matrix/{serr|incl}.
-            output_csv_dir: Optional output folder for CSVs.
-                Defaults to {cof_name}/3_{cof_name}_landscape.
-
-        Returns:
-            None.
-        """
         from .ild_ils_utils import get_mode_folders
 
         if input_folder:
@@ -340,8 +281,8 @@ class MaceSP(Mace):
             )
 
 
-class OptMACE(Mace):
-    """Geometry optimization using MACE."""
+class MaceOpt(Mace):
+    """Geometry optimization using MACE with optional Z constraints."""
 
     def __init__(
         self,
@@ -352,7 +293,6 @@ class OptMACE(Mace):
         device: str = "cpu",
         fix_z: bool = False,
         max_steps: int = 500,
-        dispersion: bool | None = None,
         verbose: bool = True,
     ) -> None:
         super().__init__(
@@ -360,19 +300,17 @@ class OptMACE(Mace):
             dtype=dtype,
             head=head,
             model=model,
-            dispersion=dispersion,
             verbose=verbose,
         )
         self.fmax = fmax
         self.fix_z = fix_z
         self.max_steps = max_steps
-        _, _, _, model_used, dispersion_used = self._resolve_params()
+        _, _, model_used, calc_settings = self._resolve_params()
         self.calc = self._make_calc(
             device=self.device,
             dtype=self.dtype,
-            head=self.head,
             model=model_used,
-            dispersion=dispersion_used,
+            calc_settings=calc_settings,
         )
 
     def _apply_constraints(self, atoms: Atoms) -> None:
@@ -391,8 +329,8 @@ class OptMACE(Mace):
         self._apply_constraints(atoms)
         atoms.calc = self.calc
 
-        ucf = UnitCellFilter(atoms)
-        dyn = LBFGS(cast("Any", ucf))
+        fcf = FrechetCellFilter(atoms)
+        dyn = LBFGS(cast("Any", fcf))
         converged = dyn.run(fmax=self.fmax, steps=self.max_steps)
         if not converged:
             warnings.warn(
@@ -419,159 +357,6 @@ class OptMACE(Mace):
                 converged = self.optimize_cof(input_path, output_path)
                 convergence_by_structure[Path(file_name).stem] = converged
         return convergence_by_structure
-
-    def run(self, input_folder: str, output_folder: str) -> dict[str, bool]:
-        """Alias for batch optimization over a folder of CIFs."""
-        return self.process_cifs(
-            input_folder=input_folder, output_folder=output_folder
-        )
-
-    def run_mode(
-        self,
-        cof_name: str,
-        mode: str,
-        output_base: str | None = None,
-        input_base: str | None = None,
-    ) -> None:
-        """Perform full 3D MACE relaxations for stacking-mode CIFs and write relaxed structures.
-
-        Args:
-            cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
-            output_base: Base folder for outputs (relative to cof_name).
-                If the provided path already starts with `cof_name`, it is
-                used as-is.
-            input_base: Optional base folder containing per-mode input subfolders.
-        """
-        from .ild_ils_utils import get_mode_folders
-
-        if input_base is None:
-            input_base = f"{cof_name}/3_{cof_name}_landscape/selection"
-        if output_base is None:
-            output_base = f"4_{cof_name}_optimization"
-
-        output_base_path = Path(output_base)
-        if not output_base_path.is_absolute() and (
-            not output_base_path.parts or output_base_path.parts[0] != cof_name
-        ):
-            output_base_path = Path(cof_name) / output_base_path
-
-        for folder in get_mode_folders(cof_name, mode):
-            mode_tag = os.path.basename(folder)
-            self.run(
-                input_folder=f"{input_base}/{mode_tag}",
-                output_folder=str(output_base_path / mode_tag),
-            )
-
-
-class MacePreopt(OptMACE):
-    """Pre-optimize a single-layer CIF before ILD×ILS matrix generation.
-
-    Assumes input is {cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif
-    and writes {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
-
-    Defaults:
-        fmax=0.01 eV/Angstrom, dtype="float64", head="omol",
-        model="mace-mh-1", device="cpu", fix_z=True, dispersion=False.
-
-    Options:
-        - fix_z: Whether to constrain Z during optimization.
-        - head: Any available MACE head for the mace-mh-1 model.
-        - dispersion: Uses Grimme-D3 correction through
-          `TorchDFTD3Calculator` when enabled.
-
-    Dispersion guidance:
-        For single-layer pre-optimization, dispersion is typically less
-        relevant and is disabled by default. If dispersion is needed, it is
-        most appropriate for `omat_pbe` and `matpes_r2scan`. Other heads are
-        often trained against reference DFT data that already includes
-        dispersion effects; adding D3 on top may introduce double counting.
-
-    MACE model & heads:
-        Uses mace-mh-1 (https://huggingface.co/mace-foundations/mace-mh-1).
-        Recommended heads: "omat_pbe", "omol", "spice_wB97M", "matpes_r2scan".
-    """
-
-    def __init__(
-        self,
-        fmax: float = 0.01,
-        dtype: str = "float64",
-        head: str = "omol",
-        model: str | None = None,
-        device: str = "cpu",
-        fix_z: bool = True,
-        max_steps: int = 500,
-        verbose: bool = True,
-    ) -> None:
-        super().__init__(
-            fmax=fmax,
-            dtype=dtype,
-            head=head,
-            model=model,
-            device=device,
-            fix_z=fix_z,
-            max_steps=max_steps,
-            dispersion=False,
-            verbose=verbose,
-        )
-
-    def run(
-        self,
-        cof_name: str,
-        input_folder: str | None = None,
-        output_folder: str | None = None,
-    ) -> None:
-        """Run the pre-optimization step on a single CIF.
-
-        Args:
-            cof_name: COF name used for default input/output naming.
-            input_folder: Optional folder containing {cof_name}_unopt.cif.
-            output_folder: Optional folder for {cof_name}_preopt.cif.
-        """
-        default_folder = os.path.join(cof_name, f"1_{cof_name}_single_layer")
-        input_folder_used = input_folder or default_folder
-        output_folder_used = output_folder or default_folder
-        input_path = os.path.join(input_folder_used, f"{cof_name}_unopt.cif")
-        if not os.path.exists(input_path):
-            raise FileNotFoundError(f"Missing input CIF: {input_path}")
-        os.makedirs(output_folder_used, exist_ok=True)
-        output_path = os.path.join(
-            output_folder_used, f"{cof_name}_preopt.cif"
-        )
-        self.optimize_cof(input_path, output_path)
-
-
-class MaceFullOpt(OptMACE):
-    """Full MACE geometry optimization of selected stacking structures.
-
-    Optimized CIFs are written to
-    {cof_name}/4_{cof_name}_optimization/{serr|incl} by default, and a
-    combined per-layer energy CSV is written to
-    {cof_name}/4_{cof_name}_optimization/{cof_name}_opt_energies_per_layer.csv.
-    """
-
-    def __init__(
-        self,
-        fmax: float = 0.01,
-        dtype: str = "float64",
-        head: str = "omol",
-        model: str | None = None,
-        device: str = "cpu",
-        max_steps: int = 500,
-        dispersion: bool | None = None,
-        verbose: bool = True,
-    ) -> None:
-        super().__init__(
-            fmax=fmax,
-            dtype=dtype,
-            head=head,
-            model=model,
-            device=device,
-            fix_z=False,
-            max_steps=max_steps,
-            dispersion=dispersion,
-            verbose=verbose,
-        )
 
     def _merge_with_existing_energy_csv(
         self,
@@ -653,7 +438,7 @@ class MaceFullOpt(OptMACE):
                     atoms = cast("Atoms", read(str(cif_path)))
                     atoms.calc = self.calc
                     energy_ev = float(atoms.get_potential_energy())
-                    # Serrated mode stores a bilayer; report per-layer energies.
+                    # Serrated mode stores a bilayer; report per-layer energy.
                     energy_ev_per_layer = (
                         energy_ev / 2.0 if mode_tag == "serr" else energy_ev
                     )
@@ -707,21 +492,8 @@ class MaceFullOpt(OptMACE):
         mode: str,
         output_base: str | None = None,
         input_base: str | None = None,
+        save_opt_energies_csv: bool = True,
     ) -> None:
-        """Run full MACE relaxations by mode and write a combined energy CSV.
-
-        Args:
-            cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
-            output_base: Base folder for optimized CIF outputs.
-                Defaults to 4_{cof_name}_optimization under cof_name.
-            input_base: Optional base folder containing per-mode input subfolders.
-                Defaults to {cof_name}/3_{cof_name}_landscape/selection.
-
-        Notes:
-            Serrated structures are bilayers; reported energies are divided by 2
-            to produce per-layer values before relative energies are computed.
-        """
         from .ild_ils_utils import get_mode_folders
 
         if input_base is None:
@@ -740,7 +512,7 @@ class MaceFullOpt(OptMACE):
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = os.path.basename(folder)
             target_output = output_base_path / mode_tag
-            mode_convergence = self.run(
+            mode_convergence = self.process_cifs(
                 input_folder=f"{input_base}/{mode_tag}",
                 output_folder=str(target_output),
             )
@@ -748,10 +520,11 @@ class MaceFullOpt(OptMACE):
                 convergence_map[(mode_tag, structure_name)] = converged
             mode_output_folders[mode_tag] = target_output
 
-        csv_path = self._write_optimized_energy_csv(
-            cof_name=cof_name,
-            mode_output_folders=mode_output_folders,
-            output_base_path=output_base_path,
-            convergence_map=convergence_map,
-        )
-        print(f"Saved optimized energies: {csv_path}")
+        if save_opt_energies_csv:
+            csv_path = self._write_optimized_energy_csv(
+                cof_name=cof_name,
+                mode_output_folders=mode_output_folders,
+                output_base_path=output_base_path,
+                convergence_map=convergence_map,
+            )
+            print(f"Saved optimized energies: {csv_path}")

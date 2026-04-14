@@ -49,6 +49,7 @@ class Landscape:
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
         show_header: bool = True,
+        show_title_block: bool = True,
     ) -> None:
         """Build PES plots for one stacking mode.
 
@@ -67,6 +68,8 @@ class Landscape:
             show_minima_markers: If True (default), mark global minima in red and
                 local minima in green on heatmap/isolines.
             show_header: If True (default), draw title and header text.
+            show_title_block: If True (default), draw title plus two header lines
+                (stacking mode and level of theory when available).
 
         Returns:
             None.
@@ -83,6 +86,10 @@ class Landscape:
         )
         if match:
             lot_suffix = match.group(3)
+
+        lot_label: str | None = "DFT" if dft else "MACE-MH-1"
+        if lot_label is None and lot_suffix:
+            lot_label = "DFT" if lot_suffix.lower() == "dft" else lot_suffix
 
         use_mode_naming = (
             folder_tag in {"serr", "incl"} and cof_name is not None
@@ -168,10 +175,15 @@ class Landscape:
             )
             plt.xlabel("Inter Layer Slipping [Å]", fontsize=12)
             plt.ylabel("Inter Layer Distance [Å]", fontsize=12)
-            if show_header:
+            if show_header and show_title_block:
                 title_name = cof_name or "COF"
+                title_prefix = (
+                    "Potential Energy Landscape (DFT)"
+                    if dft
+                    else "Potential Energy Landscape"
+                )
                 plt.title(
-                    f"Potential Energy Landscape - {title_name}",
+                    f"{title_prefix} - {title_name}",
                     fontsize=14,
                     pad=36,
                 )
@@ -190,11 +202,11 @@ class Landscape:
                         va="bottom",
                         fontsize=10,
                     )
-                if lot_suffix:
+                if lot_label:
                     plt.text(
                         0.5,
                         1.02,
-                        f"Level of Theory: {lot_suffix}",
+                        f"Level of Theory: {lot_label}",
                         transform=plt.gca().transAxes,
                         ha="center",
                         va="bottom",
@@ -294,6 +306,7 @@ class Landscape:
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
         show_header: bool = True,
+        show_title_block: bool = True,
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
@@ -309,6 +322,7 @@ class Landscape:
             rel_energy_max: Optional max value for relative energies.
             show_minima_markers: If True (default), mark minima on plots.
             show_header: If True (default), draw title and header text.
+            show_title_block: If True (default), draw title plus two header lines.
             input_folder: Optional base folder containing mode folders and
                 {cof_name}_sp_energies_{mode}.csv files, or
                 {cof_name}_sp_energies_{mode}_dft.csv when dft=True.
@@ -355,6 +369,7 @@ class Landscape:
                 rel_energy_max=rel_energy_max,
                 show_minima_markers=show_minima_markers,
                 show_header=show_header,
+                show_title_block=show_title_block,
             )
 
         if missing_csvs:

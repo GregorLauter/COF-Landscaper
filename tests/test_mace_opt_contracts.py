@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 import coflandscaper._internal.mace as mace_mod
-from coflandscaper._internal.mace import MaceFullOpt, OptMACE
+from coflandscaper._internal.mace import MaceOpt
 
 
 class _DummyAtoms:
@@ -44,10 +44,10 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
             return False
 
     monkeypatch.setattr(mace_mod, "read", lambda _p: dummy_atoms)
-    monkeypatch.setattr(mace_mod, "UnitCellFilter", lambda atoms: atoms)
+    monkeypatch.setattr(mace_mod, "FrechetCellFilter", lambda atoms: atoms)
     monkeypatch.setattr(mace_mod, "LBFGS", _DummyLBFGS)
 
-    opt = object.__new__(OptMACE)
+    opt = object.__new__(MaceOpt)
     opt.fix_z = False
     opt.fmax = 0.01
     opt.max_steps = 500
@@ -63,10 +63,41 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
 
 
 @pytest.mark.unit
-def test_mace_fullopt_energy_csv_replaces_only_processed_mode(
+def test_calculator_settings_for_matpes_r2scan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_mace_mp(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(mace_mod, "mace_mp", fake_mace_mp)
+
+    base = object.__new__(mace_mod.Mace)
+    base.verbose = False
+
+    calc_settings = mace_mod._calculator_settings_for_head("matpes_r2scan")
+    base._make_calc(
+        device="cpu",
+        dtype="float64",
+        model="mh-1",
+        calc_settings=calc_settings,
+    )
+
+    assert captured["model"] == "mh-1"
+    assert captured["default_dtype"] == "float64"
+    assert captured["device"] == "cpu"
+    assert captured["head"] == "matpes_r2scan"
+    assert captured["dispersion"] is True
+    assert captured["dispersion_xc"] == "r2scan"
+    assert captured["dispersion_cutoff"] == 40.0
+
+
+@pytest.mark.unit
+def test_mace_opt_energy_csv_replaces_only_processed_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """This test ensures rerunning one mode preserves other mode rows in the combined CSV."""
     output_base = tmp_path / "cof-1" / "4_cof-1_optimization"
     incl_folder = output_base / "incl"
     serr_folder = output_base / "serr"
@@ -74,6 +105,9 @@ def test_mace_fullopt_energy_csv_replaces_only_processed_mode(
     serr_folder.mkdir(parents=True)
 
     (incl_folder / "cof-1_a_incl.cif").write_text(
+        "data_dummy\n", encoding="utf-8"
+    )
+    (serr_folder / "cof-1_a_serr.cif").write_text(
         "data_dummy\n", encoding="utf-8"
     )
 
@@ -101,18 +135,23 @@ def test_mace_fullopt_energy_csv_replaces_only_processed_mode(
     def fake_read(path: str):
         if path.endswith("cof-1_a_incl.cif"):
             return _DummyAtoms(energy=-8.5)
+        if path.endswith("cof-1_a_serr.cif"):
+            return _DummyAtoms(energy=-20.0)
         raise AssertionError(f"Unexpected path: {path}")
 
     monkeypatch.setattr(mace_mod, "read", fake_read)
 
-    opt = object.__new__(MaceFullOpt)
+    opt = object.__new__(MaceOpt)
     opt.calc = object()
 
     out_csv = opt._write_optimized_energy_csv(
         cof_name="cof-1",
-        mode_output_folders={"incl": incl_folder},
+        mode_output_folders={"incl": incl_folder, "serr": serr_folder},
         output_base_path=output_base,
-        convergence_map={("incl", "cof-1_a_incl"): False},
+        convergence_map={
+            ("incl", "cof-1_a_incl"): False,
+            ("serr", "cof-1_a_serr"): True,
+        },
     )
 
     assert out_csv == csv_path
@@ -121,16 +160,21 @@ def test_mace_fullopt_energy_csv_replaces_only_processed_mode(
     keys = set(
         zip(written["stacking_mode"], written["structure"], strict=False)
     )
-    assert ("serr", "cof-1_old_serr") in keys
     assert ("incl", "cof-1_a_incl") in keys
+    assert ("serr", "cof-1_a_serr") in keys
     assert ("incl", "cof-1_old_incl") not in keys
+    assert ("serr", "cof-1_old_serr") not in keys
 
-    stopped_map = {
-        (row["stacking_mode"], row["structure"]): str(
-            row["stopped_due_to_max_steps"]
-        ).lower()
-        in {"true", "1"}
-        for _, row in written.iterrows()
-    }
-    assert stopped_map[("incl", "cof-1_a_incl")] is True
-    assert stopped_map[("serr", "cof-1_old_serr")] is False
+    serr_row = written[
+        (written["stacking_mode"] == "serr")
+        & (written["structure"] == "cof-1_a_serr")
+    ].iloc[0]
+    incl_row = written[
+        (written["stacking_mode"] == "incl")
+        & (written["structure"] == "cof-1_a_incl")
+    ].iloc[0]
+
+    assert float(serr_row["energy_eV_per_layer"]) == -10.0
+    assert float(incl_row["energy_eV_per_layer"]) == -8.5
+    assert bool(incl_row["stopped_due_to_max_steps"])
+    assert not bool(serr_row["stopped_due_to_max_steps"])

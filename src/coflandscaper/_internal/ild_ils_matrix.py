@@ -367,7 +367,7 @@ class CreateMatrix:
     def __init__(
         self,
         ild_start: float = 3.0,
-        ild_end: float = 4.5,
+        ild_end: float = 4.0,
         ild_step: float = 0.1,
         ils_length_start: float = 0.0,
         ils_length_end: float | None = None,
