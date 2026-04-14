@@ -345,6 +345,45 @@ class MaceOpt(Mace):
         atoms.write(output_path)
         return bool(converged)
 
+    def run_preopt(
+        self,
+        cof_name: str,
+        input_path: str | None = None,
+        output_path: str | None = None,
+        fix_z: bool = True,
+    ) -> bool:
+        """Run one-file pre-optimization with COF-specific default paths.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            input_path: Optional input CIF path.
+                Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif.
+            output_path: Optional output CIF path.
+                Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
+            fix_z: Whether to fix atomic z coordinates during this preopt run.
+
+        Returns:
+            True if the optimization converged, else False.
+        """
+        default_dir = Path(cof_name) / f"1_{cof_name}_single_layer"
+        resolved_input = Path(
+            input_path or default_dir / f"{cof_name}_unopt.cif"
+        )
+        resolved_output = Path(
+            output_path or default_dir / f"{cof_name}_preopt.cif"
+        )
+        resolved_output.parent.mkdir(parents=True, exist_ok=True)
+
+        prev_fix_z = self.fix_z
+        self.fix_z = fix_z
+        try:
+            return self.optimize_cof(
+                str(resolved_input),
+                str(resolved_output),
+            )
+        finally:
+            self.fix_z = prev_fix_z
+
     def process_cifs(
         self, input_folder: str, output_folder: str
     ) -> dict[str, bool]:

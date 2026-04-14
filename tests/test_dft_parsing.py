@@ -163,10 +163,10 @@ def test_parse_atom_lines_skips_invalid_rows_then_collects_atoms() -> None:
 
 
 @pytest.mark.unit
-def test_crystal_run_mode_validates_mode_and_routes_subfolders(
+def test_crystal_generate_input_validates_mode_and_routes_subfolders(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures Crystal run_mode validates mode and routes expected input and output folders."""
+    """This test ensures Crystal generate_input validates mode and routes expected input and output folders."""
     calls: list[tuple[str, str]] = []
 
     def fake_run(
@@ -178,21 +178,21 @@ def test_crystal_run_mode_validates_mode_and_routes_subfolders(
     monkeypatch.setattr(dft.Crystal, "run", fake_run)
 
     crystal = dft.Crystal(post_block="")
-    crystal.run_mode("cof-a", mode="both")
+    crystal.generate_input("cof-a", mode="both")
     assert calls == [
         ("cof-a/2_cof-a_matrix/serr", "cof-a/2_cof-a_matrix/dft_serr"),
         ("cof-a/2_cof-a_matrix/incl", "cof-a/2_cof-a_matrix/dft_incl"),
     ]
 
     with pytest.raises(ValueError, match="mode must be"):
-        crystal.run_mode("cof-a", mode="bad")
+        crystal.generate_input("cof-a", mode="bad")
 
 
 @pytest.mark.unit
-def test_crystal_sp_read_mode_appends_dft_suffix_to_default_csv_names(
+def test_crystal_sp_read_output_appends_dft_suffix_to_default_csv_names(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures CrystalSP read_mode writes _dft-suffixed CSV names by default."""
+    """This test ensures CrystalSP read_output writes _dft-suffixed CSV names by default."""
     calls: list[tuple[str, str | None, str]] = []
 
     def fake_read(
@@ -210,7 +210,7 @@ def test_crystal_sp_read_mode_appends_dft_suffix_to_default_csv_names(
 
     monkeypatch.setattr(dft.CrystalSP, "read", fake_read)
 
-    outputs = dft.CrystalSP().read_mode("cof-a", mode="both")
+    outputs = dft.CrystalSP().read_output("cof-a", mode="both")
 
     assert calls == [
         ("cof-a/2_cof-a_matrix/dft_serr", None, "_dft"),

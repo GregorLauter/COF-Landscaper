@@ -1,0 +1,7 @@
+structure,stacking_mode,energy_eV_per_layer,energy_rel_eV_per_layer,stopped_due_to_max_steps
+cof-1_z30_L087_incl,incl,-325.5990732621426,0.23136227077077365,True
+cof-1_z33_L020_incl,incl,-325.8304355329134,0.0,True
+cof-1_z36_L000_incl,incl,-325.539012467616,0.29142306529740836,True
+cof-1_z30_L087_serr,serr,-325.588706889882,0.2417286430313652,False
+cof-1_z33_L020_serr,serr,-325.81978194084604,0.010653592067342288,True
+cof-1_z36_L000_serr,serr,-325.5363499031705,0.2940856297428809,True

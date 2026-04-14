@@ -378,7 +378,7 @@ class Crystal:
             except Exception:
                 continue
 
-    def run_mode(
+    def generate_input(
         self,
         cof_name: str,
         mode: str,
@@ -566,7 +566,7 @@ END"""
 
         return energies_csv_path
 
-    def read_mode(
+    def read_output(
         self,
         cof_name: str,
         mode: str,
@@ -666,7 +666,7 @@ SHRINK
 END"""
         super().__init__(post_block=post_block)
 
-    def run_mode(
+    def generate_input(
         self,
         cof_name: str,
         mode: str,
@@ -805,7 +805,7 @@ END"""
                     out_files.append(out_path)
         return out_files
 
-    def read_mode(
+    def read_output(
         self,
         cof_name: str,
         mode: str,
@@ -991,7 +991,7 @@ END"""
 
         return outputs
 
-    def extract_mode(
+    def extract_cif(
         self,
         cof_name: str,
         mode: str,

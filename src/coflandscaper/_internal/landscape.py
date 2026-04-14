@@ -48,8 +48,10 @@ class Landscape:
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
+        minima_mode: str = "global",
         show_header: bool = True,
         show_title_block: bool = True,
+        show: bool = False,
     ) -> None:
         """Build PES plots for one stacking mode.
 
@@ -67,9 +69,13 @@ class Landscape:
                 Values above this are clipped in the plots.
             show_minima_markers: If True (default), mark global minima in red and
                 local minima in green on heatmap/isolines.
+            minima_mode: Minima marker mode: "global" (default) marks only the
+                single global minimum; "local" marks local minima as well.
             show_header: If True (default), draw title and header text.
             show_title_block: If True (default), draw title plus two header lines
                 (stacking mode and level of theory when available).
+            show: If True, display plots interactively via Matplotlib.
+                Defaults to False for non-interactive/batch workflows.
 
         Returns:
             None.
@@ -155,6 +161,9 @@ class Landscape:
 
         cmap = self._resolve_cmap(colorscheme)
         mode = (plot_mode or "heatmap").lower()
+        minima_mode_norm = (minima_mode or "global").strip().lower()
+        if minima_mode_norm not in {"global", "local"}:
+            raise ValueError("minima_mode must be 'global' or 'local'.")
         nrows, ncols = data.shape
         vmax = float(rel_energy_max) if rel_energy_max is not None else None
 
@@ -234,6 +243,9 @@ class Landscape:
                     [x], [y], marker="x", color="red", s=120, linewidths=2.5
                 )
 
+            if minima_mode_norm == "global":
+                return
+
             local_minima = self._find_local_minima(finite_vals)
             if local_minima:
                 if use_rect:
@@ -277,7 +289,10 @@ class Landscape:
                 _mark_minima(use_rect=True)
             plt.tight_layout()
             plt.savefig(heatmap_path, dpi=200)
-            plt.show()
+            if show:
+                plt.show()
+            else:
+                plt.close()
             print(f"Saved: {heatmap_path}")
             paths.append(heatmap_path)
 
@@ -292,7 +307,10 @@ class Landscape:
                 _mark_minima(use_rect=False)
             plt.tight_layout()
             plt.savefig(isolines_path, dpi=200)
-            plt.show()
+            if show:
+                plt.show()
+            else:
+                plt.close()
             print(f"Saved: {isolines_path}")
             paths.append(isolines_path)
 
@@ -305,8 +323,10 @@ class Landscape:
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
+        minima_mode: str = "global",
         show_header: bool = True,
         show_title_block: bool = True,
+        show: bool = False,
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
@@ -321,8 +341,12 @@ class Landscape:
             plot_mode: "heatmap", "isolines", or "both".
             rel_energy_max: Optional max value for relative energies.
             show_minima_markers: If True (default), mark minima on plots.
+            minima_mode: "global" (default) marks only one global minimum;
+                "local" includes local minima markers too.
             show_header: If True (default), draw title and header text.
             show_title_block: If True (default), draw title plus two header lines.
+            show: If True, display plots interactively.
+                Defaults to False for cluster/batch runs.
             input_folder: Optional base folder containing mode folders and
                 {cof_name}_sp_energies_{mode}.csv files, or
                 {cof_name}_sp_energies_{mode}_dft.csv when dft=True.
@@ -368,8 +392,10 @@ class Landscape:
                 plot_mode=plot_mode,
                 rel_energy_max=rel_energy_max,
                 show_minima_markers=show_minima_markers,
+                minima_mode=minima_mode,
                 show_header=show_header,
                 show_title_block=show_title_block,
+                show=show,
             )
 
         if missing_csvs:
@@ -1005,12 +1031,12 @@ class SelectCofs:
         df2 = df.dropna(subset=["z", "L", "energy_eV"]).copy()
         if df2.empty:
             raise ValueError(f"CSV has no valid z/L/energy rows: {csv_path}")
-        min_val = df2["energy_eV"].min()
-        sel = df2[df2["energy_eV"] == min_val]
-        selections = list(
-            zip(sel["z"].astype(float), sel["L"].astype(float), strict=False)
+        sel = (
+            df2.sort_values(["energy_eV", "z", "L"])
+            .head(1)
+            .reset_index(drop=True)
         )
-        return self._dedupe_selections(selections)
+        return [(float(sel.loc[0, "z"]), float(sel.loc[0, "L"]))]
 
     def _local_minima_from_csv(
         self, csv_path: Path
@@ -1111,6 +1137,7 @@ class SelectCofs:
         selections_serr: list[tuple[float, float]] | None = None,
         selections_incl: list[tuple[float, float]] | None = None,
         include_autoselect: bool = False,
+        autoselect_minima: str = "global",
         input_base: str | None = None,
         output_base: str | None = None,
         input_folder: str | None = None,
@@ -1124,6 +1151,9 @@ class SelectCofs:
             selections_serr: Extra selections for serrated only.
             selections_incl: Extra selections for inclined only.
             include_autoselect: If True, auto-select local minima per mode.
+            autoselect_minima: Minima mode for auto-selection:
+                "global" (default) selects one global minimum,
+                "local" selects all local minima.
             input_base: Optional base folder containing mode subfolders.
                 Defaults to {cof_name}/2_{cof_name}_matrix.
             output_base: Optional base folder for selected CIFs.
@@ -1134,6 +1164,9 @@ class SelectCofs:
             output_folder: Optional explicit output folder for selected CIFs.
                 Used with `input_folder` for single-folder selection.
         """
+        autoselect_mode = (autoselect_minima or "global").strip().lower()
+        if autoselect_mode not in {"global", "local"}:
+            raise ValueError("autoselect_minima must be 'global' or 'local'.")
 
         def _build_mode_selections(mode_tag: str) -> list[tuple[float, float]]:
             mode_selections: list[tuple[float, float]] = []
@@ -1148,7 +1181,14 @@ class SelectCofs:
                     csv_path = (
                         csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
                     )
-                mode_selections.extend(self._local_minima_from_csv(csv_path))
+                if autoselect_mode == "global":
+                    mode_selections.extend(
+                        self._global_minima_from_csv(csv_path)
+                    )
+                else:
+                    mode_selections.extend(
+                        self._local_minima_from_csv(csv_path)
+                    )
             if mode_tag == "serr" and selections_serr:
                 mode_selections.extend(selections_serr)
             if mode_tag == "incl" and selections_incl:

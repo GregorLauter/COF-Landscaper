@@ -178,3 +178,53 @@ def test_mace_opt_energy_csv_replaces_only_processed_mode(
     assert float(incl_row["energy_eV_per_layer"]) == -8.5
     assert bool(incl_row["stopped_due_to_max_steps"])
     assert not bool(serr_row["stopped_due_to_max_steps"])
+
+
+@pytest.mark.unit
+def test_run_preopt_uses_default_paths_and_restores_fix_z(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, str | bool] = {}
+
+    def fake_optimize(self, input_path: str, output_path: str) -> bool:
+        seen["input_path"] = input_path
+        seen["output_path"] = output_path
+        seen["fix_z_during_call"] = self.fix_z
+        return True
+
+    opt = object.__new__(MaceOpt)
+    opt.fix_z = False
+    opt.optimize_cof = fake_optimize.__get__(opt, MaceOpt)
+
+    monkeypatch.chdir(tmp_path)
+
+    converged = opt.run_preopt("COF-1")
+
+    assert converged is True
+    assert seen["input_path"] == "COF-1/1_COF-1_single_layer/COF-1_unopt.cif"
+    assert seen["output_path"] == "COF-1/1_COF-1_single_layer/COF-1_preopt.cif"
+    assert seen["fix_z_during_call"] is True
+    assert opt.fix_z is False
+
+
+@pytest.mark.unit
+def test_run_preopt_can_disable_fix_z_for_single_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, bool] = {}
+
+    def fake_optimize(self, _input_path: str, _output_path: str) -> bool:
+        seen["fix_z_during_call"] = self.fix_z
+        return True
+
+    opt = object.__new__(MaceOpt)
+    opt.fix_z = True
+    opt.optimize_cof = fake_optimize.__get__(opt, MaceOpt)
+
+    monkeypatch.chdir(tmp_path)
+
+    converged = opt.run_preopt("COF-1", fix_z=False)
+
+    assert converged is True
+    assert seen["fix_z_during_call"] is False
+    assert opt.fix_z is True

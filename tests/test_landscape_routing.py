@@ -35,8 +35,10 @@ def test_landscape_run_mode_uses_standard_csv_by_default(
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
+        minima_mode: str = "global",
         show_header: bool = True,
         show_title_block: bool = True,
+        show: bool = False,
     ) -> None:
         del (
             cof_name,
@@ -45,8 +47,10 @@ def test_landscape_run_mode_uses_standard_csv_by_default(
             plot_mode,
             rel_energy_max,
             show_minima_markers,
+            minima_mode,
             show_header,
             show_title_block,
+            show,
         )
         calls.append((input_folder, dft))
 
@@ -94,8 +98,10 @@ def test_landscape_run_mode_uses_dft_csv_when_enabled(
         plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
+        minima_mode: str = "global",
         show_header: bool = True,
         show_title_block: bool = True,
+        show: bool = False,
     ) -> None:
         del (
             cof_name,
@@ -104,8 +110,10 @@ def test_landscape_run_mode_uses_dft_csv_when_enabled(
             plot_mode,
             rel_energy_max,
             show_minima_markers,
+            minima_mode,
             show_header,
             show_title_block,
+            show,
         )
         calls.append((input_folder, dft))
 
