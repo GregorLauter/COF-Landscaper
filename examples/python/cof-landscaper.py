@@ -45,6 +45,9 @@ def run_workflow(params: dict[str, object]) -> None:
     matrix = cl.CreateMatrix()
     matrix.run(cof_name=cof_name, topo=topology, mode=mode)
 
+    sp = cl.MaceSP(head=mace_head, device=device)
+    sp.run_mode(cof_name=cof_name, mode=mode)
+
     crystal_sp = cl.CrystalSP()
     crystal_sp.generate_input(cof_name=cof_name, mode=mode)
 

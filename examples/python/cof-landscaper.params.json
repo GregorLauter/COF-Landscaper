@@ -1,11 +1,11 @@
 {
   "TOPOLOGY": "hcb",
   "BOND_TYPE": "single",
-  "COF_NAME": "cof-1",
+  "COF_NAME": "COF-1",
   "MODE": "both",
   "MACE_HEAD": "matpes_r2scan",
-  "DEVICE": "cpu",
-  "MAX_STEPS": 50,
-  "MINIMA_MODE": "global",
+  "DEVICE": "cuda",
+  "MAX_STEPS": 2000,
+  "MINIMA_MODE": "local",
   "SHOW_LANDSCAPE": false
 }
