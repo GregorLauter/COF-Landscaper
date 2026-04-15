@@ -118,7 +118,9 @@ def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(Pxrd, "plot_xy", fake_plot_xy)
 
-    outputs = pxrd.plot_sim(cof_name="cof-b", mode="both", dft=True, show=False)
+    outputs = pxrd.plot_sim(
+        cof_name="cof-b", mode="both", dft=True, show=False
+    )
 
     assert outputs == {
         "serr": "cof-b/5_cof-b_analysis/pxrd_stacked_serr_dft.png",

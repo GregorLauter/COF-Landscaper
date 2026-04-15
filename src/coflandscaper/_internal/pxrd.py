@@ -367,10 +367,14 @@ class Pxrd:
         if exp_xy_file is None:
             exp_dir = Path(exp_folder)
             if not exp_dir.exists() or not exp_dir.is_dir():
-                raise FileNotFoundError(f"Experimental folder not found: {exp_dir}")
+                raise FileNotFoundError(
+                    f"Experimental folder not found: {exp_dir}"
+                )
             exp_files = sorted(exp_dir.glob("*.xy"))
             if not exp_files:
-                raise FileNotFoundError(f"No experimental .xy files found in: {exp_dir}")
+                raise FileNotFoundError(
+                    f"No experimental .xy files found in: {exp_dir}"
+                )
             if len(exp_files) != 1:
                 raise ValueError(
                     f"Expected exactly one experimental .xy file in {exp_dir}, got {len(exp_files)}."
@@ -379,7 +383,9 @@ class Pxrd:
         else:
             exp_path = Path(exp_xy_file)
             if not exp_path.exists():
-                raise FileNotFoundError(f"Experimental .xy file not found: {exp_path}")
+                raise FileNotFoundError(
+                    f"Experimental .xy file not found: {exp_path}"
+                )
 
         sim_files: list[Path] = []
         if simulated_xy_folder is None:
@@ -394,7 +400,9 @@ class Pxrd:
         else:
             sim_root = Path(simulated_xy_folder)
             if mode_lower == "both":
-                direct_files = sorted(sim_root.glob("*.xy")) if sim_root.is_dir() else []
+                direct_files = (
+                    sorted(sim_root.glob("*.xy")) if sim_root.is_dir() else []
+                )
                 if direct_files:
                     sim_files = direct_files
                     sim_dirs = []
@@ -406,10 +414,14 @@ class Pxrd:
         if not sim_files:
             for sim_dir in sim_dirs:
                 if not sim_dir.exists() or not sim_dir.is_dir():
-                    raise FileNotFoundError(f"Simulated XY folder not found: {sim_dir}")
+                    raise FileNotFoundError(
+                        f"Simulated XY folder not found: {sim_dir}"
+                    )
                 mode_files = sorted(sim_dir.glob("*.xy"))
                 if not mode_files:
-                    raise FileNotFoundError(f"No simulated .xy files found in: {sim_dir}")
+                    raise FileNotFoundError(
+                        f"No simulated .xy files found in: {sim_dir}"
+                    )
                 sim_files.extend(mode_files)
 
         output_root = (
@@ -417,13 +429,20 @@ class Pxrd:
             if output_folder is not None
             else Path(f"{cof_name}/5_{cof_name}_analysis")
         )
-        output_path = output_root / f"pxrd_vs_exp_{mode_lower}{'_dft' if dft else ''}.png"
+        output_path = (
+            output_root
+            / f"pxrd_vs_exp_{mode_lower}{'_dft' if dft else ''}.png"
+        )
 
         x_exp, y_exp = self._read_xy(exp_path)
         x_exp = np.asarray(x_exp, dtype=float)
         y_exp = np.asarray(y_exp, dtype=float)
         exp_shifted = y_exp - np.nanmin(y_exp)
-        exp_max = float(np.nanmax(exp_shifted)) if np.nanmax(exp_shifted) > 0 else 1.0
+        exp_max = (
+            float(np.nanmax(exp_shifted))
+            if np.nanmax(exp_shifted) > 0
+            else 1.0
+        )
 
         figure_width = 9.0
         figure_height_per_pattern = 1.45
