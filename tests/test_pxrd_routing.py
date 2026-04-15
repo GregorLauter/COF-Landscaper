@@ -97,8 +97,8 @@ def test_run_custom_parent_folder_routing(
 
 
 @pytest.mark.unit
-def test_plot_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """This test ensures PXRD plot routing writes mode-specific output image paths."""
+def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """This test ensures PXRD plot_sim routing writes mode-specific output image paths."""
     pxrd = Pxrd()
     calls: list[tuple[Path, Path, tuple[float, float], bool]] = []
 
@@ -108,15 +108,17 @@ def test_plot_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
         output_path: str | Path,
         xlim: tuple[float, float] = (1.5, 60.0),
         show: bool = True,
+        save: bool = True,
     ) -> str:
         xy_path = Path(xy_folder)
         out_path = Path(output_path)
         calls.append((xy_path, out_path, xlim, show))
+        _ = save
         return str(out_path)
 
     monkeypatch.setattr(Pxrd, "plot_xy", fake_plot_xy)
 
-    outputs = pxrd.plot(cof_name="cof-b", mode="both", dft=True, show=False)
+    outputs = pxrd.plot_sim(cof_name="cof-b", mode="both", dft=True, show=False)
 
     assert outputs == {
         "serr": "cof-b/5_cof-b_analysis/pxrd_stacked_serr_dft.png",
@@ -136,6 +138,46 @@ def test_plot_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
             False,
         ),
     ]
+
+
+@pytest.mark.unit
+def test_plot_vs_exp_default_routing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures plot_vs_exp uses the default exp and simulated folder layout."""
+    monkeypatch.chdir(tmp_path)
+
+    exp_dir = tmp_path / "exp"
+    exp_dir.mkdir()
+    np.savetxt(
+        exp_dir / "sample.xy",
+        np.array([[5.0, 10.0], [10.0, 18.0], [15.0, 6.0]]),
+    )
+
+    sim_serr_dir = tmp_path / "cof-c" / "5_cof-c_analysis" / "pxrd_xy" / "serr"
+    sim_incl_dir = tmp_path / "cof-c" / "5_cof-c_analysis" / "pxrd_xy" / "incl"
+    sim_serr_dir.mkdir(parents=True)
+    sim_incl_dir.mkdir(parents=True)
+    np.savetxt(
+        sim_serr_dir / "sim_1.xy",
+        np.array([[5.0, 2.0], [10.0, 5.0], [15.0, 1.0]]),
+    )
+    np.savetxt(
+        sim_incl_dir / "sim_2.xy",
+        np.array([[5.0, 1.0], [10.0, 4.0], [15.0, 3.0]]),
+    )
+
+    pxrd = Pxrd()
+    output = pxrd.plot_vs_exp(
+        cof_name="cof-c",
+        mode="both",
+        exp_folder="exp",
+        show=False,
+        save=False,
+    )
+
+    assert output == "cof-c/5_cof-c_analysis/pxrd_vs_exp_both.png"
 
 
 class _FakePattern:

@@ -37,6 +37,27 @@ class Pxrd:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
         return ["serr", "incl"] if mode_lower == "both" else [mode_lower]
 
+    @staticmethod
+    def _read_xy(file_path: str | Path) -> tuple[np.ndarray, np.ndarray]:
+        for skip in (0, 1, 2):
+            try:
+                arr = np.loadtxt(file_path, skiprows=skip)
+                if arr.ndim == 1 and arr.size >= 2:
+                    arr = arr.reshape(-1, 2)
+                if arr.ndim == 2 and arr.shape[1] >= 2:
+                    return arr[:, 0], arr[:, 1]
+            except Exception:
+                continue
+        raise ValueError(f"Could not parse XY data from {file_path}")
+
+    @staticmethod
+    def _sim_label(file_path: str | Path) -> str:
+        stem = Path(file_path).stem
+        label = stem.replace("Inc_", "Inclined ")
+        label = label.replace("Ser_", "Serrated ")
+        label = label.replace("Serr_", "Serrated ")
+        return label.replace("_", " ")
+
     def run(
         self,
         cof_name: str,
@@ -149,6 +170,7 @@ class Pxrd:
         output_path: str | Path,
         xlim: tuple[float, float] = (1.5, 60.0),
         show: bool = True,
+        save: bool = True,
     ) -> str:
         """Plot all .xy files in one stacked figure and save it.
 
@@ -157,6 +179,7 @@ class Pxrd:
             output_path: Path for the output image file.
             xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
             show: If True, display the plot in the active notebook/session.
+            save: If True, write the figure to output_path.
 
         Returns:
             Output image path as a string.
@@ -173,7 +196,7 @@ class Pxrd:
             raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
 
         figure_width = 9.0
-        figure_height_per_pattern = 1.2
+        figure_height_per_pattern = 1.8
         line_color = "black"
         line_width = 0.9
         dpi = 300
@@ -216,22 +239,24 @@ class Pxrd:
             )
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
+            ax.tick_params(axis="x", labelbottom=True)
 
         axes_list[-1].set_xlim(*xlim)
         axes_list[-1].set_xlabel(r"2$\theta$ (deg)")
         fig.supylabel("Intensity (a.u.)")
-        fig.tight_layout(rect=(0.07, 0.03, 1.0, 1.0))
+        fig.tight_layout(rect=(0.07, 0.03, 1.0, 1.0), h_pad=1.1)
 
         output = Path(output_path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(output, dpi=dpi, bbox_inches="tight")
+        if save:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(str(output), dpi=dpi, bbox_inches="tight")
         if show:
             plt.show()
         plt.close(fig)
 
         return str(output)
 
-    def plot(
+    def plot_sim(
         self,
         cof_name: str,
         mode: str = "both",
@@ -240,8 +265,9 @@ class Pxrd:
         output_folder: str | Path | None = None,
         xlim: tuple[float, float] = (1.5, 60.0),
         show: bool = True,
+        save: bool = True,
     ) -> dict[str, str]:
-        """Plot stacked PXRD patterns for one or both modes.
+        """Plot stacked simulated PXRD patterns for one or both modes.
 
         Args:
             cof_name: COF name used for default path construction.
@@ -253,6 +279,7 @@ class Pxrd:
                 Defaults to {cof_name}/5_{cof_name}_analysis.
             xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
             show: If True, display generated plot(s) in the notebook/session.
+            save: If True, write the figure(s) to disk.
 
         Returns:
             Mapping of mode to output plot path.
@@ -295,6 +322,182 @@ class Pxrd:
                 output_path=target_output,
                 xlim=xlim,
                 show=show,
+                save=save,
             )
 
         return outputs
+
+    def plot_vs_exp(
+        self,
+        cof_name: str,
+        mode: str = "serr",
+        dft: bool = False,
+        exp_folder: str | Path = ".",
+        exp_xy_file: str | Path | None = None,
+        simulated_xy_folder: str | Path | None = None,
+        output_folder: str | Path | None = None,
+        xlim: tuple[float, float] = (1.5, 60.0),
+        show: bool = True,
+        save: bool = True,
+    ) -> str:
+        """Plot one experimental PXRD pattern against each simulated pattern.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            mode: "incl", "serr", or "both"; selects the default simulated folder(s).
+            dft: If True, default simulated folder uses pxrd_xy_dft.
+            exp_folder: Folder searched for exactly one experimental .xy file
+                when exp_xy_file is not provided.
+            exp_xy_file: Explicit experimental .xy file path.
+            simulated_xy_folder: Folder containing simulated .xy files. If None,
+                defaults to {cof_name}/5_{cof_name}_analysis/pxrd_xy/{mode}
+                or pxrd_xy_dft/{mode} when dft=True.
+            output_folder: Optional folder for the output image.
+            xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
+            show: If True, display the figure.
+            save: If True, write the figure to disk.
+
+        Returns:
+            Output image path as a string.
+        """
+        mode_lower = mode.lower()
+        if mode_lower not in {"incl", "serr", "both"}:
+            raise ValueError("mode must be 'incl', 'serr', or 'both'.")
+
+        if exp_xy_file is None:
+            exp_dir = Path(exp_folder)
+            if not exp_dir.exists() or not exp_dir.is_dir():
+                raise FileNotFoundError(f"Experimental folder not found: {exp_dir}")
+            exp_files = sorted(exp_dir.glob("*.xy"))
+            if not exp_files:
+                raise FileNotFoundError(f"No experimental .xy files found in: {exp_dir}")
+            if len(exp_files) != 1:
+                raise ValueError(
+                    f"Expected exactly one experimental .xy file in {exp_dir}, got {len(exp_files)}."
+                )
+            exp_path = exp_files[0]
+        else:
+            exp_path = Path(exp_xy_file)
+            if not exp_path.exists():
+                raise FileNotFoundError(f"Experimental .xy file not found: {exp_path}")
+
+        sim_files: list[Path] = []
+        if simulated_xy_folder is None:
+            sim_root = Path(
+                f"{cof_name}/5_{cof_name}_analysis/"
+                f"{'pxrd_xy_dft' if dft else 'pxrd_xy'}"
+            )
+            if mode_lower == "both":
+                sim_dirs = [sim_root / "serr", sim_root / "incl"]
+            else:
+                sim_dirs = [sim_root / mode_lower]
+        else:
+            sim_root = Path(simulated_xy_folder)
+            if mode_lower == "both":
+                direct_files = sorted(sim_root.glob("*.xy")) if sim_root.is_dir() else []
+                if direct_files:
+                    sim_files = direct_files
+                    sim_dirs = []
+                else:
+                    sim_dirs = [sim_root / "serr", sim_root / "incl"]
+            else:
+                sim_dirs = [sim_root]
+
+        if not sim_files:
+            for sim_dir in sim_dirs:
+                if not sim_dir.exists() or not sim_dir.is_dir():
+                    raise FileNotFoundError(f"Simulated XY folder not found: {sim_dir}")
+                mode_files = sorted(sim_dir.glob("*.xy"))
+                if not mode_files:
+                    raise FileNotFoundError(f"No simulated .xy files found in: {sim_dir}")
+                sim_files.extend(mode_files)
+
+        output_root = (
+            Path(output_folder)
+            if output_folder is not None
+            else Path(f"{cof_name}/5_{cof_name}_analysis")
+        )
+        output_path = output_root / f"pxrd_vs_exp_{mode_lower}{'_dft' if dft else ''}.png"
+
+        x_exp, y_exp = self._read_xy(exp_path)
+        x_exp = np.asarray(x_exp, dtype=float)
+        y_exp = np.asarray(y_exp, dtype=float)
+        exp_shifted = y_exp - np.nanmin(y_exp)
+        exp_max = float(np.nanmax(exp_shifted)) if np.nanmax(exp_shifted) > 0 else 1.0
+
+        figure_width = 9.0
+        figure_height_per_pattern = 1.45
+        dpi = 300
+
+        nrows = len(sim_files)
+        figure_height = max(2.0, figure_height_per_pattern * nrows)
+        fig, axes = plt.subplots(
+            nrows=nrows,
+            ncols=1,
+            figsize=(figure_width, figure_height),
+            sharex=True,
+        )
+        axes_list = [axes] if nrows == 1 else list(axes)
+
+        for ax, sim_file in zip(axes_list, sim_files, strict=True):
+            x_sim, y_sim = self._read_xy(sim_file)
+            x_sim = np.asarray(x_sim, dtype=float)
+            y_sim = np.asarray(y_sim, dtype=float)
+            order = np.argsort(x_sim)
+            x_sim = x_sim[order]
+            y_sim = y_sim[order]
+
+            sim_shifted = y_sim - np.nanmin(y_sim)
+            sim_max = float(np.nanmax(sim_shifted))
+            if sim_max <= 0:
+                continue
+
+            y_sim_scaled = (sim_shifted / sim_max) * exp_max
+
+            ax.plot(
+                x_exp,
+                exp_shifted,
+                color="red",
+                linewidth=1.6,
+                alpha=0.95,
+            )
+            ax.vlines(
+                x_sim,
+                0.0,
+                y_sim_scaled,
+                color="black",
+                linewidth=0.8,
+                alpha=0.9,
+            )
+
+            y_max = float(max(np.nanmax(exp_shifted), np.nanmax(y_sim_scaled)))
+            ax.set_ylim(0.0, y_max * 1.15 if y_max > 0 else 1.0)
+            ax.text(
+                0.98,
+                0.88,
+                self._sim_label(sim_file),
+                transform=ax.transAxes,
+                ha="right",
+                va="top",
+                fontsize=8,
+                bbox={"facecolor": "white", "alpha": 0.6, "edgecolor": "none"},
+            )
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.tick_params(axis="x", labelbottom=True)
+            ax.set_yticks([])
+            ax.tick_params(axis="y", length=0)
+
+        axes_list[-1].set_xlim(*xlim)
+        axes_list[-1].set_xlabel(r"2$\theta$ (deg)")
+        fig.supylabel("Intensity (a.u.)")
+        fig.tight_layout(rect=(0.07, 0.03, 1.0, 1.0), h_pad=1.2)
+
+        if save:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(str(output_path), dpi=dpi, bbox_inches="tight")
+        if show:
+            plt.show()
+        plt.close(fig)
+
+        return str(output_path)
