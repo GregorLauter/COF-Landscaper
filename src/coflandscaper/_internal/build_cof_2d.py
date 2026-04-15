@@ -655,7 +655,9 @@ def _build_cof(
     output_filename = os.path.join(output_folder, filename)
     cof.write_cif(output_filename)
     if topo == "sql":
-        centered = _center_structure_slab_z(Structure.from_file(output_filename))
+        centered = _center_structure_slab_z(
+            Structure.from_file(output_filename)
+        )
         centered.to(filename=output_filename)
     shutil.rmtree(runtime_dir, ignore_errors=True)
     return output_filename
