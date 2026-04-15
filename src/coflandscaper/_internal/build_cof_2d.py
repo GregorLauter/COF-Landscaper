@@ -26,6 +26,8 @@ from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
 
+from .ild_ils_utils import _unwrap_fractional_z
+
 DEFAULT_ILD_GUESS = 15.0
 DEFAULT_X_SCALE = 0.8
 
@@ -529,6 +531,35 @@ def _sanitize_edge_types_inplace(
     return edge_types
 
 
+def _center_structure_slab_z(struct: Structure) -> Structure:
+    """Center the slab midpoint to fractional z=0.5.
+
+    This gives symmetric vacuum above and below the layer.
+    """
+    lat = struct.lattice
+    frac = np.array([site.frac_coords for site in struct.sites], dtype=float)
+    fz = frac[:, 2]
+
+    z0 = _unwrap_fractional_z(fz)
+    fz_unwrapped = np.mod(fz - z0, 1.0)
+
+    zmin = float(np.min(fz_unwrapped))
+    zmax = float(np.max(fz_unwrapped))
+    z_mid = 0.5 * (zmin + zmax)
+
+    dz_frac = 0.5 - z_mid
+    fz_centered = np.mod(fz_unwrapped + dz_frac, 1.0)
+    frac_centered = frac.copy()
+    frac_centered[:, 2] = fz_centered
+
+    return Structure(
+        lattice=lat,
+        species=struct.species,
+        coords=frac_centered.tolist(),
+        coords_are_cartesian=False,
+    )
+
+
 def _build_cof(
     topo: str,
     node_name: str,
@@ -623,6 +654,9 @@ def _build_cof(
 
     output_filename = os.path.join(output_folder, filename)
     cof.write_cif(output_filename)
+    if topo == "sql":
+        centered = _center_structure_slab_z(Structure.from_file(output_filename))
+        centered.to(filename=output_filename)
     shutil.rmtree(runtime_dir, ignore_errors=True)
     return output_filename
 
