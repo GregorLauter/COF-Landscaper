@@ -285,8 +285,7 @@ class Pxrd:
             Mapping of mode to output plot path.
 
         Notes:
-            Output files are named pxrd_stacked_{mode}.png and use
-            pxrd_stacked_{mode}_dft.png when dft=True.
+            Output files are named {cof_name}_sim_{mode}.png.
         """
         modes = self._resolve_modes(mode)
 
@@ -295,7 +294,6 @@ class Pxrd:
             f"{cof_name}/5_{cof_name}_analysis/"
             f"{'pxrd_xy_dft' if dft else 'pxrd_xy'}"
         )
-        dft_suffix = "_dft" if dft else ""
         output_root = (
             Path(output_folder)
             if output_folder is not None
@@ -313,9 +311,7 @@ class Pxrd:
             else:
                 xy_dir = Path(xy_folder) / selected_mode
 
-            target_output = output_root / (
-                f"pxrd_stacked_{selected_mode}{dft_suffix}.png"
-            )
+            target_output = output_root / f"{cof_name}_sim_{selected_mode}.png"
 
             outputs[selected_mode] = self.plot_xy(
                 xy_folder=xy_dir,
@@ -327,12 +323,11 @@ class Pxrd:
 
         return outputs
 
-    def plot_vs_exp(
+    def plot_sim_vs_exp(
         self,
         cof_name: str,
-        mode: str = "serr",
+        mode: str,
         dft: bool = False,
-        exp_folder: str | Path = ".",
         exp_xy_file: str | Path | None = None,
         simulated_xy_folder: str | Path | None = None,
         output_folder: str | Path | None = None,
@@ -344,11 +339,12 @@ class Pxrd:
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: "incl", "serr", or "both"; selects the default simulated folder(s).
+            mode: "incl", "serr", or "both"; selects the simulated folder(s).
             dft: If True, default simulated folder uses pxrd_xy_dft.
-            exp_folder: Folder searched for exactly one experimental .xy file
-                when exp_xy_file is not provided.
-            exp_xy_file: Explicit experimental .xy file path.
+            exp_xy_file: Path to experimental .xy file. If None, searches the
+                'experimental_pxrd' folder for exactly one .xy file.
+                If multiple files exist, you must specify the path explicitly.
+                To customize the label displayed in the plot, rename the .xy file.
             simulated_xy_folder: Folder containing simulated .xy files. If None,
                 defaults to {cof_name}/5_{cof_name}_analysis/pxrd_xy/{mode}
                 or pxrd_xy_dft/{mode} when dft=True.
@@ -365,7 +361,7 @@ class Pxrd:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
         if exp_xy_file is None:
-            exp_dir = Path(exp_folder)
+            exp_dir = Path("experimental_pxrd")
             if not exp_dir.exists() or not exp_dir.is_dir():
                 raise FileNotFoundError(
                     f"Experimental folder not found: {exp_dir}"
@@ -377,7 +373,8 @@ class Pxrd:
                 )
             if len(exp_files) != 1:
                 raise ValueError(
-                    f"Expected exactly one experimental .xy file in {exp_dir}, got {len(exp_files)}."
+                    f"Expected exactly one experimental .xy file in {exp_dir}, got {len(exp_files)}. "
+                    f"Please specify the path explicitly using exp_xy_file parameter."
                 )
             exp_path = exp_files[0]
         else:
@@ -429,10 +426,7 @@ class Pxrd:
             if output_folder is not None
             else Path(f"{cof_name}/5_{cof_name}_analysis")
         )
-        output_path = (
-            output_root
-            / f"pxrd_vs_exp_{mode_lower}{'_dft' if dft else ''}.png"
-        )
+        output_path = output_root / f"{cof_name}_{mode_lower}.png"
 
         x_exp, y_exp = self._read_xy(exp_path)
         x_exp = np.asarray(x_exp, dtype=float)
@@ -444,8 +438,8 @@ class Pxrd:
             else 1.0
         )
 
-        figure_width = 9.0
-        figure_height_per_pattern = 1.45
+        figure_width = 8.0
+        figure_height_per_pattern = 2.1
         dpi = 300
 
         nrows = len(sim_files)
@@ -485,7 +479,7 @@ class Pxrd:
                 0.0,
                 y_sim_scaled,
                 color="black",
-                linewidth=0.8,
+                linewidth=1.5,
                 alpha=0.9,
             )
 
@@ -509,7 +503,7 @@ class Pxrd:
 
         axes_list[-1].set_xlim(*xlim)
         axes_list[-1].set_xlabel(r"2$\theta$ (deg)")
-        fig.supylabel("Intensity (a.u.)")
+        fig.supylabel("Intensity (a.u.)", fontsize=12)
         fig.tight_layout(rect=(0.07, 0.03, 1.0, 1.0), h_pad=1.2)
 
         if save:

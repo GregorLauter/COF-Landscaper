@@ -75,7 +75,8 @@ def run_workflow(params: dict[str, object]) -> None:
     crystal_opt = cl.CrystalOpt()
     crystal_opt.generate_input(cof_name=cof_name, mode=mode)
 
-    cl.analyze(cof_name=cof_name, mode=mode)
+    analyzer = cl.AnalyzeStacking()
+    analyzer.analyze(cof_name=cof_name, mode=mode)
 
     pxrd = cl.Pxrd(wavelength="CuKa", two_theta_range=(1.5, 60.0))
     pxrd.run(cof_name=cof_name, mode=mode)

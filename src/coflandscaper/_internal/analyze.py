@@ -226,7 +226,7 @@ class AnalyzeStacking:
         )
         return merged
 
-    def run(
+    def analyze(
         self,
         cof_name: str,
         mode: str = "both",
@@ -324,45 +324,24 @@ class AnalyzeStacking:
             writer.writeheader()
             writer.writerows(merged_rows)
 
-
-def analyze(
-    cof_name: str,
-    mode: str = "both",
-    input_base: str | Path | None = None,
-    output_base: str | Path | None = None,
-    dft: bool = False,
-    print_values: bool = True,
-):
-    """Compute ILD/ILS metrics and write an analysis CSV.
-
-    Args:
-        cof_name: COF name used for default folder naming.
-        mode: "incl", "serr", or "both".
-        input_base: Optional base folder containing per-mode subfolders.
-            Defaults to {cof_name}/4_{cof_name}_optimization.
-        output_base: Optional folder for the output CSV.
-            Defaults to {cof_name}/5_{cof_name}_analysis.
-        dft: If True, analyze dft_{mode} subfolders and write
-            final_structures_dft.csv.
-        print_values: If True, print ILD/ILS values to stdout.
-
-    Returns:
-        None.
-
-    Notes:
-                - dft=False reads from {input_base}/{serr|incl} and writes
-                    final_structures.csv.
-                - dft=True reads from {input_base}/dft_{serr|incl} and writes
-                    final_structures_dft.csv.
-    """
-    return AnalyzeStacking().run(
-        cof_name=cof_name,
-        mode=mode,
-        input_base=input_base,
-        output_base=output_base,
-        dft=dft,
-        print_values=print_values,
-    )
+    def run(
+        self,
+        cof_name: str,
+        mode: str = "both",
+        input_base: str | Path | None = None,
+        output_base: str | Path | None = None,
+        dft: bool = False,
+        print_values: bool = True,
+    ) -> None:
+        """Backward-compatible alias for :meth:`analyze`."""
+        return self.analyze(
+            cof_name=cof_name,
+            mode=mode,
+            input_base=input_base,
+            output_base=output_base,
+            dft=dft,
+            print_values=print_values,
+        )
 
 
 @dataclass
@@ -460,69 +439,124 @@ class VisualizeCOF:
         view.zoomTo()
         return view
 
+    def visualize_cof(
+        self,
+        cof_name: str,
+        mode: str = "both",
+        input_base: str | Path | None = None,
+        dft: bool = False,
+        add_unit_cell: bool = True,
+        supercell_size_serr: tuple[int, int, int] = (2, 2, 1),
+        supercell_size_incl: tuple[int, int, int] = (2, 2, 2),
+    ):
+        """Visualize optimized COF structures for the selected stacking mode(s).
 
-def visualize_cof(
-    cof_name: str,
-    mode: str = "both",
-    input_base: str | Path | None = None,
-    dft: bool = False,
-    add_unit_cell: bool = True,
-    supercell_size_serr: tuple[int, int, int] = (2, 2, 1),
-    supercell_size_incl: tuple[int, int, int] = (2, 2, 2),
-):
-    """Visualize optimized COF structures for the selected stacking mode(s).
+        Args:
+            cof_name: COF name used for folder naming.
+            mode: "incl", "serr", or "both".
+            input_base: Optional base folder containing per-mode subfolders.
+                Defaults to {cof_name}/4_{cof_name}_optimization.
+            dft: If True, read structures from dft_{mode} subfolders.
+            add_unit_cell: If True, draw the unit cell.
+            supercell_size_serr: Supercell size for serrated structures.
+            supercell_size_incl: Supercell size for inclined structures.
 
-    Args:
-        cof_name: COF name used for folder naming.
-        mode: "incl", "serr", or "both".
-        input_base: Optional base folder containing per-mode subfolders.
-            Defaults to {cof_name}/4_{cof_name}_optimization.
-        dft: If True, read structures from dft_{mode} subfolders.
-        add_unit_cell: If True, draw the unit cell.
-        supercell_size_serr: Supercell size for serrated structures.
-        supercell_size_incl: Supercell size for inclined structures.
+        Returns:
+            List of py3Dmol views.
 
-    Returns:
-        List of py3Dmol views.
+        Notes:
+            Viewer appearance is fixed to defaults
+            (width=800, height=600, background="white", style="stick").
+        """
+        analyzer = AnalyzeStacking()
 
-    Notes:
-        Viewer appearance is fixed to defaults
-        (width=800, height=600, background="white", style="stick").
-    """
-    analyzer = AnalyzeStacking()
-
-    base = (
-        Path(input_base)
-        if input_base
-        else Path(f"{cof_name}/4_{cof_name}_optimization")
-    )
-    modes = analyzer._resolve_modes(mode)
-
-    viewer = VisualizeCOF()
-    views = []
-
-    for selected_mode in modes:
-        folder = base / (f"dft_{selected_mode}" if dft else selected_mode)
-        files = analyzer._collect_cifs(folder)
-        label = "Serrated" if selected_mode == "serr" else "Inclined"
-        supercell_size = (
-            supercell_size_serr
-            if selected_mode == "serr"
-            else supercell_size_incl
+        base = (
+            Path(input_base)
+            if input_base
+            else Path(f"{cof_name}/4_{cof_name}_optimization")
         )
-        for input_file in files:
-            ild, ils = analyzer._compute_metrics(input_file, selected_mode)
+        modes = analyzer._resolve_modes(mode)
 
-            name = os.path.basename(input_file)
-            print(f"{label} | {name}: ILD = {ild:.2f} Å, ILS = {ils:.2f} Å")
+        views = []
+
+        for selected_mode in modes:
+            folder = base / (f"dft_{selected_mode}" if dft else selected_mode)
+            files = analyzer._collect_cifs(folder)
+            label = "Serrated" if selected_mode == "serr" else "Inclined"
+            supercell_size = (
+                supercell_size_serr
+                if selected_mode == "serr"
+                else supercell_size_incl
+            )
+            for input_file in files:
+                ild, ils = analyzer._compute_metrics(input_file, selected_mode)
+
+                name = os.path.basename(input_file)
+                print(
+                    f"{label} | {name}: ILD = {ild:.2f} Å, ILS = {ils:.2f} Å"
+                )
+
+                struct = Structure.from_file(input_file)
+                supercell_struct = struct * supercell_size
+
+                view = self._view_single(
+                    source=supercell_struct,
+                    add_unit_cell=add_unit_cell,
+                )
+                view.show()
+                views.append(view)
+        return views
+
+    def visualize_single_layer(
+        self,
+        input_folder: str | Path = "1_ILCOF-1_single_layer",
+        add_unit_cell: bool = True,
+        supercell_size: tuple[int, int, int] = (2, 2, 1),
+    ):
+        """Visualize all single-layer CIFs in one folder.
+
+        Args:
+            input_folder: Folder containing single-layer .cif files.
+                Defaults to "1_ILCOF-1_single_layer".
+            add_unit_cell: If True, draw the unit cell.
+            supercell_size: Supercell size applied before visualization.
+
+        Returns:
+            List of py3Dmol views.
+
+        Notes:
+            - No mode argument is used.
+            - All .cif files are read directly from input_folder
+              (no subfolder traversal).
+            - ILS is computed with inclined logic for reporting.
+        """
+        folder = Path(input_folder)
+        if not folder.exists():
+            raise FileNotFoundError(f"Input folder not found: {folder}")
+        if not folder.is_dir():
+            raise ValueError(f"input_folder must be a directory: {folder}")
+
+        files = self._find_files(folder)
+        if not files:
+            raise FileNotFoundError(f"No .cif files found in: {folder}")
+
+        analyzer = AnalyzeStacking()
+        views = []
+
+        for file_path in files:
+            input_file = str(file_path)
+            ild, ils = analyzer._compute_metrics(input_file, "incl")
+            print(
+                f"Single layer | {file_path.name}: ILD = {ild:.2f} Å, ILS = {ils:.2f} Å"
+            )
 
             struct = Structure.from_file(input_file)
             supercell_struct = struct * supercell_size
-
-            view = viewer._view_single(
+            view = self._view_single(
                 source=supercell_struct,
                 add_unit_cell=add_unit_cell,
             )
             view.show()
             views.append(view)
-    return views
+
+        return views

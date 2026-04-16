@@ -123,19 +123,19 @@ def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert outputs == {
-        "serr": "cof-b/5_cof-b_analysis/pxrd_stacked_serr_dft.png",
-        "incl": "cof-b/5_cof-b_analysis/pxrd_stacked_incl_dft.png",
+        "serr": "cof-b/5_cof-b_analysis/cof-b_sim_serr.png",
+        "incl": "cof-b/5_cof-b_analysis/cof-b_sim_incl.png",
     }
     assert calls == [
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/serr"),
-            Path("cof-b/5_cof-b_analysis/pxrd_stacked_serr_dft.png"),
+            Path("cof-b/5_cof-b_analysis/cof-b_sim_serr.png"),
             (1.5, 60.0),
             False,
         ),
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/incl"),
-            Path("cof-b/5_cof-b_analysis/pxrd_stacked_incl_dft.png"),
+            Path("cof-b/5_cof-b_analysis/cof-b_sim_incl.png"),
             (1.5, 60.0),
             False,
         ),
@@ -143,14 +143,14 @@ def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.unit
-def test_plot_vs_exp_default_routing(
+def test_plot_sim_vs_exp_default_routing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures plot_vs_exp uses the default exp and simulated folder layout."""
+    """This test ensures plot_sim_vs_exp uses the default exp and simulated folder layout."""
     monkeypatch.chdir(tmp_path)
 
-    exp_dir = tmp_path / "exp"
+    exp_dir = tmp_path / "experimental_pxrd"
     exp_dir.mkdir()
     np.savetxt(
         exp_dir / "sample.xy",
@@ -171,15 +171,14 @@ def test_plot_vs_exp_default_routing(
     )
 
     pxrd = Pxrd()
-    output = pxrd.plot_vs_exp(
+    output = pxrd.plot_sim_vs_exp(
         cof_name="cof-c",
         mode="both",
-        exp_folder="exp",
         show=False,
         save=False,
     )
 
-    assert output == "cof-c/5_cof-c_analysis/pxrd_vs_exp_both.png"
+    assert output == "cof-c/5_cof-c_analysis/cof-c_both.png"
 
 
 class _FakePattern:

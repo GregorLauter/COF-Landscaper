@@ -292,7 +292,7 @@ class MaceOpt(Mace):
         model: str | None = None,
         device: str = "cpu",
         fix_z: bool = False,
-        max_steps: int = 500,
+        max_steps: int = 2000,
         verbose: bool = True,
     ) -> None:
         super().__init__(
@@ -377,10 +377,12 @@ class MaceOpt(Mace):
         prev_fix_z = self.fix_z
         self.fix_z = fix_z
         try:
-            return self.optimize_cof(
+            converged = self.optimize_cof(
                 str(resolved_input),
                 str(resolved_output),
             )
+            print("Converged" if converged else "Not converged")
+            return converged
         finally:
             self.fix_z = prev_fix_z
 
