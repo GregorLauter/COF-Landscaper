@@ -3,13 +3,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from coflandscaper._internal.pxrd import Pxrd
+from coflandscaper._internal.pxrd import PXRD
 
 
 @pytest.mark.unit
 def test_resolve_modes() -> None:
     """This test ensures PXRD mode parsing accepts supported options and rejects invalid ones."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     assert pxrd._resolve_modes("incl") == ["incl"]
     assert pxrd._resolve_modes("serr") == ["serr"]
     assert pxrd._resolve_modes("both") == ["serr", "incl"]
@@ -23,11 +23,11 @@ def test_run_default_routing_both_modes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """This test ensures default PXRD run routing targets expected input and output folders."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     calls: list[tuple[Path, Path]] = []
 
     def fake_produce_xy(
-        _self: Pxrd,
+        _self: PXRD,
         input_folder: str | Path,
         output_folder: str | Path | None = None,
     ) -> str:
@@ -37,7 +37,7 @@ def test_run_default_routing_both_modes(
         calls.append((in_path, out_path))
         return str(out_path)
 
-    monkeypatch.setattr(Pxrd, "produce_xy", fake_produce_xy)
+    monkeypatch.setattr(PXRD, "produce_xy", fake_produce_xy)
 
     outputs = pxrd.run(cof_name="cof-a", mode="both", dft=False)
 
@@ -62,11 +62,11 @@ def test_run_custom_parent_folder_routing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """This test ensures custom parent folders are respected for DFT PXRD run routing."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     calls: list[tuple[Path, Path]] = []
 
     def fake_produce_xy(
-        _self: Pxrd,
+        _self: PXRD,
         input_folder: str | Path,
         output_folder: str | Path | None = None,
     ) -> str:
@@ -76,7 +76,7 @@ def test_run_custom_parent_folder_routing(
         calls.append((in_path, out_path))
         return str(out_path)
 
-    monkeypatch.setattr(Pxrd, "produce_xy", fake_produce_xy)
+    monkeypatch.setattr(PXRD, "produce_xy", fake_produce_xy)
 
     outputs = pxrd.run(
         cof_name="cof-a",
@@ -99,11 +99,11 @@ def test_run_custom_parent_folder_routing(
 @pytest.mark.unit
 def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
     """This test ensures PXRD plot_sim routing writes mode-specific output image paths."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     calls: list[tuple[Path, Path, tuple[float, float], bool]] = []
 
     def fake_plot_xy(
-        _self: Pxrd,
+        _self: PXRD,
         xy_folder: str | Path,
         output_path: str | Path,
         xlim: tuple[float, float] = (1.5, 60.0),
@@ -116,7 +116,7 @@ def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
         _ = save
         return str(out_path)
 
-    monkeypatch.setattr(Pxrd, "plot_xy", fake_plot_xy)
+    monkeypatch.setattr(PXRD, "plot_xy", fake_plot_xy)
 
     outputs = pxrd.plot_sim(
         cof_name="cof-b", mode="both", dft=True, show=False
@@ -170,7 +170,7 @@ def test_plot_sim_vs_exp_default_routing(
         np.array([[5.0, 1.0], [10.0, 4.0], [15.0, 3.0]]),
     )
 
-    pxrd = Pxrd()
+    pxrd = PXRD()
     output = pxrd.plot_sim_vs_exp(
         cof_name="cof-c",
         mode="both",
@@ -221,7 +221,7 @@ def test_produce_xy_writes_xy_for_each_cif(
         lambda _path: object(),
     )
 
-    pxrd = Pxrd()
+    pxrd = PXRD()
     output = pxrd.produce_xy(input_folder=input_dir, output_folder=output_dir)
 
     assert output == str(output_dir)
@@ -232,7 +232,7 @@ def test_produce_xy_writes_xy_for_each_cif(
 @pytest.mark.unit
 def test_produce_xy_raises_for_missing_folder() -> None:
     """This test ensures produce_xy fails clearly when the input CIF folder is missing."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     with pytest.raises(FileNotFoundError, match="CIF folder not found"):
         pxrd.produce_xy("/definitely/not/there")
 
@@ -240,7 +240,7 @@ def test_produce_xy_raises_for_missing_folder() -> None:
 @pytest.mark.unit
 def test_produce_xy_raises_for_empty_folder(tmp_path: Path) -> None:
     """This test ensures produce_xy rejects empty folders with no CIF files."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     with pytest.raises(FileNotFoundError, match=r"No \.cif files found"):
         pxrd.produce_xy(tmp_path)
 
@@ -260,7 +260,7 @@ def test_plot_xy_creates_output(tmp_path: Path) -> None:
     )
     output = tmp_path / "plots" / "stacked.png"
 
-    pxrd = Pxrd()
+    pxrd = PXRD()
     out_path = pxrd.plot_xy(xy_folder=xy_dir, output_path=output, show=False)
 
     assert out_path == str(output)
@@ -271,7 +271,7 @@ def test_plot_xy_creates_output(tmp_path: Path) -> None:
 @pytest.mark.unit
 def test_plot_xy_raises_for_missing_folder() -> None:
     """This test ensures plot_xy fails clearly when the XY folder does not exist."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     with pytest.raises(FileNotFoundError, match="XY folder not found"):
         pxrd.plot_xy("/definitely/not/there", "out.png", show=False)
 
@@ -279,6 +279,6 @@ def test_plot_xy_raises_for_missing_folder() -> None:
 @pytest.mark.unit
 def test_plot_xy_raises_for_empty_folder(tmp_path: Path) -> None:
     """This test ensures plot_xy rejects folders that contain no XY pattern files."""
-    pxrd = Pxrd()
+    pxrd = PXRD()
     with pytest.raises(FileNotFoundError, match=r"No \.xy files found"):
         pxrd.plot_xy(tmp_path, tmp_path / "out.png", show=False)

@@ -1,0 +1,13 @@
+{
+  "TOPOLOGY": "sql",
+  "BOND_TYPE": "single",
+  "COF_NAME": "ILCOF-1",
+  "MODE": "both",
+  "MACE_HEAD": "matpes_r2scan",
+  "DEVICE": "cuda",
+  "MAX_STEPS": 2000,
+  "MINIMA_MODE": "local",
+  "SHOW_LANDSCAPE": false,
+  "SHOW_TITLE_BLOCK": false,
+  "SHOW_MINIMA_MARKERS": true
+}

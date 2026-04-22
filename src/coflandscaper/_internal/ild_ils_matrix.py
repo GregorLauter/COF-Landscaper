@@ -1,4 +1,9 @@
-"""ILD/ILS utilities and matrix generator."""
+"""Generate ILD and ILS structure matrices from a preoptimized COF layer.
+
+This module provides classes to scan interlayer distance (ILD), apply lateral
+interlayer slipping (ILS) in serrated or inclined form, and combine both
+dimensions into a matrix of output CIF structures for downstream screening.
+"""
 
 from __future__ import annotations
 
@@ -46,9 +51,12 @@ class ChangeIld:
         Args:
             input_folder: Folder containing input CIF files.
             output_folder: Destination folder for ILD‑modified CIFs.
-            ild_start: Minimum ILD in Å.
-            ild_end: Maximum ILD in Å.
-            ild_step: Step size in Å.
+            ild_start: Minimum ILD in Å. Defaults to `3.0`.
+            ild_end: Maximum ILD in Å. Defaults to `4.5`.
+            ild_step: Step size in Å. Defaults to `0.1`.
+
+        Returns:
+            None.
 
         Raises:
             ValueError: If a requested ILD is smaller than the slab thickness.
@@ -68,7 +76,7 @@ class ChangeIld:
     def _change_interlayer_distance(
         self, input_file: str, output_file: str, new_z: float
     ) -> None:
-        """Write a CIF with a rescaled $z$ lattice vector.
+        """Write one CIF with a rescaled $z$ lattice vector.
 
         Args:
             input_file: Path to the source CIF.
@@ -147,13 +155,21 @@ class IlsSerr:
         Args:
             input_folder: Folder containing ILD‑modified CIFs.
             output_folder: Destination folder for serrated structures.
-            topo: Topology string ("hcb" or "sql") used for defaults.
-            cof_name: Optional name used for output file naming.
-            ils_length_step: Step size for slip length in Å.
-            ils_length_start: Minimum slip length in Å.
-            ils_length_end: Maximum slip length in Å. If None, auto‑computed.
-            ils_angle: Slip direction angle in degrees. If None, auto‑computed.
-            print_shift: If True, print the auto‑computed default shift values.
+            topo: Topology string used for defaults. Allowed values are
+                `"hcb"` and `"sql"`.
+            cof_name: Optional name used for output file naming. Defaults to
+                `None`.
+            ils_length_step: Step size for slip length in Å. Defaults to `1.0`.
+            ils_length_start: Minimum slip length in Å. Defaults to `0.0`.
+            ils_length_end: Maximum slip length in Å. Defaults to `None`
+                (auto-computed from AB shift).
+            ils_angle: Slip direction angle in degrees. Defaults to `None`
+                (auto-computed from AB shift).
+            print_shift: If `True`, print auto-computed default shift values.
+                Defaults to `False`.
+
+        Returns:
+            None.
 
         Raises:
             ValueError: If `topo` is not "hcb" or "sql".
@@ -264,13 +280,21 @@ class IlsIncl:
         Args:
             input_folder: Folder containing ILD‑modified CIFs.
             output_folder: Destination folder for inclined structures.
-            topo: Topology string ("hcb" or "sql") used for defaults.
-            cof_name: Optional name used for output file naming.
-            ils_length_start: Minimum slip length in Å.
-            ils_length_end: Maximum slip length in Å. If None, auto‑computed.
-            ils_length_step: Step size for slip length in Å.
-            ils_angle: Slip direction angle in degrees. If None, auto‑computed.
-            print_shift: If True, print the auto‑computed default shift values.
+            topo: Topology string used for defaults. Allowed values are
+                `"hcb"` and `"sql"`.
+            cof_name: Optional name used for output file naming. Defaults to
+                `None`.
+            ils_length_start: Minimum slip length in Å. Defaults to `0.0`.
+            ils_length_end: Maximum slip length in Å. Defaults to `None`
+                (auto-computed from AB shift).
+            ils_length_step: Step size for slip length in Å. Defaults to `1.0`.
+            ils_angle: Slip direction angle in degrees. Defaults to `None`
+                (auto-computed from AB shift).
+            print_shift: If `True`, print auto-computed default shift values.
+                Defaults to `False`.
+
+        Returns:
+            None.
 
         Raises:
             ValueError: If `topo` is not "hcb" or "sql".
@@ -378,14 +402,20 @@ class CreateMatrix:
         """Configure the ILD×ILS scan parameters.
 
         Args:
-            ild_start: Minimum ILD in Å.
-            ild_end: Maximum ILD in Å.
-            ild_step: ILD step size in Å.
-            ils_length_start: Minimum slip length in Å.
-            ils_length_end: Maximum slip length in Å. If None, auto‑computed.
-            ils_length_step: Slip length step size in Å.
-            ils_angle: Slip direction angle in degrees. If None, auto‑computed.
-            print_shift: If True, print the auto‑computed default shift values.
+            ild_start: Minimum ILD in Å. Defaults to `3.0`.
+            ild_end: Maximum ILD in Å. Defaults to `4.0`.
+            ild_step: ILD step size in Å. Defaults to `0.1`.
+            ils_length_start: Minimum slip length in Å. Defaults to `0.0`.
+            ils_length_end: Maximum slip length in Å. Defaults to `None`
+                (auto-computed from AB shift).
+            ils_length_step: Slip length step size in Å. Defaults to `1.0`.
+            ils_angle: Slip direction angle in degrees. Defaults to `None`
+                (auto-computed from AB shift).
+            print_shift: If `True`, print auto-computed default shift values.
+                Defaults to `False`.
+
+        Returns:
+            None.
         """
         self.ild_start = ild_start
         self.ild_end = ild_end
@@ -408,16 +438,22 @@ class CreateMatrix:
 
         Args:
             cof_name: COF name used for input/output folder naming.
-            topo: Topology string ("hcb" or "sql") used for defaults.
-            mode: "incl", "serr", or "both" to select ILS mode(s).
+            topo: Topology string used for defaults. Allowed values are
+                `"hcb"` and `"sql"`.
+            mode: ILS mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
             input_cif: Optional path to a pre-optimized CIF file.
                 Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
             output_base_folder: Optional base folder for outputs (relative to cof_name).
                 Defaults to 2_{cof_name}_matrix, which yields
                 {cof_name}/2_{cof_name}_matrix/{serr|incl}.
 
+        Returns:
+            None.
+
         Raises:
             ValueError: If `mode` is not one of "incl", "serr", or "both".
+            FileNotFoundError: If the resolved input CIF does not exist.
         """
         mode = mode.lower()
         if mode not in {"incl", "serr", "both"}:

@@ -1,4 +1,9 @@
-"""MACE single-point and optimization classes for COF workflows."""
+"""Run MACE single-point and geometry-optimization workflows for COF structures.
+
+This module provides utilities to configure MACE calculators, evaluate
+single-point energies for stacked-structure grids, and optimize selected
+structures while preserving workflow-compatible file and CSV outputs.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +30,14 @@ if TYPE_CHECKING:
 
 
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
+    """Parse ILD/ILS-like values encoded as `_z` and `_L` in a filename stem.
+
+    Args:
+        stem: Structure filename stem (without extension).
+
+    Returns:
+        Tuple `(z, L)` as floats, or `(nan, nan)` when parsing fails.
+    """
     mz = re.search(r"_z(\d+)", stem)
     mL = re.search(r"_L(\d+)", stem)
     if not (mz and mL):
@@ -35,6 +48,17 @@ def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
 
 
 def _calculator_settings_for_head(head: str) -> dict[str, Any]:
+    """Map a MACE head name to fixed calculator settings.
+
+    Args:
+        head: Requested MACE head name.
+
+    Returns:
+        Calculator keyword settings compatible with `mace_mp`.
+
+    Raises:
+        ValueError: If `head` is not one of the supported presets.
+    """
     head_key = (head or "").lower()
     if head_key == "omat_pbe":
         return {
@@ -67,7 +91,11 @@ def _calculator_settings_for_head(head: str) -> dict[str, Any]:
 
 
 class Mace:
-    """Base class for MACE calculators with fixed per-head settings."""
+    """Base helper for constructing MACE calculators with normalized settings.
+
+    Returns:
+        None.
+    """
 
     def __init__(
         self,
@@ -77,6 +105,20 @@ class Mace:
         model: str | None = None,
         verbose: bool = True,
     ) -> None:
+        """Store default MACE runtime options for downstream operations.
+
+        Args:
+            device: Torch device string. Defaults to `"cpu"`.
+            dtype: Floating-point precision for MACE. Defaults to `"float64"`.
+            head: MACE head preset. Defaults to `"omol"`.
+            model: Optional MACE model identifier. Defaults to `None`
+                (resolved later to `"mh-1"`).
+            verbose: Whether to emit calculator initialization logs.
+                Defaults to `True`.
+
+        Returns:
+            None.
+        """
         self.device = device
         self.dtype = dtype
         self.head = head
@@ -90,6 +132,17 @@ class Mace:
         head: str | None = None,
         model: str | None = None,
     ) -> tuple[str, str, str, dict[str, Any]]:
+        """Resolve runtime parameters using call-time overrides and defaults.
+
+        Args:
+            device: Optional device override. Defaults to `None`.
+            dtype: Optional dtype override. Defaults to `None`.
+            head: Optional head override. Defaults to `None`.
+            model: Optional model override. Defaults to `None`.
+
+        Returns:
+            Tuple `(device, dtype, model, calc_settings)`.
+        """
         resolved_head = head or self.head
         resolved_model = model or self.model or "mh-1"
         calc_settings = _calculator_settings_for_head(resolved_head)
@@ -107,6 +160,17 @@ class Mace:
         model: str,
         calc_settings: dict[str, Any],
     ):
+        """Create a MACE calculator while silencing known load-time warnings.
+
+        Args:
+            device: Torch device string.
+            dtype: Floating-point precision string.
+            model: MACE model identifier.
+            calc_settings: Head-specific calculator keyword settings.
+
+        Returns:
+            Configured MACE calculator instance.
+        """
         os.environ["TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"] = "1"
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -131,6 +195,17 @@ class Mace:
         model: str,
         calc_settings: dict[str, Any],
     ):
+        """Instantiate the underlying MACE calculator and optional log file.
+
+        Args:
+            device: Torch device string.
+            dtype: Floating-point precision string.
+            model: MACE model identifier.
+            calc_settings: Head-specific calculator keyword settings.
+
+        Returns:
+            Configured MACE calculator instance.
+        """
         if hasattr(torch.serialization, "add_safe_globals"):
             torch.serialization.add_safe_globals([ScaleShiftMACE])
 
@@ -188,13 +263,33 @@ class Mace:
 
 
 class MaceSP(Mace):
-    """Single-point MACE energies over a folder of CIFs."""
+    """Evaluate single-point energies for CIF structures using MACE.
+
+    This class computes absolute and relative energies for CIF files and writes
+    CSV outputs compatible with downstream landscape analysis.
+
+    Returns:
+        None.
+    """
 
     def _run_folder(
         self,
         input_folder: str,
         output_csv_dir: str | None = None,
     ) -> Path:
+        """Run single-point evaluation for all CIF files in one folder.
+
+        Args:
+            input_folder: Folder containing `.cif` files.
+            output_csv_dir: Optional CSV output directory. Defaults to `None`
+                (uses `{cof_name}/3_{cof_name}_landscape`).
+
+        Returns:
+            Path to the generated single-point energy CSV.
+
+        Raises:
+            FileNotFoundError: If no `.cif` files are found in `input_folder`.
+        """
         input_path = Path(input_folder)
         folder_tag = input_path.name
         mode_tag = folder_tag
@@ -267,6 +362,23 @@ class MaceSP(Mace):
         input_folder: str | None = None,
         output_csv_dir: str | None = None,
     ) -> None:
+        """Run single-point energies for one mode or all mode folders.
+
+        Default behavior resolves mode folders from `cof_name` and `mode` using
+        the package mode-routing helper. When `input_folder` is provided,
+        evaluation is restricted to that folder.
+
+        Args:
+            cof_name: COF identifier used for default folder resolution.
+            mode: Mode selector (`"serr"`, `"incl"`, or `"both"`).
+            input_folder: Optional explicit folder containing CIF files.
+                Defaults to `None` (uses routed mode folders).
+            output_csv_dir: Optional CSV output directory. Defaults to `None`
+                (uses `{cof_name}/3_{cof_name}_landscape`).
+
+        Returns:
+            None.
+        """
         from .ild_ils_utils import get_mode_folders
 
         if input_folder:
@@ -282,7 +394,14 @@ class MaceSP(Mace):
 
 
 class MaceOpt(Mace):
-    """Geometry optimization using MACE with optional Z constraints."""
+    """Optimize CIF structures with MACE and optional z-axis constraints.
+
+    This class wraps ASE optimization with a MACE calculator and supports
+    per-mode batch optimization plus optional energy-summary CSV generation.
+
+    Returns:
+        None.
+    """
 
     def __init__(
         self,
@@ -295,6 +414,23 @@ class MaceOpt(Mace):
         max_steps: int = 2000,
         verbose: bool = True,
     ) -> None:
+        """Initialize optimization settings and prebuild a calculator instance.
+
+        Args:
+            fmax: Force convergence threshold in eV/Angstrom. Defaults to `0.01`.
+            dtype: Floating-point precision for MACE. Defaults to `"float64"`.
+            head: MACE head preset. Defaults to `"omol"`.
+            model: Optional MACE model identifier. Defaults to `None`
+                (resolved to `"mh-1"`).
+            device: Torch device string. Defaults to `"cpu"`.
+            fix_z: Whether to constrain atomic z motion. Defaults to `False`.
+            max_steps: Maximum optimizer steps. Defaults to `2000`.
+            verbose: Whether to emit calculator initialization logs.
+                Defaults to `True`.
+
+        Returns:
+            None.
+        """
         super().__init__(
             device=device,
             dtype=dtype,
@@ -314,12 +450,29 @@ class MaceOpt(Mace):
         )
 
     def _apply_constraints(self, atoms: Atoms) -> None:
+        """Apply optional Cartesian z-axis constraints to all atoms.
+
+        Args:
+            atoms: ASE atoms object to constrain in place.
+
+        Returns:
+            None.
+        """
         if self.fix_z:
             indices = range(len(atoms))
             con = FixCartesian(indices, mask=[False, False, True])
             atoms.set_constraint(con)
 
     def optimize_cof(self, input_path: str, output_path: str) -> bool:
+        """Optimize one CIF structure and write the optimized CIF.
+
+        Args:
+            input_path: Input CIF file path.
+            output_path: Output CIF file path.
+
+        Returns:
+            `True` if optimization converged within `max_steps`, else `False`.
+        """
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
@@ -361,6 +514,7 @@ class MaceOpt(Mace):
             output_path: Optional output CIF path.
                 Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
             fix_z: Whether to fix atomic z coordinates during this preopt run.
+                Defaults to `True`.
 
         Returns:
             True if the optimization converged, else False.
@@ -389,6 +543,15 @@ class MaceOpt(Mace):
     def process_cifs(
         self, input_folder: str, output_folder: str
     ) -> dict[str, bool]:
+        """Optimize all CIF files in one folder and return convergence flags.
+
+        Args:
+            input_folder: Folder containing input CIF files.
+            output_folder: Folder where optimized CIF files are written.
+
+        Returns:
+            Mapping from structure stem to convergence status.
+        """
         os.makedirs(output_folder, exist_ok=True)
         convergence_by_structure: dict[str, bool] = {}
         for file_name in os.listdir(input_folder):
@@ -404,6 +567,15 @@ class MaceOpt(Mace):
         new_df: pd.DataFrame,
         csv_path: Path,
     ) -> pd.DataFrame:
+        """Merge fresh optimization energies with an existing per-layer CSV.
+
+        Args:
+            new_df: Newly evaluated optimization-energy dataframe.
+            csv_path: Existing CSV path, if present.
+
+        Returns:
+            Combined dataframe with recomputed relative energies.
+        """
         columns = [
             "structure",
             "stacking_mode",
@@ -469,6 +641,20 @@ class MaceOpt(Mace):
         output_base_path: Path,
         convergence_map: dict[tuple[str, str], bool] | None = None,
     ) -> Path:
+        """Evaluate optimized CIF energies and write/update summary CSV.
+
+        Args:
+            cof_name: COF identifier for output CSV naming.
+            mode_output_folders: Mapping from mode tag to optimized CIF folder.
+            output_base_path: Base output directory for CSV persistence.
+            convergence_map: Optional convergence status map. Defaults to `None`.
+
+        Returns:
+            Path to the written optimized-energy CSV.
+
+        Raises:
+            RuntimeError: If no optimized energies can be evaluated.
+        """
         rows: list[dict[str, str | float]] = []
         failed: list[tuple[str, str]] = []
 
@@ -535,6 +721,29 @@ class MaceOpt(Mace):
         input_base: str | None = None,
         save_opt_energies_csv: bool = True,
     ) -> None:
+        """Optimize selected structures for requested mode(s).
+
+        Default folder behavior:
+        - `input_base`: `{cof_name}/3_{cof_name}_landscape/selection`
+        - `output_base`: `{cof_name}/4_{cof_name}_optimization`
+
+        The method routes mode folders (`serr`, `incl`, or both), optimizes all
+        CIF files in each folder, and optionally writes a consolidated
+        `{cof_name}_opt_energies_per_layer.csv` file.
+
+        Args:
+            cof_name: COF identifier used for default path construction.
+            mode: Mode selector (`"serr"`, `"incl"`, or `"both"`).
+            output_base: Optional optimization output base folder. Defaults to
+                `None` (uses `{cof_name}/4_{cof_name}_optimization`).
+            input_base: Optional selection input base folder. Defaults to `None`
+                (uses `{cof_name}/3_{cof_name}_landscape/selection`).
+            save_opt_energies_csv: Whether to write merged per-layer energy CSV.
+                Defaults to `True`.
+
+        Returns:
+            None.
+        """
         from .ild_ils_utils import get_mode_folders
 
         if input_base is None:

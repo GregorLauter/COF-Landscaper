@@ -1,4 +1,9 @@
-"""Utilities for ILD/ILS transformations and CIF parsing."""
+"""Utility helpers for ILD/ILS value generation, parsing, and mode routing.
+
+This module contains shared low-level functions used by ILD/ILS matrix
+generation and related workflows, including CIF file discovery, default shift
+derivation, and small geometry/value conversion helpers.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +43,7 @@ def list_cifs(input_folder: str) -> list[str]:
 
 
 def _calculate_ild(lat: Lattice) -> float:
-    """Compute the interlayer distance (ILD) from a lattice.
+    """Compute interlayer distance (ILD) from lattice metrics.
 
     Args:
         lat: Pymatgen lattice.
@@ -67,7 +72,7 @@ def _calculate_ild(lat: Lattice) -> float:
 
 
 def _unwrap_fractional_z(frac_z: np.ndarray) -> float:
-    """Find a fractional $z$ reference that avoids discontinuities.
+    """Choose a fractional-z reference that avoids periodic discontinuities.
 
     Args:
         frac_z: Fractional $z$ coordinates.
@@ -85,7 +90,7 @@ def _unwrap_fractional_z(frac_z: np.ndarray) -> float:
 
 
 def _periodic_delta_frac(z: float, z0: float) -> float:
-    """Compute the minimal periodic distance between two fractional values.
+    """Compute minimal periodic distance between two fractional coordinates.
 
     Args:
         z: Fractional coordinate.
@@ -254,7 +259,8 @@ def get_mode_folders(cof_name: str, mode: str) -> list[str]:
 
     Args:
         cof_name: COF name used for folder naming.
-        mode: "incl", "serr", or "both".
+        mode: Mode selector. Allowed values are `"incl"`, `"serr"`, or
+            `"both"`.
 
     Returns:
         List of folder paths to process.
@@ -303,8 +309,9 @@ def default_shift_from_cif(
 
     Args:
         input_file: Path to the CIF file.
-        topo: Topology string ("sql" or "hcb").
-        print_shift: If True, print the computed values.
+        topo: Topology string. Allowed values are `"sql"` or `"hcb"`.
+        print_shift: If `True`, print computed default shift values.
+            Defaults to `False`.
 
     Returns:
         (length, angle_deg) tuple.

@@ -1,3 +1,10 @@
+"""Plot PES landscapes and select candidate CIFs from ILD/ILS grids.
+
+This module provides visualization utilities for single-point energy grids and
+selection utilities for copying structures corresponding to global or local
+minima into optimization-ready folders.
+"""
+
 import os
 import re
 import shutil
@@ -20,6 +27,20 @@ class Landscape:
         cof_name: str | None,
         dft: bool = False,
     ) -> tuple[Path, Path, str, str | None]:
+        """Resolve mode folder and expected CSV path for one landscape run.
+
+        Args:
+            input_folder: Mode folder path (`serr` or `incl`).
+            cof_name: COF identifier used in CSV naming.
+            dft: If `True`, resolve CSV with `_dft` suffix. Defaults to `False`.
+
+        Returns:
+            Tuple `(csv_dir, csv_path, mode_tag, cof_name)`.
+
+        Raises:
+            ValueError: If `input_folder` is not a `serr`/`incl` mode folder.
+            ValueError: If `cof_name` is not provided.
+        """
         input_path = Path(input_folder)
         folder_tag = input_path.name
 
@@ -50,7 +71,7 @@ class Landscape:
         show_minima_markers: bool = True,
         minima_mode: str = "global",
         show_header: bool = True,
-        show_title_block: bool = True,
+        show_title_block: bool = False,
         show: bool = False,
     ) -> None:
         """Build PES plots for one stacking mode.
@@ -59,26 +80,35 @@ class Landscape:
             input_folder: Mode folder path (serr or incl) used to infer mode;
                 its parent must contain {cof_name}_sp_energies_{mode}.csv
                 (or {cof_name}_sp_energies_{mode}_dft.csv when dft=True).
-            dft: If True, read input CSVs with _dft suffix.
+            cof_name: COF identifier used for expected CSV naming. Defaults to
+                `None` (must be provided explicitly for this method).
+            dft: If `True`, read input CSVs with `_dft` suffix. Defaults to `False`.
             output_folder: Optional output folder for plots.
-                Defaults to {cof_name}/3_{cof_name}_landscape.
+                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
             colorscheme: Any valid Matplotlib colormap name.
-                Defaults to "viridis".
-            plot_mode: "heatmap", "isolines", or "both".
+                Defaults to `"viridis"`.
+            plot_mode: Plot variant selector. Allowed values are `"heatmap"`,
+                `"isolines"`, or `"both"`. Defaults to `"both"`.
             rel_energy_max: Optional max value (eV) to cap relative energies.
-                Values above this are clipped in the plots.
+                Values above this are clipped in the plots. Defaults to `None`.
             show_minima_markers: If True (default), mark global and local minima
-                in red on heatmap/isolines.
+                in red on heatmap/isolines. Defaults to `True`.
             minima_mode: Minima marker mode: "global" (default) marks only the
                 single global minimum; "local" marks local minima as well.
-            show_header: If True (default), draw title and header text.
-            show_title_block: If True (default), draw title plus two header lines
+                Defaults to `"global"`.
+            show_header: If `True`, draw title and header text. Defaults to `True`.
+            show_title_block: If True, draw title plus two header lines
                 (stacking mode and level of theory when available).
-            show: If True, display plots interactively via Matplotlib.
-                Defaults to False for non-interactive/batch workflows.
+                Defaults to `False`.
+            show: If `True`, display plots interactively via Matplotlib.
+                Defaults to `False` for non-interactive/batch workflows.
 
         Returns:
             None.
+
+        Raises:
+            FileNotFoundError: If the expected input CSV is missing.
+            ValueError: If minima mode is invalid or no valid grid data exist.
         """
         Path(input_folder)
         csv_dir, csv_path, folder_tag, cof_name = self._resolve_input_csv(
@@ -110,6 +140,7 @@ class Landscape:
         os.makedirs(heatmap_dir, exist_ok=True)
 
         lot_tag = f"_{lot_suffix}" if lot_suffix else ""
+        rel_grid_csv_path: Path | None = None
 
         if use_mode_naming:
             heatmap_path = (
@@ -154,6 +185,10 @@ class Landscape:
             rel_grid = rel_grid.clip(lower=0.0, upper=float(rel_energy_max))
 
         if write_rel_csv:
+            if rel_grid_csv_path is None:
+                raise RuntimeError(
+                    "Internal error: rel_grid_csv_path is unset"
+                )
             rel_grid.to_csv(rel_grid_csv_path, index=True)
 
         plt.figure(figsize=(10, 6))
@@ -325,7 +360,7 @@ class Landscape:
         show_minima_markers: bool = True,
         minima_mode: str = "global",
         show_header: bool = True,
-        show_title_block: bool = True,
+        show_title_block: bool = False,
         show: bool = False,
         input_folder: str | None = None,
         output_folder: str | None = None,
@@ -334,28 +369,38 @@ class Landscape:
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
-            dft: If True, read input CSVs with _dft suffix.
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
+            dft: If `True`, read input CSVs with `_dft` suffix.
+                Defaults to `False`.
             colorscheme: Any valid Matplotlib colormap name.
-                Defaults to "viridis".
-            plot_mode: "heatmap", "isolines", or "both".
+                Defaults to `"viridis"`.
+            plot_mode: Plot variant selector. Allowed values are `"heatmap"`,
+                `"isolines"`, or `"both"`. Defaults to `"both"`.
             rel_energy_max: Optional max value for relative energies.
-            show_minima_markers: If True (default), mark minima on plots.
+                Defaults to `None`.
+            show_minima_markers: If `True`, mark minima on plots.
+                Defaults to `True`.
             minima_mode: "global" (default) marks only one global minimum;
-                "local" includes local minima markers too.
-            show_header: If True (default), draw title and header text.
-            show_title_block: If True (default), draw title plus two header lines.
-            show: If True, display plots interactively.
-                Defaults to False for cluster/batch runs.
+                "local" includes local minima markers too. Defaults to `"global"`.
+            show_header: If `True`, draw title and header text. Defaults to `True`.
+            show_title_block: If `True`, draw title plus two header lines.
+                Defaults to `False`.
+            show: If `True`, display plots interactively. Defaults to `False`
+                for cluster/batch runs.
             input_folder: Optional base folder containing mode folders and
                 {cof_name}_sp_energies_{mode}.csv files, or
                 {cof_name}_sp_energies_{mode}_dft.csv when dft=True.
-                Defaults to {cof_name}/3_{cof_name}_landscape.
+                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
             output_folder: Optional output folder for plots.
-                Defaults to {cof_name}/3_{cof_name}_landscape.
+                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
 
         Returns:
             None.
+
+        Raises:
+            ValueError: If `mode` is invalid.
+            FileNotFoundError: If base input folder or expected CSVs are missing.
         """
         mode_norm = (mode or "").strip().lower()
         mode_tags = (
@@ -404,6 +449,14 @@ class Landscape:
             )
 
     def _find_local_minima(self, data: np.ndarray) -> list[tuple[int, int]]:
+        """Find strict local minima on a 2D finite-valued grid.
+
+        Args:
+            data: 2D array of energy values.
+
+        Returns:
+            List of `(row, col)` minima indices.
+        """
         minima: list[tuple[int, int]] = []
         rows, cols = data.shape
         for i in range(rows):
@@ -428,6 +481,17 @@ class Landscape:
         return minima
 
     def _resolve_cmap(self, colorscheme: str):
+        """Validate and return a Matplotlib colormap name.
+
+        Args:
+            colorscheme: Requested colormap name.
+
+        Returns:
+            Valid colormap name string.
+
+        Raises:
+            ValueError: If the colormap name is unknown.
+        """
         raw = colorscheme or "viridis"
         try:
             plt.get_cmap(raw)
@@ -445,6 +509,14 @@ class SelectCofs:
     def _dedupe_selections(
         self, selections: list[tuple[float, float]]
     ) -> list[tuple[float, float]]:
+        """Remove duplicate `(ILD, ILS)` tuples while preserving order.
+
+        Args:
+            selections: Input selection tuples.
+
+        Returns:
+            Deduplicated selection list.
+        """
         seen: set[tuple[float, float]] = set()
         out: list[tuple[float, float]] = []
         for z, L in selections:
@@ -458,6 +530,18 @@ class SelectCofs:
     def _global_minima_from_csv(
         self, csv_path: Path
     ) -> list[tuple[float, float]]:
+        """Select the global minimum `(z, L)` pair from one energy CSV.
+
+        Args:
+            csv_path: CSV path with `z`, `L`, and `energy_eV` columns.
+
+        Returns:
+            One-element list containing the global-minimum pair.
+
+        Raises:
+            FileNotFoundError: If CSV is missing.
+            ValueError: If CSV has no valid `z/L/energy` rows.
+        """
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
         df = pd.read_csv(csv_path)
@@ -469,11 +553,29 @@ class SelectCofs:
             .head(1)
             .reset_index(drop=True)
         )
-        return [(float(sel.loc[0, "z"]), float(sel.loc[0, "L"]))]
+        z_num = pd.to_numeric(sel["z"], errors="coerce").iloc[0]
+        l_num = pd.to_numeric(sel["L"], errors="coerce").iloc[0]
+        if pd.isna(z_num) or pd.isna(l_num):
+            raise ValueError(
+                f"CSV global minimum has non-numeric z/L values: {csv_path}"
+            )
+        return [(float(z_num), float(l_num))]
 
     def _local_minima_from_csv(
         self, csv_path: Path
     ) -> list[tuple[float, float]]:
+        """Select local-minimum `(z, L)` pairs from one energy CSV.
+
+        Args:
+            csv_path: CSV path with `z`, `L`, and `energy_eV` columns.
+
+        Returns:
+            Deduplicated local-minimum selection list.
+
+        Raises:
+            FileNotFoundError: If CSV is missing.
+            ValueError: If CSV has no valid `z/L/energy` rows.
+        """
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
         df = pd.read_csv(csv_path)
@@ -500,6 +602,14 @@ class SelectCofs:
         return self._dedupe_selections(selections)
 
     def _parse_z_L_from_stem(self, stem: str):
+        """Parse `_z` and `_L` tags from a CIF stem.
+
+        Args:
+            stem: CIF filename stem.
+
+        Returns:
+            Tuple `(z, L)` in Angstrom, or `(None, None)` when missing.
+        """
         mz = re.search(r"_z(\d+)", stem)
         mL = re.search(r"_L(\d+)", stem)
         if not (mz and mL):
@@ -515,6 +625,23 @@ class SelectCofs:
         selections: list[tuple[float, float]] | None = None,
         mode_label: str | None = None,
     ) -> None:
+        """Copy CIFs that match requested `(ILD, ILS)` tuples.
+
+        Args:
+            input_folder: Source folder containing CIF files.
+            output_folder: Destination folder for selected CIF files.
+            selections: Selection tuples `(z, L)` in Angstrom.
+                Defaults to `None` (must be non-empty at runtime).
+            mode_label: Optional display label used in console output.
+                Defaults to `None`.
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError: If `selections` is empty.
+            FileNotFoundError: If no CIF files exist or requested pairs are missing.
+        """
         if not selections:
             raise ValueError(
                 "selections must be a non-empty list of (z, L) tuples"
@@ -569,7 +696,7 @@ class SelectCofs:
         mode: str,
         selections_serr: list[tuple[float, float]] | None = None,
         selections_incl: list[tuple[float, float]] | None = None,
-        include_autoselect: bool = False,
+        include_autoselect: bool = True,
         autoselect_minima: str = "global",
         input_base: str | None = None,
         output_base: str | None = None,
@@ -580,22 +707,35 @@ class SelectCofs:
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
             selections_serr: Extra selections for serrated only.
+                Defaults to `None`.
             selections_incl: Extra selections for inclined only.
-            include_autoselect: If True, auto-select local minima per mode.
+                Defaults to `None`.
+            include_autoselect: If `True`, include automatically selected minima.
+                Defaults to `True`.
             autoselect_minima: Minima mode for auto-selection:
                 "global" (default) selects one global minimum,
-                "local" selects all local minima.
+                "local" selects all local minima. Defaults to `"global"`.
             input_base: Optional base folder containing mode subfolders.
-                Defaults to {cof_name}/2_{cof_name}_matrix.
+                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
             output_base: Optional base folder for selected CIFs.
-                Defaults to {cof_name}/3_{cof_name}_landscape/selection.
+                Defaults to `None`
+                (uses `{cof_name}/3_{cof_name}_landscape/selection`).
             input_folder: Optional explicit folder for one mode (serr or incl).
                 If set, this folder is used directly and `input_base`/`mode`
-                folder expansion is not used.
+                folder expansion is not used. Defaults to `None`.
             output_folder: Optional explicit output folder for selected CIFs.
                 Used with `input_folder` for single-folder selection.
+                Defaults to `None`.
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError: If minima mode is invalid or no selections are available.
+            ValueError: If explicit `input_folder` is not a mode folder.
         """
         autoselect_mode = (autoselect_minima or "global").strip().lower()
         if autoselect_mode not in {"global", "local"}:

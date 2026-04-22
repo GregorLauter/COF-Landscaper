@@ -1,9 +1,8 @@
 Using Materials Project MACE for MACECalculator with /Users/gregorlauter/.cache/mace/macemh1model
 Using float64 for MACECalculator, which is slower but more accurate. Recommended for geometry optimization.
-Using TorchDFTD3Calculator for D3 dispersion corrections
 [runtime]
-head=matpes_r2scan
+head=omol
 available_heads=['matpes_r2scan', 'mp_pbe_refit_add', 'spice_wB97M', 'oc20_usemppbe', 'omol', 'omat_pbe']
 device=cpu
-d3_detected=True
-requested_calc_settings={'head': 'matpes_r2scan', 'dispersion': True, 'dispersion_xc': 'r2scan', 'dispersion_cutoff': 40.0}
+d3_detected=False
+requested_calc_settings={'head': 'omol', 'dispersion': False}

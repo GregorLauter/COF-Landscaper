@@ -1,4 +1,9 @@
-"""PXRD simulation and stacked plotting utilities."""
+"""Simulate PXRD patterns and generate publication-style comparison plots.
+
+This module provides end-to-end utilities to convert optimized CIF structures
+into simulated PXRD `.xy` files and to render stacked simulated or
+simulated-vs-experimental visualizations for selected stacking modes.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +15,7 @@ from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
 
 
-class Pxrd:
+class PXRD:
     """Simulate PXRD patterns from optimized CIFs and create stacked plots.
 
     Default workflow:
@@ -28,10 +33,33 @@ class Pxrd:
         wavelength: str = "CuKa",
         two_theta_range: tuple[float, float] = (1.5, 60.0),
     ) -> None:
+        """Initialize PXRD simulation settings.
+
+        Args:
+            wavelength: X-ray wavelength preset accepted by `XRDCalculator`.
+                Defaults to `"CuKa"`.
+            two_theta_range: Simulated 2-theta range in degrees.
+                Defaults to `(1.5, 60.0)`.
+
+        Returns:
+            None.
+        """
         self.wavelength = wavelength
         self.two_theta_range = two_theta_range
 
     def _resolve_modes(self, mode: str) -> list[str]:
+        """Normalize mode selector to one or two concrete mode tags.
+
+        Args:
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
+
+        Returns:
+            List of mode tags (`["incl"]`, `["serr"]`, or `["serr", "incl"]`).
+
+        Raises:
+            ValueError: If `mode` is invalid.
+        """
         mode_lower = mode.lower()
         if mode_lower not in {"incl", "serr", "both"}:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
@@ -39,6 +67,17 @@ class Pxrd:
 
     @staticmethod
     def _read_xy(file_path: str | Path) -> tuple[np.ndarray, np.ndarray]:
+        """Read a two-column PXRD `.xy` file with small header tolerance.
+
+        Args:
+            file_path: Path to `.xy` data file.
+
+        Returns:
+            Tuple `(x, y)` arrays.
+
+        Raises:
+            ValueError: If file cannot be parsed as numeric XY data.
+        """
         for skip in (0, 1, 2):
             try:
                 arr = np.loadtxt(file_path, skiprows=skip)
@@ -52,6 +91,14 @@ class Pxrd:
 
     @staticmethod
     def _sim_label(file_path: str | Path) -> str:
+        """Create a human-readable label from a simulated file path.
+
+        Args:
+            file_path: Simulated `.xy` file path.
+
+        Returns:
+            Cleaned label string for plotting.
+        """
         stem = Path(file_path).stem
         label = stem.replace("Inc_", "Inclined ")
         label = label.replace("Ser_", "Serrated ")
@@ -70,14 +117,18 @@ class Pxrd:
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: "incl", "serr", or "both".
-            dft: If True, default input folders are dft_{mode}.
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`. Defaults to `"both"`.
+            dft: If `True`, default input folders use `dft_{mode}`.
+                Defaults to `False`.
             input_folder: Optional explicit input folder. For mode="both",
                 this is treated as a parent folder and per-mode subfolders are used.
+                Defaults to `None`.
             output_folder: Optional explicit output folder. Defaults to
                 {cof_name}/5_{cof_name}_analysis/pxrd_xy or pxrd_xy_dft.
                 For mode="both", this is treated as a parent folder and
                 per-mode subfolders are used.
+                Defaults to `None`.
 
         Returns:
             Mapping of mode to generated XY folder path.
@@ -135,6 +186,7 @@ class Pxrd:
             input_folder: Folder containing .cif files.
             output_folder: Folder for generated .xy files. If None, uses
                 "simulated_xy" inside input_folder.
+                Defaults to `None`.
 
         Returns:
             Path to the output folder containing generated .xy files.
@@ -178,8 +230,11 @@ class Pxrd:
             xy_folder: Folder containing simulated .xy files.
             output_path: Path for the output image file.
             xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
-            show: If True, display the plot in the active notebook/session.
-            save: If True, write the figure to output_path.
+                Defaults to `(1.5, 60.0)`.
+            show: If `True`, display the plot in the active notebook/session.
+                Defaults to `True`.
+            save: If `True`, write the figure to `output_path`.
+                Defaults to `True`.
 
         Returns:
             Output image path as a string.
@@ -271,15 +326,20 @@ class Pxrd:
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: "incl", "serr", or "both".
-            dft: If True, default XY folders are read from dft_{mode}.
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`. Defaults to `"both"`.
+            dft: If `True`, default XY folders are read from `dft_{mode}`.
+                Defaults to `False`.
             xy_folder: Optional explicit XY folder. For mode="both",
                 this is treated as a parent folder with per-mode subfolders.
+                Defaults to `None`.
             output_folder: Optional explicit output folder for plot image(s).
-                Defaults to {cof_name}/5_{cof_name}_analysis.
+                Defaults to `None` (uses `{cof_name}/5_{cof_name}_analysis`).
             xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
-            show: If True, display generated plot(s) in the notebook/session.
-            save: If True, write the figure(s) to disk.
+                Defaults to `(1.5, 60.0)`.
+            show: If `True`, display generated plot(s) in the notebook/session.
+                Defaults to `True`.
+            save: If `True`, write figure(s) to disk. Defaults to `True`.
 
         Returns:
             Mapping of mode to output plot path.
@@ -339,19 +399,25 @@ class Pxrd:
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: "incl", "serr", or "both"; selects the simulated folder(s).
-            dft: If True, default simulated folder uses pxrd_xy_dft.
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`; selects simulated folder(s).
+            dft: If `True`, default simulated folder uses `pxrd_xy_dft`.
+                Defaults to `False`.
             exp_xy_file: Path to experimental .xy file. If None, searches the
                 'experimental_pxrd' folder for exactly one .xy file.
                 If multiple files exist, you must specify the path explicitly.
                 To customize the label displayed in the plot, rename the .xy file.
+                Defaults to `None`.
             simulated_xy_folder: Folder containing simulated .xy files. If None,
                 defaults to {cof_name}/5_{cof_name}_analysis/pxrd_xy/{mode}
                 or pxrd_xy_dft/{mode} when dft=True.
-            output_folder: Optional folder for the output image.
+                Defaults to `None`.
+            output_folder: Optional folder for the output image. Defaults to
+                `None` (uses `{cof_name}/5_{cof_name}_analysis`).
             xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
-            show: If True, display the figure.
-            save: If True, write the figure to disk.
+                Defaults to `(1.5, 60.0)`.
+            show: If `True`, display the figure. Defaults to `True`.
+            save: If `True`, write the figure to disk. Defaults to `True`.
 
         Returns:
             Output image path as a string.

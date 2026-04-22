@@ -14,9 +14,10 @@ from ._internal.landscape import (
     SelectCofs,
 )
 from ._internal.mace import Mace, MaceOpt, MaceSP
-from ._internal.pxrd import Pxrd
+from ._internal.pxrd import PXRD
 
 __all__ = [
+    "PXRD",
     "AnalyzeStacking",
     "BuildCOF2D",
     "ChangeIld",
@@ -30,7 +31,6 @@ __all__ = [
     "Mace",
     "MaceOpt",
     "MaceSP",
-    "Pxrd",
     "SelectCofs",
     "Supercell",
     "VisualizeCOF",

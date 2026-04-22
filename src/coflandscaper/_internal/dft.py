@@ -1,11 +1,8 @@
-"""CRYSTAL input generation from CIF files.
+"""Generate and parse CRYSTAL23 inputs/outputs for COF workflows.
 
-Currently supports Crystal23 only. We plan to add three VASP classes later
-(two analogous to the CRYSTAL SP/OPT variants).
-
-Provides a base class `Crystal` and two derived classes:
-- `CrystalSP`: single-point input blocks
-- `CrystalOpt`: geometry optimization input blocks
+This module provides helpers for converting CIF files to CRYSTAL `.d12`
+inputs, extracting converged energies from CRYSTAL `.out` files, and
+recovering optimized structures for downstream analysis.
 """
 
 from __future__ import annotations
@@ -26,6 +23,14 @@ HARTREE_TO_EV = 27.211386245988
 
 
 def guess_symbol(raw: str) -> str | None:
+    """Guess a chemical symbol from a CIF-like raw token.
+
+    Args:
+        raw: Raw symbol or label text.
+
+    Returns:
+        Normalized element symbol if recognized, else `None`.
+    """
     s = re.sub(r"[^A-Za-z]", "", raw)
     if not s:
         return None
@@ -40,6 +45,18 @@ def guess_symbol(raw: str) -> str | None:
 
 
 def parse_cell(text: str) -> dict[str, float]:
+    """Parse unit-cell lengths and angles from CIF text.
+
+    Args:
+        text: Full CIF text.
+
+    Returns:
+        Dictionary with keys `a`, `b`, `c`, `alpha`, `beta`, and `gamma`.
+
+    Raises:
+        ValueError: If any required cell parameter is missing.
+    """
+
     def grab(key: str) -> float:
         m = re.search(rf"{key}\s+([0-9.+\-Ee()]+)", text)
         if not m:
@@ -57,6 +74,17 @@ def parse_cell(text: str) -> dict[str, float]:
 
 
 def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
+    """Extract fractional atom sites from a CIF atom loop block.
+
+    Args:
+        lines: CIF file lines.
+
+    Returns:
+        List of tuples `(Z, x, y, z)` with atomic number and fractional coords.
+
+    Raises:
+        ValueError: If no supported fractional-coordinate atom loop is found.
+    """
     for i, line in enumerate(lines):
         if line.strip().lower().startswith("loop_"):
             j = i + 1
@@ -295,6 +323,14 @@ def _parse_fallback_structure(lines: list[str]) -> Atoms | None:
 
 
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
+    """Parse `_z` and `_L` tags from a structure stem.
+
+    Args:
+        stem: Structure filename stem.
+
+    Returns:
+        Tuple `(z, L)` in Angstrom, or `(nan, nan)` when tags are missing.
+    """
     mz = re.search(r"_z(\d+)", stem)
     mL = re.search(r"_L(\d+)", stem)
     if not (mz and mL):
@@ -305,7 +341,11 @@ def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
 
 
 class Crystal:
-    """Base class to convert CIF files into CRYSTAL .d12 inputs."""
+    """Base class for converting CIF structures into CRYSTAL `.d12` inputs.
+
+    Returns:
+        None.
+    """
 
     def __init__(self, post_block: str) -> None:
         """Initialize a CRYSTAL input generator.
@@ -313,12 +353,25 @@ class Crystal:
         Args:
             post_block: Text appended to each generated .d12 file.
                 This is where BASISSET/DFT/SHRINK or OPTGEOM blocks are injected.
+
+        Returns:
+            None.
         """
         self.post_block = post_block
 
     def _convert_one(
         self, cif_path: Path, output_path: Path | None = None
     ) -> Path:
+        """Convert one CIF file into one CRYSTAL `.d12` file.
+
+        Args:
+            cif_path: Input CIF path.
+            output_path: Optional output `.d12` path. Defaults to `None`
+                (writes next to input with `.d12` suffix).
+
+        Returns:
+            Path to the generated `.d12` file.
+        """
         txt = cif_path.read_text(errors="ignore")
         lines = txt.splitlines()
         cell = parse_cell(txt)
@@ -357,7 +410,8 @@ class Crystal:
 
         Args:
             input_folder: Folder containing .cif files.
-            output_folder: Optional output folder for .d12 files.
+            output_folder: Optional output folder for `.d12` files.
+                Defaults to `None` (writes under `input_folder`).
 
         Returns:
             None.
@@ -389,11 +443,12 @@ class Crystal:
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
             input_base_folder: Optional base folder containing mode subfolders.
-                Defaults to {cof_name}/2_{cof_name}_matrix.
+                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
             output_base_folder: Optional base folder for outputs.
-                Defaults to {cof_name}/2_{cof_name}_matrix.
+                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
 
         Notes:
             Outputs are written to dft_{serr|incl} subfolders.
@@ -421,9 +476,21 @@ class Crystal:
 
 
 class CrystalSP(Crystal):
-    """CRYSTAL single-point input generator."""
+    """CRYSTAL single-point input and output parser utilities.
+
+    Returns:
+        None.
+    """
 
     def _extract_energy_au(self, text: str) -> float | None:
+        """Extract final converged total energy from CRYSTAL output text.
+
+        Args:
+            text: Full `.out` text content.
+
+        Returns:
+            Converged energy in Hartree, or `None` when not found.
+        """
         lines = text.splitlines()
         if len(lines) < 2:
             return None
@@ -457,11 +524,14 @@ class CrystalSP(Crystal):
         """Initialize a CRYSTAL single-point input generator.
 
         Args:
-            basisset: CRYSTAL basis set name.
-            functional: CRYSTAL functional name.
-            shrink: SHRINK line values.
+            basisset: CRYSTAL basis set name. Defaults to `"SOLDEF2MSVP"`.
+            functional: CRYSTAL functional name. Defaults to `"HSESOL3C"`.
+            shrink: SHRINK line values. Defaults to `"2 2 8"`.
             post_block: Optional override for the full CRYSTAL input tail.
-                If None, a BASISSET/DFT/SHRINK block is auto-generated.
+                Defaults to `None` (auto-generates BASISSET/DFT/SHRINK block).
+
+        Returns:
+            None.
         """
         if post_block is None:
             post_block = f"""BASISSET
@@ -470,8 +540,8 @@ DFT
 {functional}
 END
 SHRINK
-            0 8
-            {shrink}
+0 8
+{shrink}
 END"""
         super().__init__(post_block=post_block)
 
@@ -486,9 +556,10 @@ END"""
         Args:
             input_folder: Folder containing CRYSTAL output files.
             output_csv_dir: Optional output folder for the CSV.
-                Defaults to {cof_name}/3_{cof_name}_landscape.
+                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
             output_filename_suffix: Optional suffix appended to the default
-                CSV filename stem (before .csv), e.g. "_dft".
+                CSV filename stem (before `.csv`), e.g. `"_dft"`.
+                Defaults to `""`.
 
         Returns:
             Path to the energies CSV.
@@ -577,12 +648,13 @@ END"""
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
             output_base_folder: Optional output folder for CSVs.
-                Defaults to {cof_name}/3_{cof_name}_landscape.
-                Default filenames are written with a _dft suffix.
+                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
+                Default filenames include a `_dft` suffix.
             input_base_folder: Optional base folder containing dft_{mode} subfolders.
-                Defaults to {cof_name}/2_{cof_name}_matrix.
+                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
 
         Returns:
             List of CSV paths written.
@@ -606,9 +678,21 @@ END"""
 
 
 class CrystalOpt(Crystal):
-    """CRYSTAL geometry-optimization input generator."""
+    """CRYSTAL geometry-optimization input/output utilities.
+
+    Returns:
+        None.
+    """
 
     def _extract_energy_au(self, text: str) -> float | None:
+        """Extract final converged total energy from CRYSTAL output text.
+
+        Args:
+            text: Full `.out` text content.
+
+        Returns:
+            Converged energy in Hartree, or `None` when not found.
+        """
         lines = text.splitlines()
         if len(lines) < 2:
             return None
@@ -637,18 +721,21 @@ class CrystalOpt(Crystal):
         basisset: str = "SOLDEF2MSVP",
         functional: str = "HSESOL3C",
         shrink: str = "2 2 8",
-        maxtradius: str = "0.8",
+        maxtradius: str = "0.5",
         post_block: str | None = None,
     ) -> None:
         """Initialize a CRYSTAL geometry-optimization input generator.
 
         Args:
-            basisset: CRYSTAL basis set name.
-            functional: CRYSTAL functional name.
-            shrink: SHRINK line values.
-            maxtradius: MAXTRADIUS value for OPTGEOM.
+            basisset: CRYSTAL basis set name. Defaults to `"SOLDEF2MSVP"`.
+            functional: CRYSTAL functional name. Defaults to `"HSESOL3C"`.
+            shrink: SHRINK line values. Defaults to `"2 2 8"`.
+            maxtradius: MAXTRADIUS value for OPTGEOM. Defaults to `"0.5"`.
             post_block: Optional override for the full CRYSTAL input tail.
-                If None, OPTGEOM + BASISSET/DFT/SHRINK blocks are generated.
+                Defaults to `None` (auto-generates OPTGEOM and DFT blocks).
+
+        Returns:
+            None.
         """
         if post_block is None:
             post_block = f"""OPTGEOM
@@ -661,8 +748,8 @@ DFT
 {functional}
 END
 SHRINK
-            0 8
-            {shrink}
+0 8
+{shrink}
 END"""
         super().__init__(post_block=post_block)
 
@@ -670,35 +757,37 @@ END"""
         self,
         cof_name: str,
         mode: str,
-        input_base: str | None = None,
-        output_base: str | None = None,
+        input_base_folder: str | None = None,
+        output_base_folder: str | None = None,
     ) -> None:
         """Generate CRYSTAL geometry-optimization inputs for selected mode(s).
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
-            input_base: Optional base folder containing per-mode input subfolders.
-                Defaults to {cof_name}/3_{cof_name}_landscape/selection.
-            output_base: Optional base folder for outputs (relative to cof_name).
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
+            input_base_folder: Optional base folder containing per-mode input subfolders.
+                Defaults to `None`
+                (uses `{cof_name}/3_{cof_name}_landscape/selection`).
+            output_base_folder: Optional base folder for outputs (relative to cof_name).
                 Outputs are written to dft_{mode} subfolders under this base.
-                Defaults to {cof_name}/4_{cof_name}_optimization.
+                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
 
         Returns:
             None.
         """
         from .ild_ils_utils import get_mode_folders
 
-        if input_base is None:
-            input_base = f"{cof_name}/3_{cof_name}_landscape/selection"
-        if output_base is None:
-            output_base = f"{cof_name}/4_{cof_name}_optimization"
+        if input_base_folder is None:
+            input_base_folder = f"{cof_name}/3_{cof_name}_landscape/selection"
+        if output_base_folder is None:
+            output_base_folder = f"{cof_name}/4_{cof_name}_optimization"
 
         for folder in get_mode_folders(cof_name, mode):
             mode_tag = Path(folder).name
             self.run(
-                input_folder=f"{input_base}/{mode_tag}",
-                output_folder=f"{output_base}/dft_{mode_tag}",
+                input_folder=f"{input_base_folder}/{mode_tag}",
+                output_folder=f"{output_base_folder}/dft_{mode_tag}",
             )
 
     def read(
@@ -711,6 +800,7 @@ END"""
         Args:
             input_folder: Folder containing CRYSTAL output files.
             output_csv_dir: Optional output folder for the CSV.
+                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
 
         Returns:
             Path to the energies CSV.
@@ -816,11 +906,12 @@ END"""
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
             output_base_folder: Optional output folder for the CSVs.
-                Defaults to {cof_name}/4_{cof_name}_optimization.
+                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
             input_base_folder: Optional base folder containing dft_{mode} subfolders.
-                Defaults to {cof_name}/4_{cof_name}_optimization.
+                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
 
         Returns:
             List containing the combined CSV path.
@@ -939,7 +1030,8 @@ END"""
 
         Args:
             input_folder: Folder containing CRYSTAL output files.
-            output_folder: Optional output folder for CIFs.
+            output_folder: Optional output folder for CIFs. Defaults to `None`
+                (writes next to parsed output files).
 
         Returns:
             List of CIF paths written.
@@ -1002,10 +1094,13 @@ END"""
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
             output_base_folder: Optional base folder for CIF outputs.
-                CIFs are written to dft_{mode} subfolders under this base.
+                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
+                CIFs are written to `dft_{mode}` subfolders under this base.
             input_base_folder: Optional base folder containing dft_{mode} subfolders.
+                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
 
         Notes:
             Defaults for both input and output bases are

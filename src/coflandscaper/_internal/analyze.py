@@ -1,4 +1,9 @@
-"""Analysis helpers for ILD/ILS, structure checks, and visualization."""
+"""Analyze ILD/ILS metrics and visualize optimized COF structures.
+
+This module provides utilities to compute interlayer metrics from optimized
+structures, merge those metrics with per-layer energies, and visualize CIF
+structures (including supercell-expanded views) for selected stacking modes.
+"""
 
 from __future__ import annotations
 
@@ -35,6 +40,17 @@ class Supercell:
         output_folder: str,
         supercell_size: tuple[int, int, int] = (2, 2, 2),
     ) -> None:
+        """Expand all CIF structures in a folder into supercell CIF files.
+
+        Args:
+            input_folder: Folder containing input `.cif` files.
+            output_folder: Destination folder for expanded `.cif` files.
+            supercell_size: Supercell replication `(a, b, c)`.
+                Defaults to `(2, 2, 2)`.
+
+        Returns:
+            None.
+        """
         os.makedirs(output_folder, exist_ok=True)
         for input_file in list_cifs(input_folder):
             base = os.path.splitext(os.path.basename(input_file))[0]
@@ -56,6 +72,17 @@ class AnalyzeStacking:
     ]
 
     def _collect_cifs(self, folder: Path) -> list[str]:
+        """Collect CIF files from a mode folder.
+
+        Args:
+            folder: Mode folder path.
+
+        Returns:
+            List of CIF file paths.
+
+        Raises:
+            FileNotFoundError: If folder is missing or contains no valid CIFs.
+        """
         files: list[str] = []
         if not folder.exists():
             raise FileNotFoundError(f"Input folder not found: {folder}")
@@ -73,6 +100,17 @@ class AnalyzeStacking:
         return files
 
     def _calc_ils_dl(self, input_file: str) -> float:
+        """Compute serrated-mode ILS using lower-layer to upper-layer offset.
+
+        Args:
+            input_file: CIF file path.
+
+        Returns:
+            Interlayer slipping length in Angstrom.
+
+        Raises:
+            ValueError: If atom lines cannot be parsed from CIF text.
+        """
         struct = Structure.from_file(input_file)
 
         with open(input_file) as f:
@@ -124,6 +162,14 @@ class AnalyzeStacking:
         return float(np.linalg.norm(slip_vec_xy))
 
     def _calc_ils_sl(self, input_file: str) -> float:
+        """Compute inclined-mode ILS from projected c-vector components.
+
+        Args:
+            input_file: CIF file path.
+
+        Returns:
+            Interlayer slipping length in Angstrom.
+        """
         struct = Structure.from_file(input_file)
         lat = struct.lattice
         _, _, c = lat.abc
@@ -137,11 +183,32 @@ class AnalyzeStacking:
         return math.sqrt(cx**2 + cy**2)
 
     def _calc_ild(self, input_file: str, *, divide_by_two: bool) -> float:
+        """Compute ILD from lattice geometry with optional bilayer scaling.
+
+        Args:
+            input_file: CIF file path.
+            divide_by_two: If `True`, return half ILD (used for serrated bilayers).
+
+        Returns:
+            Interlayer distance in Angstrom.
+        """
         struct = Structure.from_file(input_file)
         ild = _calculate_ild(struct.lattice)
         return ild / 2.0 if divide_by_two else ild
 
     def _resolve_modes(self, mode: str) -> list[str]:
+        """Normalize mode selector into concrete mode tags.
+
+        Args:
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`.
+
+        Returns:
+            List of mode tags (`["incl"]`, `["serr"]`, or `["serr", "incl"]`).
+
+        Raises:
+            ValueError: If `mode` is invalid.
+        """
         mode_lower = mode.lower()
         if mode_lower not in {"incl", "serr", "both"}:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
@@ -150,6 +217,15 @@ class AnalyzeStacking:
     def _compute_metrics(
         self, input_file: str, selected_mode: str
     ) -> tuple[float, float]:
+        """Compute `(ILD, ILS)` metrics for one structure and mode.
+
+        Args:
+            input_file: CIF file path.
+            selected_mode: Mode tag (`"serr"` or `"incl"`).
+
+        Returns:
+            Tuple `(ild, ils)` in Angstrom.
+        """
         ild = self._calc_ild(input_file, divide_by_two=selected_mode == "serr")
         if selected_mode == "serr":
             ils = self._calc_ils_dl(input_file)
@@ -164,6 +240,16 @@ class AnalyzeStacking:
         input_base_path: Path,
         dft: bool,
     ) -> dict[tuple[str, str], tuple[float, float]]:
+        """Load per-structure per-mode energies from optimization CSV.
+
+        Args:
+            cof_name: COF identifier used for CSV naming.
+            input_base_path: Base optimization folder.
+            dft: If `True`, load DFT energy CSV variant.
+
+        Returns:
+            Mapping `(mode, structure) -> (absolute_energy, relative_energy)`.
+        """
         filename = (
             f"{cof_name}_opt_energies_per_layer_dft.csv"
             if dft
@@ -196,6 +282,15 @@ class AnalyzeStacking:
         output_csv: Path,
         new_rows: list[dict[str, float | str]],
     ) -> list[dict[str, float | str]]:
+        """Merge new analysis rows with existing CSV rows by stacking mode.
+
+        Args:
+            output_csv: Existing output CSV path.
+            new_rows: Freshly computed rows for current mode selection.
+
+        Returns:
+            Sorted merged row list preserving untouched modes.
+        """
         modes_to_replace = {
             str(row.get("Stacking", ""))
             for row in new_rows
@@ -239,20 +334,26 @@ class AnalyzeStacking:
 
         Args:
             cof_name: COF name used for default folder naming.
-            mode: "incl", "serr", or "both".
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`. Defaults to `"both"`.
             input_base: Optional base folder containing per-mode subfolders.
-                Defaults to {cof_name}/4_{cof_name}_optimization.
+                Defaults to `None`
+                (uses `{cof_name}/4_{cof_name}_optimization`).
             output_base: Optional folder for the output CSV.
-                Defaults to {cof_name}/5_{cof_name}_analysis.
+                Defaults to `None` (uses `{cof_name}/5_{cof_name}_analysis`).
             dft: If True, analyze dft_{mode} subfolders and write
-                final_structures_dft.csv.
-            print_values: If True, print ILD/ILS values to stdout.
+                final_structures_dft.csv. Defaults to `False`.
+            print_values: If `True`, print ILD/ILS values to stdout.
+                Defaults to `True`.
 
         Notes:
-                        - dft=False reads from {input_base}/{serr|incl} and writes
-                            final_structures.csv.
-                        - dft=True reads from {input_base}/dft_{serr|incl} and writes
-                            final_structures_dft.csv.
+                        - dft=False reads from `{input_base}/{serr|incl}` and writes
+                            `final_structures.csv`.
+                        - dft=True reads from `{input_base}/dft_{serr|incl}` and writes
+                            `final_structures_dft.csv`.
+
+        Returns:
+                        None.
         """
         base = (
             Path(input_base)
@@ -333,7 +434,22 @@ class AnalyzeStacking:
         dft: bool = False,
         print_values: bool = True,
     ) -> None:
-        """Backward-compatible alias for :meth:`analyze`."""
+        """Backward-compatible alias for :meth:`analyze`.
+
+        Args:
+            cof_name: COF name used for default folder naming.
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`. Defaults to `"both"`.
+            input_base: Optional base folder containing per-mode subfolders.
+                Defaults to `None`.
+            output_base: Optional output folder for analysis CSV files.
+                Defaults to `None`.
+            dft: If `True`, analyze DFT-mode folders. Defaults to `False`.
+            print_values: If `True`, print ILD/ILS values. Defaults to `True`.
+
+        Returns:
+            None.
+        """
         return self.analyze(
             cof_name=cof_name,
             mode=mode,
@@ -346,17 +462,44 @@ class AnalyzeStacking:
 
 @dataclass
 class VisualizeCOF:
+    """Visualize optimized COF structures with py3Dmol.
+
+    The viewer can render single files, folders, or selected mode outputs and
+    supports optional supercell expansion before display.
+    """
+
     width: int = 800
     height: int = 600
     background: str = "white"
     style: str = "stick"
 
     def _find_files(self, path: Path) -> list[Path]:
+        """List CIF files in a folder.
+
+        Args:
+            path: Folder path.
+
+        Returns:
+            Sorted list of `.cif` file paths.
+        """
         return sorted(path.glob("*.cif"))
 
     def _resolve_model(
         self, source: str | Path | Structure
     ) -> tuple[str, str]:
+        """Resolve supported structure source into py3Dmol model payload.
+
+        Args:
+            source: CIF path, folder path, or pymatgen `Structure`.
+
+        Returns:
+            Tuple `(model_text, format)` ready for `py3Dmol.addModel`.
+
+        Raises:
+            FileNotFoundError: If path source does not exist.
+            FileNotFoundError: If folder source has no CIF files.
+            ValueError: If source file is not `.cif`.
+        """
         if isinstance(source, Structure):
             return source.to(fmt="cif"), "cif"
 
@@ -387,6 +530,23 @@ class VisualizeCOF:
         style: str | dict[str, Any] | None = None,
         print_names: bool = True,
     ):
+        """Visualize every CIF in one folder and return py3Dmol views.
+
+        Args:
+            folder: Folder containing CIF files.
+            add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
+            style: Optional style override. Defaults to `None`
+                (uses instance default style).
+            print_names: If `True`, print filenames during rendering.
+                Defaults to `True`.
+
+        Returns:
+            List of py3Dmol view objects.
+
+        Raises:
+            FileNotFoundError: If folder is missing or has no CIF files.
+            ValueError: If `folder` is not a directory.
+        """
         path = Path(folder)
         if not path.exists():
             raise FileNotFoundError(f"Structure folder not found: {path}")
@@ -418,6 +578,20 @@ class VisualizeCOF:
         add_unit_cell: bool = True,
         style: str | dict[str, Any] | None = None,
     ):
+        """Create one py3Dmol view from a structure source.
+
+        Args:
+            source: CIF path, folder path, or pymatgen `Structure`.
+            add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
+            style: Optional style override. Defaults to `None`
+                (uses instance default style).
+
+        Returns:
+            py3Dmol view object.
+
+        Raises:
+            ModuleNotFoundError: If `py3Dmol` is not installed.
+        """
         try:
             import py3Dmol
         except Exception as exc:  # pragma: no cover - optional dependency
@@ -453,13 +627,18 @@ class VisualizeCOF:
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: "incl", "serr", or "both".
+            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
+                or `"both"`. Defaults to `"both"`.
             input_base: Optional base folder containing per-mode subfolders.
-                Defaults to {cof_name}/4_{cof_name}_optimization.
-            dft: If True, read structures from dft_{mode} subfolders.
-            add_unit_cell: If True, draw the unit cell.
+                Defaults to `None`
+                (uses `{cof_name}/4_{cof_name}_optimization`).
+            dft: If `True`, read structures from `dft_{mode}` subfolders.
+                Defaults to `False`.
+            add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
             supercell_size_serr: Supercell size for serrated structures.
+                Defaults to `(2, 2, 1)`.
             supercell_size_incl: Supercell size for inclined structures.
+                Defaults to `(2, 2, 2)`.
 
         Returns:
             List of py3Dmol views.
@@ -517,9 +696,10 @@ class VisualizeCOF:
 
         Args:
             input_folder: Folder containing single-layer .cif files.
-                Defaults to "1_ILCOF-1_single_layer".
-            add_unit_cell: If True, draw the unit cell.
+                Defaults to `"1_ILCOF-1_single_layer"`.
+            add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
             supercell_size: Supercell size applied before visualization.
+                Defaults to `(2, 2, 1)`.
 
         Returns:
             List of py3Dmol views.
