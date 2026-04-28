@@ -23,7 +23,6 @@ from .ild_ils_utils import (
     list_cifs,
     parse_xyz_from_atom_line,
     pick_lower_left_pair_from_lines,
-    wrap01,
 )
 
 
@@ -99,8 +98,8 @@ class AnalyzeStacking:
             raise FileNotFoundError(f"No .cif files found in: {folder}")
         return files
 
-    def _calc_ils_dl(self, input_file: str) -> float:
-        """Compute serrated-mode ILS using lower-layer to upper-layer offset.
+    def _ils_registry(self, input_file: str) -> float:
+        """Compute registry-based in-plane slip from lower/upper atom offset.
 
         Args:
             input_file: CIF file path.
@@ -147,12 +146,11 @@ class AnalyzeStacking:
         xu, yu, _ = cast(
             "tuple[float, float, float]", parse_xyz_from_atom_line(upper_line)
         )
-        xu_w, yu_w = wrap01(xu), wrap01(yu)
 
         # Use minimum-image deltas in fractional space so shifts across
         # periodic boundaries remain small (e.g., -0.08 instead of 0.92).
-        dxu = ((xu_w - xl + 0.5) % 1.0) - 0.5
-        dyu = ((yu_w - yl + 0.5) % 1.0) - 0.5
+        dxu = ((xu - xl + 0.5) % 1.0) - 0.5
+        dyu = ((yu - yl + 0.5) % 1.0) - 0.5
 
         a_vec, b_vec, _ = struct.lattice.matrix
         a_xy = np.array([a_vec[0], a_vec[1]])
@@ -161,8 +159,8 @@ class AnalyzeStacking:
         slip_vec_xy = dxu * a_xy + dyu * b_xy
         return float(np.linalg.norm(slip_vec_xy))
 
-    def _calc_ils_sl(self, input_file: str) -> float:
-        """Compute inclined-mode ILS from projected c-vector components.
+    def _ils_tilt(self, input_file: str) -> float:
+        """Compute in-plane slip from projected c-vector components.
 
         Args:
             input_file: CIF file path.
@@ -228,9 +226,11 @@ class AnalyzeStacking:
         """
         ild = self._calc_ild(input_file, divide_by_two=selected_mode == "serr")
         if selected_mode == "serr":
-            ils = self._calc_ils_dl(input_file)
+            slip_registry = self._ils_registry(input_file)
+            slip_tilt = self._ils_tilt(input_file)
+            ils = slip_registry + (slip_tilt / 2.0)
         else:
-            ils = self._calc_ils_sl(input_file)
+            ils = self._ils_tilt(input_file)
         return float(ild), float(ils)
 
     def _load_energy_map(
