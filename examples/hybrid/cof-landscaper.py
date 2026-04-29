@@ -24,6 +24,14 @@ def load_params() -> dict[str, object]:
     return json.loads(PARAMS_FILE.read_text(encoding="utf-8"))
 
 
+def get_int_param(params: dict[str, object], key: str) -> int:
+    """Read an integer-like parameter from the JSON payload."""
+    value = params.get(key)
+    if isinstance(value, (int, float, str)):
+        return int(value)
+    raise TypeError(f"Parameter '{key}' must be an int, float, or numeric string, got {type(value).__name__}.")
+
+
 def run_workflow(params: dict[str, object]) -> None:
     """Run the full benchmark workflow using parameters from JSON."""
     topology = str(params["TOPOLOGY"])
@@ -32,7 +40,7 @@ def run_workflow(params: dict[str, object]) -> None:
     mode = str(params["MODE"])
     mace_head = str(params["MACE_HEAD"])
     device = str(params["DEVICE"])
-    mace_opt_max_steps = int(params["MAX_STEPS"])
+    mace_opt_max_steps = get_int_param(params, "MAX_STEPS")
     minima_mode = str(params.get("MINIMA_MODE", "global"))
     show_landscape = bool(params.get("SHOW_LANDSCAPE", False))
     show_title_block = bool(params.get("SHOW_TITLE_BLOCK", False))

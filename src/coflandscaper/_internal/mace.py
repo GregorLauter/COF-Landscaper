@@ -101,7 +101,7 @@ class Mace:
         self,
         device: str = "cpu",
         dtype: str = "float64",
-        head: str = "omol",
+        head: str = "spice_wB97M",
         model: str | None = None,
         verbose: bool = True,
     ) -> None:
@@ -110,7 +110,7 @@ class Mace:
         Args:
             device: Torch device string. Defaults to `"cpu"`.
             dtype: Floating-point precision for MACE. Defaults to `"float64"`.
-            head: MACE head preset. Defaults to `"omol"`.
+            head: MACE head preset. Defaults to `"spice_wB97M"`.
             model: Optional MACE model identifier. Defaults to `None`
                 (resolved later to `"mh-1"`).
             verbose: Whether to emit calculator initialization logs.
@@ -407,7 +407,7 @@ class MaceOpt(Mace):
         self,
         fmax: float = 0.01,
         dtype: str = "float64",
-        head: str = "omol",
+        head: str = "spice_wB97M",
         model: str | None = None,
         device: str = "cpu",
         fix_z: bool = False,
@@ -419,7 +419,7 @@ class MaceOpt(Mace):
         Args:
             fmax: Force convergence threshold in eV/Angstrom. Defaults to `0.01`.
             dtype: Floating-point precision for MACE. Defaults to `"float64"`.
-            head: MACE head preset. Defaults to `"omol"`.
+            head: MACE head preset. Defaults to `"spice_wB97M"`.
             model: Optional MACE model identifier. Defaults to `None`
                 (resolved to `"mh-1"`).
             device: Torch device string. Defaults to `"cpu"`.
