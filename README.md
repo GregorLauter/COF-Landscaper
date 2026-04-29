@@ -2,6 +2,8 @@
 
 COF-Landscaper is a Python package for building and analyzing 2D COF stacking-energy landscapes.
 
+Researchers interested in applying COF-Landscaper to their own systems are welcome to contact me at gjl342@student.bham.ac.uk, particularly if they are unable or prefer not to install and run the workflow themselves. Depending on availability and the scope of the project, I may be able to provide support or explore a possible collaboration.
+
 ## Platform Support
 
 - Tested on macOS and Linux.
@@ -79,7 +81,9 @@ python -m ipykernel install --user --name test-coflandscaper --display-name "Pyt
 
 - The DFT workflow requires additional external HPC infrastructure.
 - The MACE workflow can be executed fully on a local machine.
-- Workflow diagram (PDF): [docs/readme/workflow_vertical.pdf](docs/readme/workflow_vertical.pdf)
+- Workflow diagram:
+
+![COF-Landscaper workflow](docs/readme/workflow.png)
 
 ## Example Notebook
 
@@ -87,16 +91,23 @@ python -m ipykernel install --user --name test-coflandscaper --display-name "Pyt
 - After installation, you can work from any project folder on your computer.
 - A practical workflow is to copy the example notebook into your own project directory and keep the original examples folder as a reference.
 
+## Required Input Files
+
+- The workflow requires separate node and linker fragments provided as `.xyz` files.
+- Input fragments should ideally be pre-optimized with a generic force field, such as UFF, to remove severe steric clashes and obtain reasonable approximate bond lengths.
+- The subsequent pre-optimization step handles the assembled framework. Therefore, the main requirement at this stage is that the individual fragments are chemically sensible and can be connected cleanly by the builder.
+- The `.xyz` files can be prepared using any suitable molecular editor or visualizer, for example Avogadro, Mercury, or ChemDraw.
+
 ## VS Code Recommendation
 
-VS Code is recommended for running and editing the notebook and Python code.
+VS Code is (personally) recommended for running and editing the notebook and Python code.
 
 To use the correct kernel in VS Code:
 
 1. Open the notebook.
 2. Click the kernel selector in the top-right.
 3. Choose `Python (test-coflandscaper)`.
-4. Run a test cell such as `import coflandscaper`.
+4. Run a test cell such as `import coflandscaper as cl`.
 
 ## Where To Find Explanations
 
