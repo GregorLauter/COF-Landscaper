@@ -417,14 +417,14 @@ class CreateMatrix:
         Returns:
             None.
         """
-        self.ild_start = ild_start
-        self.ild_end = ild_end
-        self.ild_step = ild_step
-        self.ils_length_start = ils_length_start
-        self.ils_length_end = ils_length_end
-        self.ils_length_step = ils_length_step
-        self.ils_angle = ils_angle
-        self.print_shift = print_shift
+        self._ild_start = ild_start
+        self._ild_end = ild_end
+        self._ild_step = ild_step
+        self._ils_length_start = ils_length_start
+        self._ils_length_end = ils_length_end
+        self._ils_length_step = ils_length_step
+        self._ils_angle = ils_angle
+        self._print_shift = print_shift
 
     def run(
         self,
@@ -484,9 +484,9 @@ class CreateMatrix:
             ChangeIld().run(
                 input_folder=tmp_input_dir,
                 output_folder=tmp_ild,
-                ild_start=self.ild_start,
-                ild_end=self.ild_end,
-                ild_step=self.ild_step,
+                ild_start=self._ild_start,
+                ild_end=self._ild_end,
+                ild_step=self._ild_step,
             )
 
             if mode in {"incl", "both"}:
@@ -496,11 +496,11 @@ class CreateMatrix:
                     output_folder=out_incl,
                     topo=topo,
                     cof_name=cof_name,
-                    ils_length_start=self.ils_length_start,
-                    ils_length_end=self.ils_length_end,
-                    ils_length_step=self.ils_length_step,
-                    ils_angle=self.ils_angle,
-                    print_shift=self.print_shift,
+                    ils_length_start=self._ils_length_start,
+                    ils_length_end=self._ils_length_end,
+                    ils_length_step=self._ils_length_step,
+                    ils_angle=self._ils_angle,
+                    print_shift=self._print_shift,
                 )
 
             if mode in {"serr", "both"}:
@@ -510,9 +510,9 @@ class CreateMatrix:
                     output_folder=out_serr,
                     topo=topo,
                     cof_name=cof_name,
-                    ils_length_start=self.ils_length_start,
-                    ils_length_end=self.ils_length_end,
-                    ils_length_step=self.ils_length_step,
-                    ils_angle=self.ils_angle,
-                    print_shift=self.print_shift,
+                    ils_length_start=self._ils_length_start,
+                    ils_length_end=self._ils_length_end,
+                    ils_length_step=self._ils_length_step,
+                    ils_angle=self._ils_angle,
+                    print_shift=self._print_shift,
                 )

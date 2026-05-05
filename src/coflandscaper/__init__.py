@@ -1,19 +1,43 @@
 """Cof landscaper package."""
 
+from ._internal import utilities
 from ._internal.analyze import (
     AnalyzeStacking,
     Supercell,
     VisualizeCOF,
 )
 from ._internal.build_cof_2d import BuildCOF2D
-from ._internal.dft import Crystal, CrystalOpt, CrystalSP
+from ._internal.dft import (
+    Crystal,
+    CrystalOpt,
+    CrystalSP,
+    extract_atoms,
+    find_last_occurrence,
+    guess_symbol,
+    parse_atom_lines,
+    parse_cell,
+    parse_z_L_from_stem,
+)
 from ._internal.ild_ils_matrix import ChangeIld, CreateMatrix, IlsIncl, IlsSerr
-from ._internal.ild_ils_utils import get_mode_folders
+from ._internal.ild_ils_utils import (
+    ab_half_diagonal_from_cif,
+    default_shift_from_cif,
+    get_mode_folders,
+    list_cifs,
+    parse_xyz_from_atom_line,
+    pick_lower_left_pair_from_lines,
+    wrap01,
+)
 from ._internal.landscape import (
     Landscape,
     SelectCofs,
 )
-from ._internal.mace import Mace, MaceOpt, MaceSP
+from ._internal.mace import (
+    Mace,
+    MaceOpt,
+    MaceSP,
+    calculator_settings_for_head,
+)
 from ._internal.pxrd import PXRD
 
 __all__ = [
@@ -34,5 +58,19 @@ __all__ = [
     "SelectCofs",
     "Supercell",
     "VisualizeCOF",
+    "ab_half_diagonal_from_cif",
+    "calculator_settings_for_head",
+    "default_shift_from_cif",
+    "extract_atoms",
+    "find_last_occurrence",
     "get_mode_folders",
+    "guess_symbol",
+    "list_cifs",
+    "parse_atom_lines",
+    "parse_cell",
+    "parse_xyz_from_atom_line",
+    "parse_z_L_from_stem",
+    "pick_lower_left_pair_from_lines",
+    "utilities",
+    "wrap01",
 ]

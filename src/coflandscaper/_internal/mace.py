@@ -47,7 +47,7 @@ def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     return z, L
 
 
-def _calculator_settings_for_head(head: str) -> dict[str, Any]:
+def calculator_settings_for_head(head: str) -> dict[str, Any]:
     """Map a MACE head name to fixed calculator settings.
 
     Args:
@@ -119,11 +119,11 @@ class Mace:
         Returns:
             None.
         """
-        self.device = device
-        self.dtype = dtype
-        self.head = head
-        self.model = model
-        self.verbose = verbose
+        self._device = device
+        self._dtype = dtype
+        self._head = head
+        self._model = model
+        self._verbose = verbose
 
     def _resolve_params(
         self,
@@ -143,12 +143,12 @@ class Mace:
         Returns:
             Tuple `(device, dtype, model, calc_settings)`.
         """
-        resolved_head = head or self.head
-        resolved_model = model or self.model or "mh-1"
-        calc_settings = _calculator_settings_for_head(resolved_head)
+        resolved_head = head or self._head
+        resolved_model = model or self._model or "mh-1"
+        calc_settings = calculator_settings_for_head(resolved_head)
         return (
-            device or self.device,
-            dtype or self.dtype,
+            device or self._device,
+            dtype or self._dtype,
             resolved_model,
             calc_settings,
         )
@@ -209,7 +209,7 @@ class Mace:
         if hasattr(torch.serialization, "add_safe_globals"):
             torch.serialization.add_safe_globals([ScaleShiftMACE])
 
-        if self.verbose:
+        if self._verbose:
             mace_stdout = StringIO()
             with redirect_stdout(mace_stdout):
                 calc = mace_mp(
@@ -438,13 +438,13 @@ class MaceOpt(Mace):
             model=model,
             verbose=verbose,
         )
-        self.fmax = fmax
-        self.fix_z = fix_z
-        self.max_steps = max_steps
+        self._fmax = fmax
+        self._fix_z = fix_z
+        self._max_steps = max_steps
         _, _, model_used, calc_settings = self._resolve_params()
         self.calc = self._make_calc(
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
             model=model_used,
             calc_settings=calc_settings,
         )
@@ -458,7 +458,7 @@ class MaceOpt(Mace):
         Returns:
             None.
         """
-        if self.fix_z:
+        if self._fix_z:
             indices = range(len(atoms))
             con = FixCartesian(indices, mask=[False, False, True])
             atoms.set_constraint(con)
@@ -484,12 +484,12 @@ class MaceOpt(Mace):
 
         fcf = FrechetCellFilter(atoms)
         dyn = LBFGS(cast("Any", fcf))
-        converged = dyn.run(fmax=self.fmax, steps=self.max_steps)
+        converged = dyn.run(fmax=self._fmax, steps=self._max_steps)
         if not converged:
             warnings.warn(
                 (
                     "MACE optimization did not converge within "
-                    f"{self.max_steps} steps for {input_path}. "
+                    f"{self._max_steps} steps for {input_path}. "
                     "Writing current structure and continuing."
                 ),
                 category=UserWarning,
@@ -528,8 +528,8 @@ class MaceOpt(Mace):
         )
         resolved_output.parent.mkdir(parents=True, exist_ok=True)
 
-        prev_fix_z = self.fix_z
-        self.fix_z = fix_z
+        prev_fix_z = self._fix_z
+        self._fix_z = fix_z
         try:
             converged = self.optimize_cof(
                 str(resolved_input),
@@ -538,7 +538,7 @@ class MaceOpt(Mace):
             print("Converged" if converged else "Not converged")
             return converged
         finally:
-            self.fix_z = prev_fix_z
+            self._fix_z = prev_fix_z
 
     def process_cifs(
         self, input_folder: str, output_folder: str

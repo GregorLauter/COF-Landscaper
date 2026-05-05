@@ -3,16 +3,16 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from coflandscaper._internal import dft
+import coflandscaper as cl
 
 
 @pytest.mark.unit
 def test_guess_symbol_handles_common_label_patterns() -> None:
     """This test ensures atom labels are normalized to valid element symbols."""
-    assert dft.guess_symbol("C1") == "C"
-    assert dft.guess_symbol("si2") == "Si"
-    assert dft.guess_symbol("cl_12") == "Cl"
-    assert dft.guess_symbol("123") is None
+    assert cl.guess_symbol("C1") == "C"
+    assert cl.guess_symbol("si2") == "Si"
+    assert cl.guess_symbol("cl_12") == "Cl"
+    assert cl.guess_symbol("123") is None
 
 
 @pytest.mark.unit
@@ -26,7 +26,7 @@ _cell_angle_alpha 90
 _cell_angle_beta  90.0
 _cell_angle_gamma 120.0(1)
 """
-    cell = dft.parse_cell(text)
+    cell = cl.parse_cell(text)
     assert cell == {
         "a": 10.0,
         "b": 11.5,
@@ -42,7 +42,7 @@ def test_parse_cell_raises_when_parameter_missing() -> None:
     """This test ensures missing required CIF cell fields fail loudly."""
     text = "_cell_length_a 10\n_cell_length_b 10\n"
     with pytest.raises(ValueError, match="Missing cell parameter"):
-        dft.parse_cell(text)
+        cl.parse_cell(text)
 
 
 @pytest.mark.unit
@@ -59,7 +59,7 @@ def test_extract_atoms_reads_fractional_loop_block() -> None:
         "N2 0.4 0.5 0.6",
         "",
     ]
-    atoms = dft.extract_atoms(lines)
+    atoms = cl.extract_atoms(lines)
     assert atoms[0][0] == 6
     assert atoms[0][1:] == (0.1, 0.2, 0.3)
     assert atoms[1][0] == 7
@@ -71,13 +71,13 @@ def test_extract_atoms_raises_when_no_fractional_loop_exists() -> None:
     """This test ensures invalid CIF content without fractional loops is rejected."""
     lines = ["data_test", "loop_", "_atom_site_label", "C1"]
     with pytest.raises(ValueError, match="No atom site loop"):
-        dft.extract_atoms(lines)
+        cl.extract_atoms(lines)
 
 
 @pytest.mark.unit
 def test_parse_z_L_from_stem_parses_decitags() -> None:
     """This test ensures z and L tags in file stems are converted to decimal shifts."""
-    z, l_value = dft._parse_z_L_from_stem("cof_z015_L230")
+    z, l_value = cl.parse_z_L_from_stem("cof_z015_L230")
     assert z == 1.5
     assert l_value == 23.0
 
@@ -87,7 +87,7 @@ def test_crystal_sp_extract_energy_requires_completion_and_parses_last_value() -
     None
 ):
     """This test ensures Crystal SP energy parsing uses converged outputs only."""
-    obj = dft.CrystalSP()
+    obj = cl.CrystalSP()
     text = (
         "random line\n"
         "TOTAL ENERGY + DISP + GCP (AU)   -100.123\n"
@@ -126,7 +126,7 @@ def test_crystal_sp_read_writes_sorted_csv_with_relative_energy(
     )
 
     monkeypatch.chdir(tmp_path)
-    csv_path = dft.CrystalSP().read(str(in_dir))
+    csv_path = cl.CrystalSP().read(str(in_dir))
     df = pd.read_csv(csv_path)
 
     assert list(df.columns) == [
@@ -143,8 +143,8 @@ def test_crystal_sp_read_writes_sorted_csv_with_relative_energy(
 def test_find_last_occurrence_returns_latest_match_index() -> None:
     """This test ensures keyword scanning returns the last matching line index."""
     lines = ["A", "B keyword", "C", "D keyword"]
-    assert dft._find_last_occurrence(lines, "keyword") == 3
-    assert dft._find_last_occurrence(lines, "missing") == -1
+    assert cl.find_last_occurrence(lines, "keyword") == 3
+    assert cl.find_last_occurrence(lines, "missing") == -1
 
 
 @pytest.mark.unit
@@ -157,7 +157,7 @@ def test_parse_atom_lines_skips_invalid_rows_then_collects_atoms() -> None:
         "1 2 ZZ 0.7 0.8 0.9",
         "tail",
     ]
-    symbols, coords = dft._parse_atom_lines(lines, start_idx=0)
+    symbols, coords = cl.parse_atom_lines(lines, start_idx=0)
     assert symbols == ["C", "O"]
     assert coords == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
@@ -170,14 +170,14 @@ def test_crystal_generate_input_validates_mode_and_routes_subfolders(
     calls: list[tuple[str, str]] = []
 
     def fake_run(
-        _self: dft.Crystal, input_folder: str, output_folder: str | None = None
+        _self: cl.Crystal, input_folder: str, output_folder: str | None = None
     ) -> None:
         assert output_folder is not None
         calls.append((input_folder, output_folder))
 
-    monkeypatch.setattr(dft.Crystal, "run", fake_run)
+    monkeypatch.setattr(cl.Crystal, "run", fake_run)
 
-    crystal = dft.Crystal(post_block="")
+    crystal = cl.Crystal(post_block="")
     crystal.generate_input("cof-a", mode="both")
     assert calls == [
         ("cof-a/2_cof-a_matrix/serr", "cof-a/2_cof-a_matrix/dft_serr"),
@@ -196,7 +196,7 @@ def test_crystal_sp_read_output_appends_dft_suffix_to_default_csv_names(
     calls: list[tuple[str, str | None, str]] = []
 
     def fake_read(
-        _self: dft.CrystalSP,
+        _self: cl.CrystalSP,
         input_folder: str,
         output_csv_dir: str | None = None,
         output_filename_suffix: str = "",
@@ -208,9 +208,9 @@ def test_crystal_sp_read_output_appends_dft_suffix_to_default_csv_names(
             f"{out_dir}/cof-a_sp_energies_{mode_tag}{output_filename_suffix}.csv"
         )
 
-    monkeypatch.setattr(dft.CrystalSP, "read", fake_read)
+    monkeypatch.setattr(cl.CrystalSP, "read", fake_read)
 
-    outputs = dft.CrystalSP().read_output("cof-a", mode="both")
+    outputs = cl.CrystalSP().read_output("cof-a", mode="both")
 
     assert calls == [
         ("cof-a/2_cof-a_matrix/dft_serr", None, "_dft"),
@@ -233,6 +233,6 @@ def test_crystal_sp_read_does_not_create_default_output_dir_on_missing_input(
 
     monkeypatch.chdir(tmp_path)
     with pytest.raises(FileNotFoundError, match=r"No valid \.out files found"):
-        dft.CrystalSP().read(str(in_dir))
+        cl.CrystalSP().read(str(in_dir))
 
     assert not (tmp_path / "cof-x" / "3_cof-x_landscape").exists()

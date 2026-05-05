@@ -122,7 +122,7 @@ def extract_atoms(lines: list[str]) -> list[tuple[int, float, float, float]]:
     raise ValueError("No atom site loop with fractional coordinates.")
 
 
-def _find_last_occurrence(lines: list[str], keyword: str) -> int:
+def find_last_occurrence(lines: list[str], keyword: str) -> int:
     """Return the index of the last occurrence of a keyword.
 
     Args:
@@ -138,7 +138,7 @@ def _find_last_occurrence(lines: list[str], keyword: str) -> int:
     return -1
 
 
-def _parse_atom_lines(
+def parse_atom_lines(
     lines: list[str], start_idx: int
 ) -> tuple[list[str], list[list[float]]]:
     """Parse atom symbols and XYZ coordinates from a line block.
@@ -187,8 +187,8 @@ def _parse_primary_structure(lines: list[str]) -> Atoms | None:
     Returns:
         ASE Atoms if parsing succeeds, otherwise None.
     """
-    lat_idx = _find_last_occurrence(lines, "DIRECT LATTICE")
-    prim_idx = _find_last_occurrence(lines, "PRIMITIVE CELL")
+    lat_idx = find_last_occurrence(lines, "DIRECT LATTICE")
+    prim_idx = find_last_occurrence(lines, "PRIMITIVE CELL")
 
     if lat_idx == -1 and prim_idx == -1:
         return None
@@ -206,7 +206,7 @@ def _parse_primary_structure(lines: list[str]) -> Atoms | None:
         symbols: list[str] = []
         positions: list[list[float]] = []
         if prim_idx != -1:
-            symbols, positions = _parse_atom_lines(lines, prim_idx + 4)
+            symbols, positions = parse_atom_lines(lines, prim_idx + 4)
 
         if not symbols and cell is None:
             return None
@@ -238,7 +238,7 @@ def _parse_fallback_structure(lines: list[str]) -> Atoms | None:
         ASE Atoms if parsing succeeds, otherwise None.
     """
     lat_header_sig = "LATTICE PARAMETERS (ANGSTROMS AND DEGREES)"
-    lat_idx = _find_last_occurrence(lines, lat_header_sig)
+    lat_idx = find_last_occurrence(lines, lat_header_sig)
 
     if lat_idx == -1:
         return None
@@ -279,7 +279,7 @@ def _parse_fallback_structure(lines: list[str]) -> Atoms | None:
         y_is_frac = "/B" in header or "/b" in header
         z_is_frac = "/C" in header or "/c" in header
 
-        symbols, raw_coords = _parse_atom_lines(lines, atom_header_idx + 2)
+        symbols, raw_coords = parse_atom_lines(lines, atom_header_idx + 2)
         if not symbols:
             return None
 
@@ -322,7 +322,7 @@ def _parse_fallback_structure(lines: list[str]) -> Atoms | None:
         return None
 
 
-def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
+def parse_z_L_from_stem(stem: str) -> tuple[float, float]:
     """Parse `_z` and `_L` tags from a structure stem.
 
     Args:
@@ -357,7 +357,7 @@ class Crystal:
         Returns:
             None.
         """
-        self.post_block = post_block
+        self._post_block = post_block
 
     def _convert_one(
         self, cif_path: Path, output_path: Path | None = None
@@ -395,8 +395,8 @@ class Crystal:
                 out.append(f"0 {x:.9f} {y:.9f} {z:.9f}")
             else:
                 out.append(f"{Z} {x:.9f} {y:.9f} {z:.9f}")
-        if self.post_block.strip():
-            out.append(self.post_block.strip())
+        if self._post_block.strip():
+            out.append(self._post_block.strip())
 
         out_path.write_text("\n".join(out) + "\n")
         return out_path
@@ -610,7 +610,7 @@ END"""
                 if energy_au is None:
                     raise ValueError("Energy not found in output")
                 energy_ev = energy_au * HARTREE_TO_EV
-                z, L = _parse_z_L_from_stem(out_path.stem)
+                z, L = parse_z_L_from_stem(out_path.stem)
                 rows.append(
                     {
                         "structure": out_path.stem,

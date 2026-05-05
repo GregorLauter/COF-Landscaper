@@ -44,8 +44,8 @@ class PXRD:
         Returns:
             None.
         """
-        self.wavelength = wavelength
-        self.two_theta_range = two_theta_range
+        self._wavelength = wavelength
+        self._two_theta_range = two_theta_range
 
     def _resolve_modes(self, mode: str) -> list[str]:
         """Normalize mode selector to one or two concrete mode tags.
@@ -204,12 +204,12 @@ class PXRD:
         )
         xy_dir.mkdir(parents=True, exist_ok=True)
 
-        calculator = XRDCalculator(wavelength=self.wavelength)
+        calculator = XRDCalculator(wavelength=self._wavelength)
         for cif_path in cifs:
             structure = Structure.from_file(str(cif_path))
             pattern = calculator.get_pattern(
                 structure,
-                two_theta_range=self.two_theta_range,
+                two_theta_range=self._two_theta_range,
             )
             xy = np.column_stack((pattern.x, pattern.y))
             np.savetxt(xy_dir / f"{cif_path.stem}.xy", xy, fmt="%.5f %.3f")

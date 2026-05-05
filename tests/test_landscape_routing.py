@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from coflandscaper._internal.landscape import Landscape
+import coflandscaper as cl
 
 
 @pytest.mark.unit
@@ -26,7 +26,7 @@ def test_landscape_run_mode_uses_standard_csv_by_default(
     calls: list[tuple[str, bool]] = []
 
     def fake_run(
-        _self: Landscape,
+        _self: cl.Landscape,
         input_folder: str,
         cof_name: str | None = None,
         dft: bool = False,
@@ -54,9 +54,9 @@ def test_landscape_run_mode_uses_standard_csv_by_default(
         )
         calls.append((input_folder, dft))
 
-    monkeypatch.setattr(Landscape, "run", fake_run)
+    monkeypatch.setattr(cl.Landscape, "run", fake_run)
 
-    Landscape().run_mode(
+    cl.Landscape().run_mode(
         cof_name="cof-1",
         mode="both",
         input_folder=str(base),
@@ -89,7 +89,7 @@ def test_landscape_run_mode_uses_dft_csv_when_enabled(
     calls: list[tuple[str, bool]] = []
 
     def fake_run(
-        _self: Landscape,
+        _self: cl.Landscape,
         input_folder: str,
         cof_name: str | None = None,
         dft: bool = False,
@@ -117,9 +117,9 @@ def test_landscape_run_mode_uses_dft_csv_when_enabled(
         )
         calls.append((input_folder, dft))
 
-    monkeypatch.setattr(Landscape, "run", fake_run)
+    monkeypatch.setattr(cl.Landscape, "run", fake_run)
 
-    Landscape().run_mode(
+    cl.Landscape().run_mode(
         cof_name="cof-1",
         mode="both",
         input_folder=str(base),

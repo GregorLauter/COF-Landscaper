@@ -3,33 +3,17 @@
 
 Run from project folder:
     python cof-landscaper.py
+    python cof-landscaper.py --params /path/to/params.json
 """
 
 from __future__ import annotations
 
-import json
+import argparse
 from pathlib import Path
 
 import coflandscaper as cl
 
-PARAMS_FILE = Path(__file__).with_name("cof-landscaper.params.json")
-
-
-def load_params() -> dict[str, object]:
-    """Load workflow parameters from the sidecar JSON file."""
-    if not PARAMS_FILE.exists():
-        raise FileNotFoundError(
-            f"Missing parameter file: {PARAMS_FILE}. Create it next to this script."
-        )
-    return json.loads(PARAMS_FILE.read_text(encoding="utf-8"))
-
-
-def get_int_param(params: dict[str, object], key: str) -> int:
-    """Read an integer-like parameter from the JSON payload."""
-    value = params.get(key)
-    if isinstance(value, (int, float, str)):
-        return int(value)
-    raise TypeError(f"Parameter '{key}' must be an int, float, or numeric string, got {type(value).__name__}.")
+DEFAULT_PARAMS_FILE = Path(__file__).with_name("cof-landscaper.params.json")
 
 
 def run_workflow(params: dict[str, object]) -> None:
@@ -40,7 +24,7 @@ def run_workflow(params: dict[str, object]) -> None:
     mode = str(params["MODE"])
     mace_head = str(params["MACE_HEAD"])
     device = str(params["DEVICE"])
-    mace_opt_max_steps = get_int_param(params, "MAX_STEPS")
+    mace_opt_max_steps = cl.utilities.get_int_param(params, "MAX_STEPS")
     minima_mode = str(params.get("MINIMA_MODE", "global"))
     show_landscape = bool(params.get("SHOW_LANDSCAPE", False))
     show_title_block = bool(params.get("SHOW_TITLE_BLOCK", False))
@@ -96,7 +80,22 @@ def run_workflow(params: dict[str, object]) -> None:
 
 def main() -> None:
     """Entrypoint for command-line execution."""
-    params = load_params()
+    parser = argparse.ArgumentParser(
+        description="Run the COF-Landscaper hybrid workflow.",
+    )
+    parser.add_argument(
+        "--params",
+        "-p",
+        type=Path,
+        default=DEFAULT_PARAMS_FILE,
+        help=(
+            "Path to the workflow JSON parameters file. "
+            f"Defaults to {DEFAULT_PARAMS_FILE.name} next to this script."
+        ),
+    )
+    args = parser.parse_args()
+
+    params = cl.utilities.load_params(args.params)
     run_workflow(params)
 
 

@@ -1,10 +1,13 @@
+import importlib
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-import coflandscaper._internal.mace as mace_mod
-from coflandscaper._internal.mace import MaceOpt
+import coflandscaper as cl
+
+mace_mod = importlib.import_module(cl.Mace.__module__)
+MaceOpt = cl.MaceOpt
 
 
 class _DummyAtoms:
@@ -47,11 +50,11 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
     monkeypatch.setattr(mace_mod, "FrechetCellFilter", lambda atoms: atoms)
     monkeypatch.setattr(mace_mod, "LBFGS", _DummyLBFGS)
 
-    opt = object.__new__(MaceOpt)
-    opt.fix_z = False
-    opt.fmax = 0.01
-    opt.max_steps = 500
-    opt.calc = object()
+    def fake_make_calc(*_args: object, **_kwargs: object) -> object:
+        return object()
+
+    monkeypatch.setattr(MaceOpt, "_make_calc", fake_make_calc)
+    opt = MaceOpt(fmax=0.01, max_steps=500, fix_z=False, verbose=False)
 
     with pytest.warns(UserWarning, match="did not converge within 500 steps"):
         converged = opt.optimize_cof(str(input_cif), str(output_cif))
@@ -75,9 +78,9 @@ def test_calculator_settings_for_matpes_r2scan(
     monkeypatch.setattr(mace_mod, "mace_mp", fake_mace_mp)
 
     base = object.__new__(mace_mod.Mace)
-    base.verbose = False
+    base._verbose = False
 
-    calc_settings = mace_mod._calculator_settings_for_head("matpes_r2scan")
+    calc_settings = cl.calculator_settings_for_head("matpes_r2scan")
     base._make_calc(
         device="cpu",
         dtype="float64",
@@ -189,11 +192,14 @@ def test_run_preopt_uses_default_paths_and_restores_fix_z(
     def fake_optimize(self, input_path: str, output_path: str) -> bool:
         seen["input_path"] = input_path
         seen["output_path"] = output_path
-        seen["fix_z_during_call"] = self.fix_z
+        seen["fix_z_during_call"] = self._fix_z
         return True
 
-    opt = object.__new__(MaceOpt)
-    opt.fix_z = False
+    def fake_make_calc(*_args: object, **_kwargs: object) -> object:
+        return object()
+
+    monkeypatch.setattr(MaceOpt, "_make_calc", fake_make_calc)
+    opt = MaceOpt(fix_z=False, verbose=False)
     opt.optimize_cof = fake_optimize.__get__(opt, MaceOpt)
 
     monkeypatch.chdir(tmp_path)
@@ -204,7 +210,7 @@ def test_run_preopt_uses_default_paths_and_restores_fix_z(
     assert seen["input_path"] == "COF-1/1_COF-1_single_layer/COF-1_unopt.cif"
     assert seen["output_path"] == "COF-1/1_COF-1_single_layer/COF-1_preopt.cif"
     assert seen["fix_z_during_call"] is True
-    assert opt.fix_z is False
+    assert opt._fix_z is False
 
 
 @pytest.mark.unit
@@ -214,11 +220,14 @@ def test_run_preopt_can_disable_fix_z_for_single_run(
     seen: dict[str, bool] = {}
 
     def fake_optimize(self, _input_path: str, _output_path: str) -> bool:
-        seen["fix_z_during_call"] = self.fix_z
+        seen["fix_z_during_call"] = self._fix_z
         return True
 
-    opt = object.__new__(MaceOpt)
-    opt.fix_z = True
+    def fake_make_calc(*_args: object, **_kwargs: object) -> object:
+        return object()
+
+    monkeypatch.setattr(MaceOpt, "_make_calc", fake_make_calc)
+    opt = MaceOpt(fix_z=True, verbose=False)
     opt.optimize_cof = fake_optimize.__get__(opt, MaceOpt)
 
     monkeypatch.chdir(tmp_path)
@@ -227,4 +236,4 @@ def test_run_preopt_can_disable_fix_z_for_single_run(
 
     assert converged is True
     assert seen["fix_z_during_call"] is False
-    assert opt.fix_z is True
+    assert opt._fix_z is True
