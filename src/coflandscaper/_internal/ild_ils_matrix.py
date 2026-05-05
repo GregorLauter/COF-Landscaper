@@ -55,13 +55,10 @@ class ChangeIld:
             ild_end: Maximum ILD in Å. Defaults to `4.5`.
             ild_step: Step size in Å. Defaults to `0.1`.
 
-        Returns:
-            None.
-
         Raises:
             ValueError: If a requested ILD is smaller than the slab thickness.
         """
-        os.makedirs(output_folder, exist_ok=True)
+        Path(output_folder).mkdir(parents=True, exist_ok=True)
         z_values = _generate_values(ild_start, ild_end, ild_step)
 
         for input_file in list_cifs(input_folder):
@@ -85,9 +82,6 @@ class ChangeIld:
 
         Raises:
             ValueError: If the requested ILD cannot accommodate the slab.
-
-        Returns:
-            None.
         """
         struct = Structure.from_file(input_file)
         lat_old = struct.lattice
@@ -168,13 +162,10 @@ class IlsSerr:
             print_shift: If `True`, print auto-computed default shift values.
                 Defaults to `False`.
 
-        Returns:
-            None.
-
         Raises:
             ValueError: If `topo` is not "hcb" or "sql".
         """
-        os.makedirs(output_folder, exist_ok=True)
+        Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
@@ -219,9 +210,6 @@ class IlsSerr:
             output_file: Output CIF path.
             ils_length: Slip length in Å.
             ils_angle_deg: Slip direction angle in degrees.
-
-        Returns:
-            None.
         """
         struct = Structure.from_file(input_file)
         supercell = struct * (1, 1, 2)
@@ -293,13 +281,10 @@ class IlsIncl:
             print_shift: If `True`, print auto-computed default shift values.
                 Defaults to `False`.
 
-        Returns:
-            None.
-
         Raises:
             ValueError: If `topo` is not "hcb" or "sql".
         """
-        os.makedirs(output_folder, exist_ok=True)
+        Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
@@ -344,9 +329,6 @@ class IlsIncl:
             output_file: Output CIF path.
             ils_length: Slip length in Å.
             ils_angle_deg: Slip direction angle in degrees.
-
-        Returns:
-            None.
         """
         struct = Structure.from_file(input_file)
 
@@ -413,9 +395,6 @@ class CreateMatrix:
                 (auto-computed from AB shift).
             print_shift: If `True`, print auto-computed default shift values.
                 Defaults to `False`.
-
-        Returns:
-            None.
         """
         self._ild_start = ild_start
         self._ild_end = ild_end
@@ -448,9 +427,6 @@ class CreateMatrix:
                 Defaults to 2_{cof_name}_matrix, which yields
                 {cof_name}/2_{cof_name}_matrix/{serr|incl}.
 
-        Returns:
-            None.
-
         Raises:
             ValueError: If `mode` is not one of "incl", "serr", or "both".
             FileNotFoundError: If the resolved input CIF does not exist.
@@ -476,7 +452,7 @@ class CreateMatrix:
 
         with tempfile.TemporaryDirectory() as tmp_ild:
             tmp_input_dir = os.path.join(tmp_ild, "input")
-            os.makedirs(tmp_input_dir, exist_ok=True)
+            Path(tmp_input_dir).mkdir(parents=True, exist_ok=True)
             shutil.copy2(
                 input_preopt,
                 os.path.join(tmp_input_dir, os.path.basename(input_preopt)),

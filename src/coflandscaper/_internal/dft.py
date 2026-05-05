@@ -7,7 +7,6 @@ recovering optimized structures for downstream analysis.
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -353,9 +352,6 @@ class Crystal:
         Args:
             post_block: Text appended to each generated .d12 file.
                 This is where BASISSET/DFT/SHRINK or OPTGEOM blocks are injected.
-
-        Returns:
-            None.
         """
         self._post_block = post_block
 
@@ -412,9 +408,6 @@ class Crystal:
             input_folder: Folder containing .cif files.
             output_folder: Optional output folder for `.d12` files.
                 Defaults to `None` (writes under `input_folder`).
-
-        Returns:
-            None.
         """
         in_path = Path(input_folder)
         if not in_path.exists():
@@ -452,9 +445,6 @@ class Crystal:
 
         Notes:
             Outputs are written to dft_{serr|incl} subfolders.
-
-        Returns:
-            None.
         """
         mode_lower = mode.lower()
         if mode_lower not in {"incl", "serr", "both"}:
@@ -529,9 +519,6 @@ class CrystalSP(Crystal):
             shrink: SHRINK line values. Defaults to `"2 2 8"`.
             post_block: Optional override for the full CRYSTAL input tail.
                 Defaults to `None` (auto-generates BASISSET/DFT/SHRINK block).
-
-        Returns:
-            None.
         """
         if post_block is None:
             post_block = f"""BASISSET
@@ -594,7 +581,7 @@ END"""
             )
 
         csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
-        os.makedirs(csv_dir, exist_ok=True)
+        csv_dir.mkdir(parents=True, exist_ok=True)
 
         energies_csv_path = (
             csv_dir
@@ -733,9 +720,6 @@ class CrystalOpt(Crystal):
             maxtradius: MAXTRADIUS value for OPTGEOM. Defaults to `"0.5"`.
             post_block: Optional override for the full CRYSTAL input tail.
                 Defaults to `None` (auto-generates OPTGEOM and DFT blocks).
-
-        Returns:
-            None.
         """
         if post_block is None:
             post_block = f"""OPTGEOM
@@ -772,9 +756,6 @@ END"""
             output_base_folder: Optional base folder for outputs (relative to cof_name).
                 Outputs are written to dft_{mode} subfolders under this base.
                 Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
-
-        Returns:
-            None.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -831,7 +812,7 @@ END"""
         csv_dir = Path(
             output_csv_dir or f"{cof_name}/4_{cof_name}_optimization"
         )
-        os.makedirs(csv_dir, exist_ok=True)
+        csv_dir.mkdir(parents=True, exist_ok=True)
 
         energies_csv_path = (
             csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
@@ -940,7 +921,7 @@ END"""
         csv_dir = Path(
             output_base_folder or f"{cof_name}/4_{cof_name}_optimization"
         )
-        os.makedirs(csv_dir, exist_ok=True)
+        csv_dir.mkdir(parents=True, exist_ok=True)
         energies_csv_path = (
             csv_dir / f"{cof_name}_opt_energies_per_layer_dft.csv"
         )

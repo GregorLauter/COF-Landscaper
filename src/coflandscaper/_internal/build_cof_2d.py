@@ -9,16 +9,19 @@ import glob
 import os
 import shutil
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import ExitStack, suppress
 from io import StringIO
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import ase.io
 import numpy as np
 import pormake as pm
 from ase.atoms import Atoms
+from pormake.building_block import BuildingBlock
+from pormake.framework import Framework
+from pormake.topology import Topology
 from pymatgen.core import Structure
 from rdkit import Chem
 from rdkit.Chem import rdDetermineBonds
@@ -62,13 +65,15 @@ class PackageDatabase(pm.Database):
 
 
 class CofLandscaperBuilder(pm.Builder):
-    """Build frameworks and apply a post-step linker plane alignment.
+    """Build frameworks and apply a post-step linker plane alignment."""
 
-    Returns:
-        None.
-    """
-
-    def build(self, topology, bbs, permutations=None, **kwargs):
+    def build(
+        self,
+        topology: Topology,
+        bbs: Sequence[BuildingBlock | None],
+        permutations: Mapping[int, Sequence[int]] | None = None,
+        **kwargs: Any,
+    ) -> Framework:
         """Build a framework and align linker planes after assembly.
 
         Args:
@@ -210,40 +215,51 @@ class CofLandscaperBuilder(pm.Builder):
         return n / n_norm
 
     @staticmethod
-    def _find_matched_atom_indices(topology, located_bbs, permutations, e):
-        """Find the two connection atom indices matched to a topology edge.
-
-        Args:
-            topology: Topology object with neighbor list metadata.
-            located_bbs: Located building blocks indexed by topology site.
-            permutations: Connection-point permutation mapping per site.
-            e: Edge index in `topology.edge_indices`.
-
-        Returns:
-            Tuple `(a1, a2)` of matched atom indices on the two neighbor blocks.
-        """
+    def _find_matched_atom_indices(
+        topology: Topology,
+        located_bbs: Sequence[BuildingBlock | None],
+        permutations: Sequence[np.ndarray | None],
+        e: int,
+    ) -> tuple[int, int]:
+        """Find the two connection atom indices matched to a topology edge."""
         n1, n2 = topology.neighbor_list[e]
         i1 = n1.index
         i2 = n2.index
 
         bb1 = located_bbs[i1]
         bb2 = located_bbs[i2]
+        if bb1 is None or bb2 is None:
+            raise ValueError(f"Missing building block for topology edge {e}.")
+
+        a1: int | None = None
+        a2: int | None = None
 
         for o, n in enumerate(topology.neighbor_list[i1]):
             s = n.distance_vector + n1.distance_vector
-            s = np.linalg.norm(s)
-            if s < 0.01:
+            if np.linalg.norm(s) < 0.01:
                 perm = permutations[i1]
-                a1 = bb1.connection_point_indices[perm][o]
+                if perm is None:
+                    raise ValueError(
+                        f"Missing permutation for topology slot {i1}."
+                    )
+                a1 = int(bb1.connection_point_indices[perm][o])
                 break
 
         for o, n in enumerate(topology.neighbor_list[i2]):
             s = n.distance_vector + n2.distance_vector
-            s = np.linalg.norm(s)
-            if s < 0.01:
+            if np.linalg.norm(s) < 0.01:
                 perm = permutations[i2]
-                a2 = bb2.connection_point_indices[perm][o]
+                if perm is None:
+                    raise ValueError(
+                        f"Missing permutation for topology slot {i2}."
+                    )
+                a2 = int(bb2.connection_point_indices[perm][o])
                 break
+
+        if a1 is None or a2 is None:
+            raise ValueError(
+                f"Could not find matched atom indices for edge {e}."
+            )
 
         return a1, a2
 
@@ -275,9 +291,6 @@ class CofLandscaperBuilder(pm.Builder):
 
         Args:
             framework: Built framework object with pormake metadata in `info`.
-
-        Returns:
-            None.
         """
         info = framework.info
         topology = info["topology"]
@@ -339,11 +352,7 @@ class CofLandscaperBuilder(pm.Builder):
 
 
 def _disable_pormake_file_logging() -> None:
-    """Disable pormake file logging and remove `runtime.log` when present.
-
-    Returns:
-        None.
-    """
+    """Disable pormake file logging and remove `runtime.log` when present."""
     try:
         from pormake import log as pmlog
 
@@ -413,9 +422,6 @@ def _tag_isotopes(mol: Mol, indices: list[int]) -> None:
     Args:
         mol: RDKit molecule to modify in place.
         indices: Atom indices to tag.
-
-    Returns:
-        None.
     """
     for atom in mol.GetAtoms():
         if atom.GetIdx() in indices:
@@ -428,9 +434,6 @@ def _write_xyz_with_bonds(mol: Mol, out_path: str) -> None:
     Args:
         mol: RDKit molecule containing coordinates and bond graph.
         out_path: Destination XYZ file path.
-
-    Returns:
-        None.
     """
     with open(out_path, "w") as xyz_file:
         num_atoms = mol.GetNumAtoms()
@@ -512,7 +515,7 @@ def _prepare_xyz(
         raise ValueError("bond_type must be 'double' or 'single'")
     mode = mode_map[bond_type]
 
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
     xyz_files = sorted(glob.glob(os.path.join(input_folder, "*.xyz")))
 
     return _prepare_xyz_files(xyz_files, output_folder, mode)
@@ -533,7 +536,7 @@ def _prepare_xyz_files(
     Returns:
         The list of processed XYZ input file paths.
     """
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
 
     for path in xyz_files:
         atoms = cast("Atoms", ase.io.read(path))
@@ -575,7 +578,7 @@ def _copy_xyz_file_to_folder(input_file: str, output_folder: str) -> str:
         or path.suffix.lower() != ".xyz"
     ):
         raise FileNotFoundError(f"Input xyz file not found: {input_file}")
-    os.makedirs(output_folder, exist_ok=True)
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
     target = Path(output_folder) / path.name
     target.write_text(path.read_text())
     return str(target)
@@ -909,7 +912,7 @@ class BuildCOF2D:
                 cof_name, f"1_{cof_name}_single_layer"
             )
 
-            os.makedirs(output_folder_used, exist_ok=True)
+            Path(output_folder_used).mkdir(parents=True, exist_ok=True)
             output = _build_cof(
                 topo,
                 node_name,

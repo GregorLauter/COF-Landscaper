@@ -40,9 +40,6 @@ class PXRD:
                 Defaults to `"CuKa"`.
             two_theta_range: Simulated 2-theta range in degrees.
                 Defaults to `(1.5, 60.0)`.
-
-        Returns:
-            None.
         """
         self._wavelength = wavelength
         self._two_theta_range = two_theta_range

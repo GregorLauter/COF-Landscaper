@@ -24,6 +24,7 @@ from .ild_ils_utils import (
     parse_xyz_from_atom_line,
     pick_lower_left_pair_from_lines,
 )
+from .utilities import read_cif_atom_lines
 
 
 class Supercell:
@@ -46,11 +47,8 @@ class Supercell:
             output_folder: Destination folder for expanded `.cif` files.
             supercell_size: Supercell replication `(a, b, c)`.
                 Defaults to `(2, 2, 2)`.
-
-        Returns:
-            None.
         """
-        os.makedirs(output_folder, exist_ok=True)
+        Path(output_folder).mkdir(parents=True, exist_ok=True)
         for input_file in list_cifs(input_folder):
             base = os.path.splitext(os.path.basename(input_file))[0]
             outname = f"{base}_supercell_{supercell_size[0]}x{supercell_size[1]}x{supercell_size[2]}.cif"
@@ -112,33 +110,7 @@ class AnalyzeStacking:
         """
         struct = Structure.from_file(input_file)
 
-        with open(input_file) as f:
-            lines = f.readlines()
-
-        atom_lines = []
-        in_atom_loop = False
-        saw_atom_headers = False
-
-        for line in lines:
-            ls = line.strip()
-            if ls.startswith("loop_"):
-                in_atom_loop = False
-                saw_atom_headers = False
-                continue
-
-            if ls.startswith("_atom_site_"):
-                saw_atom_headers = True
-                in_atom_loop = True
-                continue
-
-            if in_atom_loop and saw_atom_headers:
-                if not ls or ls.startswith(("_", "loop_")):
-                    break
-                if ls and ls[0].isalpha():
-                    atom_lines.append(ls)
-
-        if not atom_lines:
-            raise ValueError("No atom lines found in CIF")
+        atom_lines = read_cif_atom_lines(input_file)
 
         _, (_lower_line, upper_line), (xl, yl, _), _ = (
             pick_lower_left_pair_from_lines(atom_lines)
@@ -235,7 +207,6 @@ class AnalyzeStacking:
 
     def _load_energy_map(
         self,
-        *,
         cof_name: str,
         input_base_path: Path,
         dft: bool,
@@ -351,9 +322,6 @@ class AnalyzeStacking:
                             `final_structures.csv`.
                         - dft=True reads from `{input_base}/dft_{serr|incl}` and writes
                             `final_structures_dft.csv`.
-
-        Returns:
-                        None.
         """
         base = (
             Path(input_base)
@@ -446,9 +414,6 @@ class AnalyzeStacking:
                 Defaults to `None`.
             dft: If `True`, analyze DFT-mode folders. Defaults to `False`.
             print_values: If `True`, print ILD/ILS values. Defaults to `True`.
-
-        Returns:
-            None.
         """
         return self.analyze(
             cof_name=cof_name,

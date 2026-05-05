@@ -115,9 +115,6 @@ class Mace:
                 (resolved later to `"mh-1"`).
             verbose: Whether to emit calculator initialization logs.
                 Defaults to `True`.
-
-        Returns:
-            None.
         """
         self._device = device
         self._dtype = dtype
@@ -307,7 +304,7 @@ class MaceSP(Mace):
             )
 
         csv_dir = Path(output_csv_dir or f"{cof_name}/3_{cof_name}_landscape")
-        os.makedirs(csv_dir, exist_ok=True)
+        csv_dir.mkdir(parents=True, exist_ok=True)
 
         device, dtype, model, calc_settings = self._resolve_params()
         energies_csv_path = csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
@@ -375,9 +372,6 @@ class MaceSP(Mace):
                 Defaults to `None` (uses routed mode folders).
             output_csv_dir: Optional CSV output directory. Defaults to `None`
                 (uses `{cof_name}/3_{cof_name}_landscape`).
-
-        Returns:
-            None.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -427,9 +421,6 @@ class MaceOpt(Mace):
             max_steps: Maximum optimizer steps. Defaults to `2000`.
             verbose: Whether to emit calculator initialization logs.
                 Defaults to `True`.
-
-        Returns:
-            None.
         """
         super().__init__(
             device=device,
@@ -454,9 +445,6 @@ class MaceOpt(Mace):
 
         Args:
             atoms: ASE atoms object to constrain in place.
-
-        Returns:
-            None.
         """
         if self._fix_z:
             indices = range(len(atoms))
@@ -552,7 +540,7 @@ class MaceOpt(Mace):
         Returns:
             Mapping from structure stem to convergence status.
         """
-        os.makedirs(output_folder, exist_ok=True)
+        Path(output_folder).mkdir(parents=True, exist_ok=True)
         convergence_by_structure: dict[str, bool] = {}
         for file_name in os.listdir(input_folder):
             if file_name.endswith(".cif"):
@@ -740,9 +728,6 @@ class MaceOpt(Mace):
                 (uses `{cof_name}/3_{cof_name}_landscape/selection`).
             save_opt_energies_csv: Whether to write merged per-layer energy CSV.
                 Defaults to `True`.
-
-        Returns:
-            None.
         """
         from .ild_ils_utils import get_mode_folders
 

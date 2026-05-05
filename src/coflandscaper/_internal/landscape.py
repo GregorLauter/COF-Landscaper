@@ -5,7 +5,6 @@ selection utilities for copying structures corresponding to global or local
 minima into optimization-ready folders.
 """
 
-import os
 import re
 import shutil
 from pathlib import Path
@@ -103,9 +102,6 @@ class Landscape:
             show: If `True`, display plots interactively via Matplotlib.
                 Defaults to `False` for non-interactive/batch workflows.
 
-        Returns:
-            None.
-
         Raises:
             FileNotFoundError: If the expected input CSV is missing.
             ValueError: If minima mode is invalid or no valid grid data exist.
@@ -137,7 +133,7 @@ class Landscape:
             heatmap_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
         else:
             heatmap_dir = Path(f"heatmaps/{folder_tag}")
-        os.makedirs(heatmap_dir, exist_ok=True)
+        heatmap_dir.mkdir(parents=True, exist_ok=True)
 
         lot_tag = f"_{lot_suffix}" if lot_suffix else ""
         rel_grid_csv_path: Path | None = None
@@ -395,9 +391,6 @@ class Landscape:
             output_folder: Optional output folder for plots.
                 Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
 
-        Returns:
-            None.
-
         Raises:
             ValueError: If `mode` is invalid.
             FileNotFoundError: If base input folder or expected CSVs are missing.
@@ -635,9 +628,6 @@ class SelectCofs:
             mode_label: Optional display label used in console output.
                 Defaults to `None`.
 
-        Returns:
-            None.
-
         Raises:
             ValueError: If `selections` is empty.
             FileNotFoundError: If no CIF files exist or requested pairs are missing.
@@ -649,7 +639,7 @@ class SelectCofs:
 
         in_path = Path(input_folder)
         out_path = Path(output_folder)
-        os.makedirs(out_path, exist_ok=True)
+        out_path.mkdir(parents=True, exist_ok=True)
 
         cif_files = sorted(in_path.glob("*.cif"))
         if not cif_files:
@@ -729,9 +719,6 @@ class SelectCofs:
             output_folder: Optional explicit output folder for selected CIFs.
                 Used with `input_folder` for single-folder selection.
                 Defaults to `None`.
-
-        Returns:
-            None.
 
         Raises:
             ValueError: If minima mode is invalid or no selections are available.
