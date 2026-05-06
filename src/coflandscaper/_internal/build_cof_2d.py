@@ -28,6 +28,7 @@ from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
 
+from .ild_ils_matrix import ChangeIld
 from .ild_ils_utils import _unwrap_fractional_z
 
 DEFAULT_ILD_GUESS = 15.0
@@ -800,6 +801,7 @@ class BuildCOF2D:
     2. Optionally preprocess input XYZ files into pormake-compatible format.
     3. Build one framework from exactly one node and one linker.
     4. Write an unoptimized CIF into the single-layer output directory.
+    5. Adjust the interlayer distance to 15 Å in the output CIF.
 
     Default output location is `{cof_name}/1_{cof_name}_single_layer`, and the
     default output CIF name is `{cof_name}_unopt.cif`.
@@ -842,7 +844,8 @@ class BuildCOF2D:
 
         Default output behavior:
         - Output folder: `{cof_name}/1_{cof_name}_single_layer`
-        - Output CIF filename: `{cof_name}_unopt.cif`
+                - Output CIF filename: `{cof_name}_unopt.cif` (written with 15 Å
+                    interlayer distance)
 
         Args:
             topo: Topology key used for construction. Allowed values are
@@ -921,6 +924,11 @@ class BuildCOF2D:
                 linker_path,
                 output_folder_used,
                 cof_name=cof_name,
+            )
+            ChangeIld()._change_interlayer_distance(
+                input_file=output,
+                output_file=output,
+                new_z=15.0,
             )
 
             return [output]
