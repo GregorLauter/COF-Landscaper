@@ -64,7 +64,7 @@ def run_workflow(params: dict[str, object]) -> None:
     )
 
     mace_opt = cl.MaceOpt(
-        head=mace_head, device=device, max_steps=mace_opt_max_steps
+        head=mace_head, device=device, max_steps=mace_opt_max_steps,
     )
     mace_opt.run_mode(cof_name=cof_name, mode=mode)
 

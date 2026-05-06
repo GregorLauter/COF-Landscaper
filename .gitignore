@@ -11,3 +11,4 @@ docs/source/_autosummary
 .ruff_cache/
 htmlcov/
 /cof-*/
+*.pickle

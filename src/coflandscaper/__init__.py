@@ -1,13 +1,13 @@
 """Cof landscaper package."""
 
-from ._internal import utilities
-from ._internal.analyze import (
+from coflandscaper._internal import utilities
+from coflandscaper._internal.analyze import (
     AnalyzeStacking,
     Supercell,
     VisualizeCOF,
 )
-from ._internal.build_cof_2d import BuildCOF2D
-from ._internal.dft import (
+from coflandscaper._internal.build_cof_2d import BuildCOF2D
+from coflandscaper._internal.dft import (
     Crystal,
     CrystalOpt,
     CrystalSP,
@@ -18,8 +18,13 @@ from ._internal.dft import (
     parse_cell,
     parse_z_L_from_stem,
 )
-from ._internal.ild_ils_matrix import ChangeIld, CreateMatrix, IlsIncl, IlsSerr
-from ._internal.ild_ils_utils import (
+from coflandscaper._internal.ild_ils_matrix import (
+    ChangeIld,
+    CreateMatrix,
+    IlsIncl,
+    IlsSerr,
+)
+from coflandscaper._internal.ild_ils_utils import (
     ab_half_diagonal_from_cif,
     default_shift_from_cif,
     get_mode_folders,
@@ -28,17 +33,17 @@ from ._internal.ild_ils_utils import (
     pick_lower_left_pair_from_lines,
     wrap01,
 )
-from ._internal.landscape import (
+from coflandscaper._internal.landscape import (
     Landscape,
     SelectCofs,
 )
-from ._internal.mace import (
+from coflandscaper._internal.mace import (
     Mace,
     MaceOpt,
     MaceSP,
     calculator_settings_for_head,
 )
-from ._internal.pxrd import PXRD
+from coflandscaper._internal.pxrd import PXRD
 
 __all__ = [
     "PXRD",
