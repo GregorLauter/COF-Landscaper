@@ -805,9 +805,6 @@ class BuildCOF2D:
 
     Default output location is `{cof_name}/1_{cof_name}_single_layer`, and the
     default output CIF name is `{cof_name}_unopt.cif`.
-
-    Returns:
-        None.
     """
 
     def _list_xyz(self, folder: str) -> list[tuple[str, str]]:
@@ -843,9 +840,9 @@ class BuildCOF2D:
         - With `bond_type=None`: read from `nodes/*.xyz` and `linker/*.xyz`.
 
         Default output behavior:
-        - Output folder: `{cof_name}/1_{cof_name}_single_layer`
-                - Output CIF filename: `{cof_name}_unopt.cif` (written with 15 Å
-                    interlayer distance)
+            The output CIF is written to
+            `{cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif` and
+            adjusted to an interlayer distance of 15 Å.
 
         Args:
             topo: Topology key used for construction. Allowed values are
