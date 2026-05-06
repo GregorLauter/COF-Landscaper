@@ -278,3 +278,141 @@ def test_plot_xy_raises_for_empty_folder(tmp_path: Path) -> None:
     pxrd = cl.PXRD()
     with pytest.raises(FileNotFoundError, match=r"No \.xy files found"):
         pxrd.plot_xy(tmp_path, tmp_path / "out.png", show=False)
+
+
+@pytest.mark.unit
+def test_extract_peaks_single_mode_default_routing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures extract_peaks uses default XY routing for one mode."""
+    xy_dir = tmp_path / "cof-a" / "5_cof-a_analysis" / "pxrd_xy" / "serr"
+    xy_dir.mkdir(parents=True)
+    np.savetxt(xy_dir / "sample.xy", np.array([[5.0, 10.0], [10.0, 20.0]]))
+    monkeypatch.chdir(tmp_path)
+
+    pxrd = cl.PXRD()
+    outputs = pxrd.extract_peaks(
+        cof_name="cof-a",
+        mode="serr",
+        print_peaks=False,
+        save_csv=False,
+    )
+
+    assert list(outputs.keys()) == ["serr"]
+    df = outputs["serr"]
+    assert list(df.columns) == [
+        "structure",
+        "rank",
+        "two_theta_deg",
+        "relative_intensity",
+    ]
+
+
+@pytest.mark.unit
+def test_extract_peaks_both_writes_csv(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures extract_peaks writes per-mode CSV outputs."""
+    serr_dir = tmp_path / "cof-a" / "5_cof-a_analysis" / "pxrd_xy" / "serr"
+    incl_dir = tmp_path / "cof-a" / "5_cof-a_analysis" / "pxrd_xy" / "incl"
+    serr_dir.mkdir(parents=True)
+    incl_dir.mkdir(parents=True)
+    np.savetxt(serr_dir / "serr.xy", np.array([[5.0, 10.0], [10.0, 20.0]]))
+    np.savetxt(incl_dir / "incl.xy", np.array([[5.0, 10.0], [10.0, 20.0]]))
+    monkeypatch.chdir(tmp_path)
+
+    pxrd = cl.PXRD()
+    pxrd.extract_peaks(
+        cof_name="cof-a",
+        mode="both",
+        print_peaks=False,
+        save_csv=True,
+    )
+
+    assert (
+        tmp_path
+        / "cof-a"
+        / "5_cof-a_analysis"
+        / "pxrd_peaks"
+        / "serr"
+        / "pxrd_peaks.csv"
+    ).exists()
+    assert (
+        tmp_path
+        / "cof-a"
+        / "5_cof-a_analysis"
+        / "pxrd_peaks"
+        / "incl"
+        / "pxrd_peaks.csv"
+    ).exists()
+
+
+@pytest.mark.unit
+def test_extract_peaks_filters_and_ranks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures extract_peaks filters, ranks, and caps peak lists."""
+    xy_dir = tmp_path / "cof-a" / "5_cof-a_analysis" / "pxrd_xy" / "serr"
+    xy_dir.mkdir(parents=True)
+    two_theta = np.arange(5.0, 17.0)
+    intensity = np.r_[np.arange(100.0, 0.0, -10.0), [5.0, 0.5]]
+    np.savetxt(xy_dir / "sample.xy", np.column_stack([two_theta, intensity]))
+    monkeypatch.chdir(tmp_path)
+
+    pxrd = cl.PXRD()
+    outputs = pxrd.extract_peaks(
+        cof_name="cof-a",
+        mode="serr",
+        max_peaks=10,
+        min_relative_intensity=1.0,
+        print_peaks=False,
+        save_csv=False,
+    )
+    df = outputs["serr"]
+
+    assert len(df) == 10
+    assert df["rank"].tolist() == list(range(1, 11))
+    assert df["two_theta_deg"].tolist() == list(np.arange(5.0, 15.0))
+    assert 15.0 not in df["two_theta_deg"].tolist()
+    assert 16.0 not in df["two_theta_deg"].tolist()
+    assert df["relative_intensity"].iloc[0] == pytest.approx(100.0)
+    assert df["relative_intensity"].iloc[-1] == pytest.approx(10.0)
+
+
+@pytest.mark.unit
+def test_extract_peaks_raises_for_missing_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures extract_peaks fails clearly for missing folders."""
+    monkeypatch.chdir(tmp_path)
+    pxrd = cl.PXRD()
+    with pytest.raises(FileNotFoundError, match="XY folder not found"):
+        pxrd.extract_peaks(
+            cof_name="cof-a",
+            mode="serr",
+            print_peaks=False,
+            save_csv=False,
+        )
+
+
+@pytest.mark.unit
+def test_extract_peaks_raises_for_empty_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures extract_peaks rejects folders without XY files."""
+    xy_dir = tmp_path / "cof-a" / "5_cof-a_analysis" / "pxrd_xy" / "serr"
+    xy_dir.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    pxrd = cl.PXRD()
+    with pytest.raises(FileNotFoundError, match=r"No \.xy files found"):
+        pxrd.extract_peaks(
+            cof_name="cof-a",
+            mode="serr",
+            print_peaks=False,
+            save_csv=False,
+        )

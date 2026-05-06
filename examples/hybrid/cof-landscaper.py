@@ -76,6 +76,7 @@ def run_workflow(params: dict[str, object]) -> None:
 
     pxrd = cl.PXRD(wavelength="CuKa", two_theta_range=(1.5, 60.0))
     pxrd.run(cof_name=cof_name, mode=mode)
+    pxrd.extract_peaks(cof_name=cof_name, mode=mode)
 
 
 def main() -> None:

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
 
@@ -307,6 +308,128 @@ class PXRD:
         plt.close(fig)
 
         return str(output)
+
+    def extract_peaks(
+        self,
+        cof_name: str,
+        mode: str = "both",
+        dft: bool = False,
+        xy_folder: str | Path | None = None,
+        output_folder: str | Path | None = None,
+        max_peaks: int = 10,
+        min_relative_intensity: float = 1.0,
+        print_peaks: bool = True,
+        save_csv: bool = True,
+    ) -> dict[str, pd.DataFrame]:
+        """Extract simulated peak tables from PXRD .xy files.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            mode: Mode selector. Allowed values are "incl", "serr",
+                or "both". Defaults to "both".
+            dft: If True, use pxrd_xy_dft and pxrd_peaks_dft folders.
+                Defaults to False.
+            xy_folder: Optional explicit XY folder. For mode="both",
+                this is treated as a parent folder with per-mode subfolders.
+                Defaults to None.
+            output_folder: Optional explicit output folder. For mode="both",
+                this is treated as a parent folder with per-mode subfolders.
+                Defaults to None.
+            max_peaks: Maximum number of peaks to retain per structure.
+            min_relative_intensity: Minimum relative intensity threshold.
+            print_peaks: If True, print a grouped summary per structure.
+            save_csv: If True, write pxrd_peaks.csv to disk.
+
+        Returns:
+            Mapping of mode to DataFrame with columns: structure, rank,
+                two_theta_deg, relative_intensity.
+
+        Raises:
+            FileNotFoundError: If a required XY folder is missing or empty.
+        """
+        modes = self._resolve_modes(mode)
+        default_xy_root = Path(
+            f"{cof_name}/5_{cof_name}_analysis/"
+            f"{'pxrd_xy_dft' if dft else 'pxrd_xy'}"
+        )
+        default_output_root = Path(
+            f"{cof_name}/5_{cof_name}_analysis/"
+            f"{'pxrd_peaks_dft' if dft else 'pxrd_peaks'}"
+        )
+
+        outputs: dict[str, pd.DataFrame] = {}
+        for selected_mode in modes:
+            if xy_folder is None:
+                xy_dir = default_xy_root / selected_mode
+            elif len(modes) == 1:
+                xy_dir = Path(xy_folder)
+            else:
+                xy_dir = Path(xy_folder) / selected_mode
+
+            if output_folder is None:
+                target_output = default_output_root / selected_mode
+            elif len(modes) == 1:
+                target_output = Path(output_folder)
+            else:
+                target_output = Path(output_folder) / selected_mode
+
+            if not xy_dir.exists() or not xy_dir.is_dir():
+                raise FileNotFoundError(f"XY folder not found: {xy_dir}")
+
+            xy_files = sorted(xy_dir.glob("*.xy"))
+            if not xy_files:
+                raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
+
+            rows: list[dict[str, object]] = []
+            for xy_file in xy_files:
+                two_theta, intensity = self._read_xy(xy_file)
+                max_intensity = (
+                    float(np.max(intensity)) if intensity.size else 0.0
+                )
+                if max_intensity > 0.0:
+                    rel_intensity = (intensity / max_intensity) * 100.0
+                else:
+                    rel_intensity = np.zeros_like(intensity, dtype=float)
+
+                data = np.column_stack((two_theta, rel_intensity))
+                data = data[data[:, 1] >= float(min_relative_intensity)]
+                data = data[np.argsort(data[:, 1])[::-1]]
+                if max_peaks > 0:
+                    data = data[:max_peaks]
+
+                for rank, (theta, rel) in enumerate(data, start=1):
+                    rows.append(
+                        {
+                            "structure": xy_file.stem,
+                            "rank": rank,
+                            "two_theta_deg": float(theta),
+                            "relative_intensity": float(rel),
+                        }
+                    )
+
+            df = pd.DataFrame(
+                rows,
+                columns=[
+                    "structure",
+                    "rank",
+                    "two_theta_deg",
+                    "relative_intensity",
+                ],
+            )
+
+            if print_peaks:
+                for structure, group in df.groupby("structure", sort=False):
+                    print(f"Structure: {structure}")
+                    print(group.to_string(index=False))
+                    print()
+
+            if save_csv:
+                target_output.mkdir(parents=True, exist_ok=True)
+                df.to_csv(target_output / "pxrd_peaks.csv", index=False)
+
+            outputs[selected_mode] = df
+
+        return outputs
 
     def plot_sim(
         self,
