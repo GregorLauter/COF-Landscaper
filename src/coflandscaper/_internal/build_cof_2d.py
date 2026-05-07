@@ -52,10 +52,32 @@ def _package_topology_dir() -> Path:
 
 
 def _topology_cache_dir() -> Path:
-    """Return the writable topology cache directory path."""
+    """Return the first writable topology cache directory path."""
+    roots: list[Path] = []
     cache_root = os.environ.get("XDG_CACHE_HOME")
-    base = Path(cache_root) if cache_root else Path.home() / ".cache"
-    return base / "coflandscaper" / "topologies"
+    if cache_root:
+        roots.append(Path(cache_root))
+    roots.append(Path.home() / ".cache")
+    roots.append(Path(tempfile.gettempdir()))
+
+    attempted: list[Path] = []
+    for root in roots:
+        candidate = root / "coflandscaper" / "topologies"
+        attempted.append(candidate)
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            marker = candidate / ".write_check"
+            marker.write_text("ok", encoding="utf-8")
+            marker.unlink()
+        except OSError:
+            continue
+        return candidate
+
+    attempted_text = ", ".join(str(path) for path in attempted)
+    raise PermissionError(
+        "Unable to create a writable topology cache directory. Tried: "
+        f"{attempted_text}"
+    )
 
 
 def _sync_topology_cache(cache_dir: Path, source_dir: Path) -> None:
