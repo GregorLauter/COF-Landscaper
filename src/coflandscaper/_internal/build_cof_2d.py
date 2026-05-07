@@ -7,6 +7,7 @@ energy and optimization workflows.
 
 import glob
 import os
+import shutil
 import tempfile
 import warnings
 from collections.abc import Mapping, Sequence
@@ -50,6 +51,34 @@ def _package_topology_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "database" / "topologies"
 
 
+def _topology_cache_dir() -> Path:
+    """Return the writable topology cache directory path."""
+    cache_root = os.environ.get("XDG_CACHE_HOME")
+    base = Path(cache_root) if cache_root else Path.home() / ".cache"
+    return base / "coflandscaper" / "topologies"
+
+
+def _sync_topology_cache(cache_dir: Path, source_dir: Path) -> None:
+    """Sync packaged topology files into a writable cache directory."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    patterns = ("*.cgd", "*.pickle")
+    for pattern in patterns:
+        for src in source_dir.glob(pattern):
+            dst = cache_dir / src.name
+            should_copy = True
+            if dst.exists():
+                try:
+                    if (
+                        src.stat().st_mtime <= dst.stat().st_mtime
+                        and src.read_bytes() == dst.read_bytes()
+                    ):
+                        should_copy = False
+                except OSError:
+                    should_copy = True
+            if should_copy:
+                shutil.copy2(src, dst)
+
+
 class PackageDatabase(pm.Database):
     """Initialize a pormake database that defaults to packaged topologies.
 
@@ -67,8 +96,13 @@ class PackageDatabase(pm.Database):
         topo_dir: str | os.PathLike[str] | None = None,
         bb_dir: str | os.PathLike[str] | None = None,
     ) -> None:
-        default_topo_dir = _package_topology_dir()
-        super().__init__(topo_dir=topo_dir or default_topo_dir, bb_dir=bb_dir)
+        if topo_dir is None:
+            cache_dir = _topology_cache_dir()
+            _sync_topology_cache(cache_dir, _package_topology_dir())
+            default_topo_dir = cache_dir
+        else:
+            default_topo_dir = topo_dir
+        super().__init__(topo_dir=default_topo_dir, bb_dir=bb_dir)
 
 
 class CofLandscaperBuilder(pm.Builder):
