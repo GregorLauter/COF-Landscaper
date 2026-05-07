@@ -766,30 +766,24 @@ def _build_cof(
 
 
 class BuildCOF2D:
-    """Construct a single-layer 2D COF from topology-specific inputs.
+    """Construct a single-layer 2D COF from node/linker inputs.
 
-    This class wraps all preprocessing needed for pormake-based assembly of
-        2D COFs. It supports topology-driven construction (currently `"hcb"`,
-        `"sql"`, `"hcb_ab"`, and `"kgm"`) and optional dummy-atom preprocessing controlled
-        by `bond_type`. For `bond_type="single"`, connection markers are
-        interpreted from `He`; for `bond_type="double"`, connection markers are
-        interpreted from `Se`.
+    This class wraps preprocessing needed for pormake-based assembly of 2D COFs.
+    It supports topology-driven construction for ``hcb``, ``sql``, ``kgm``,
+    and ``hcb_ab``. Dummy-atom preprocessing is controlled by ``bond_type``.
+    For ``bond_type="single"``, connection markers are interpreted from ``He``;
+    for ``bond_type="double"``, connection markers are interpreted from ``Se``.
 
-        Topology inputs:
-        - `hcb`, `sql`, and `kgm` require one node and one linker.
-        - `hcb_ab` requires two nodes and no linker.
-        - For multi-node topologies, node assignment follows `input_nodes` order
-            or alphabetical order in default folder mode.
+    The main workflow resolves topology-dependent node/linker inputs,
+    optionally preprocesses input XYZ files into pormake-compatible format,
+    builds one framework, writes an unoptimized CIF into the single-layer
+    output directory, and adjusts the interlayer distance to 15 Å.
 
-    The main workflow is:
-    1. Resolve node and linker input sources based on topology.
-    2. Optionally preprocess input XYZ files into pormake-compatible format.
-    3. Build one framework from the required node/linker inputs.
-    4. Write an unoptimized CIF into the single-layer output directory.
-    5. Adjust the interlayer distance to 15 Å in the output CIF.
+    Topology requirements: ``hcb``, ``sql``, and ``kgm`` require one node and
+    one linker. ``hcb_ab`` requires two nodes and no linker.
 
-    Default output location is `{cof_name}/1_{cof_name}_single_layer`, and the
-    default output CIF name is `{cof_name}_unopt.cif`.
+    Default output location is ``{cof_name}/1_{cof_name}_single_layer``, and the
+    default output CIF name is ``{cof_name}_unopt.cif``.
     """
 
     def _list_xyz(self, folder: str) -> list[tuple[str, str]]:
