@@ -7,8 +7,8 @@ energy and optimization workflows.
 
 import glob
 import os
-import shutil
 import tempfile
+import warnings
 from collections.abc import Mapping, Sequence
 from contextlib import ExitStack, suppress
 from io import StringIO
@@ -33,6 +33,12 @@ from .ild_ils_utils import _unwrap_fractional_z
 
 DEFAULT_ILD_GUESS = 15.0
 DEFAULT_X_SCALE = 0.8
+TOPOLOGY_INPUT_COUNTS = {
+    "hcb": {"nodes": 1, "linkers": 1},
+    "sql": {"nodes": 1, "linkers": 1},
+    "hcb_ab": {"nodes": 2, "linkers": 0},
+    "kgm": {"nodes": 1, "linkers": 1},
+}
 
 
 def _package_topology_dir() -> Path:
@@ -685,10 +691,8 @@ def _center_structure_slab_z(struct: Structure) -> Structure:
 
 def _build_cof(
     topo: str,
-    node_name: str,
-    node_path: str,
-    linker_name: str,
-    linker_path: str,
+    node_paths: Sequence[str],
+    linker_paths: Sequence[str],
     output_folder: str,
     cof_name: str | None = None,
 ) -> str:
@@ -696,85 +700,60 @@ def _build_cof(
 
     Args:
         topo: Topology name.
-        node_name: Node name.
-        node_path: Path to node XYZ.
-        linker_name: Linker name.
-        linker_path: Path to linker XYZ.
+        node_paths: Paths to node XYZ files.
+        linker_paths: Paths to linker XYZ files.
         output_folder: Output folder for CIF.
         cof_name: Optional COF name for output filename. Defaults to `None`
-            (filename falls back to `{node_name}_{linker_name}.cif`).
+            (filename falls back to node/linker stems).
 
     Returns:
         Path to the written CIF file.
     """
-    runtime_dir = Path.cwd() / "_tmp_topologies"
-    runtime_dir.mkdir(exist_ok=True)
-
     database = PackageDatabase()
-    topo_initial = database.get_topo(f"{topo}_initial")
-    _sanitize_edge_types_inplace(topo_initial.edge_types)
+    topology = database.get_topo(topo)
+    _sanitize_edge_types_inplace(topology.edge_types)
     builder = CofLandscaperBuilder()
-    edgetype_raw = _normalize_edge_types(topo_initial.edge_types)
-    filtered_edge = edgetype_raw[(edgetype_raw != -1).any(axis=1)]
-    unique_pairs = set()
-    edgetype_filtered = []
-    for pair in filtered_edge:
-        key = _normalize_edge_pair(pair)
-        if key not in unique_pairs:
-            unique_pairs.add(key)
-            edgetype_filtered.append(key)
+    if topo == "hcb_ab":
+        node_a = pm.BuildingBlock(node_paths[0])
+        node_b = pm.BuildingBlock(node_paths[1])
+        bbs: list[BuildingBlock | None] = [None] * topology.n_slots
+        bbs[0] = node_a
+        bbs[1] = node_b
+        cof = builder.build(topology=topology, bbs=bbs)
+    else:
+        edgetype_raw = _normalize_edge_types(topology.edge_types)
+        filtered_edge = edgetype_raw[(edgetype_raw != -1).any(axis=1)]
+        unique_pairs = set()
+        edgetype_filtered = []
+        for pair in filtered_edge:
+            key = _normalize_edge_pair(pair)
+            if key not in unique_pairs:
+                unique_pairs.add(key)
+                edgetype_filtered.append(key)
 
-    node = pm.BuildingBlock(node_path)
-    linker = pm.BuildingBlock(linker_path)
-    node_bbs = {0: node}
-    edge_bbs = dict.fromkeys(edgetype_filtered, linker)
+        node = pm.BuildingBlock(node_paths[0])
+        linker = pm.BuildingBlock(linker_paths[0])
+        node_types = np.array(topology.node_types, dtype=int).ravel()
+        unique_node_types = sorted({int(t) for t in node_types if t >= 0})
+        node_bbs = dict.fromkeys(unique_node_types, node)
+        edge_bbs = dict.fromkeys(edgetype_filtered, linker)
 
-    cof = builder.build_by_type(
-        topology=topo_initial,
-        node_bbs=node_bbs,
-        edge_bbs=edge_bbs,
-    )
-
-    with tempfile.NamedTemporaryFile(suffix=".cif", delete=False) as tmp:
-        tmp_path = tmp.name
-    cof.write_cif(tmp_path)
-    structure = Structure.from_file(tmp_path)
-    a = structure.lattice.a
-    os.remove(tmp_path)
-
-    alpha = 1.73205 if topo == "hcb" else 1.0
-    gamma = (alpha * DEFAULT_ILD_GUESS) / a
-
-    base = _package_topology_dir()
-    pickle_path = runtime_dir / f"{topo}_modified.pickle"
-    cgd_path = runtime_dir / f"{topo}_modified.cgd"
-    source_cgd_path = base / f"{topo}_modified.cgd"
-    if pickle_path.exists():
-        pickle_path.unlink()
-
-    cgd_path.write_text(source_cgd_path.read_text(), encoding="utf-8")
-
-    with cgd_path.open() as file:
-        lines = file.readlines()
-    line_parts = lines[3].split()
-    line_parts[3] = f"{float(gamma):.5f}"
-    lines[3] = "  ".join(line_parts) + "\n"
-    with cgd_path.open("w") as file:
-        file.writelines(lines)
-
-    runtime_database = PackageDatabase(topo_dir=runtime_dir)
-    topo_modified = runtime_database.get_topo(f"{topo}_modified")
-    _sanitize_edge_types_inplace(topo_modified.edge_types)
-    cof = builder.build_by_type(
-        topology=topo_modified,
-        node_bbs=node_bbs,
-        edge_bbs=edge_bbs,
-    )
+        cof = builder.build_by_type(
+            topology=topology,
+            node_bbs=node_bbs,
+            edge_bbs=edge_bbs,
+        )
 
     if cof_name:
         filename = f"{cof_name}_unopt.cif"
-    else:
+    elif linker_paths:
+        node_name = Path(node_paths[0]).stem
+        linker_name = Path(linker_paths[0]).stem
         filename = f"{node_name}_{linker_name}.cif"
+    else:
+        node_name_a = Path(node_paths[0]).stem
+        node_name_b = Path(node_paths[1]).stem
+        filename = f"{node_name_a}_{node_name_b}.cif"
 
     output_filename = os.path.join(output_folder, filename)
     cof.write_cif(output_filename)
@@ -783,23 +762,29 @@ def _build_cof(
             Structure.from_file(output_filename)
         )
         centered.to(filename=output_filename)
-    shutil.rmtree(runtime_dir, ignore_errors=True)
     return output_filename
 
 
 class BuildCOF2D:
-    """Construct a single-layer 2D COF from one node and one linker.
+    """Construct a single-layer 2D COF from topology-specific inputs.
 
     This class wraps all preprocessing needed for pormake-based assembly of
-    2D COFs. It supports topology-driven construction (currently `"hcb"` and
-    `"sql"`) and optional dummy-atom preprocessing controlled by `bond_type`.
-    For `bond_type="single"`, connection markers are interpreted from `He`;
-    for `bond_type="double"`, connection markers are interpreted from `Se`.
+        2D COFs. It supports topology-driven construction (currently `"hcb"`,
+        `"sql"`, `"hcb_ab"`, and `"kgm"`) and optional dummy-atom preprocessing controlled
+        by `bond_type`. For `bond_type="single"`, connection markers are
+        interpreted from `He`; for `bond_type="double"`, connection markers are
+        interpreted from `Se`.
+
+        Topology inputs:
+        - `hcb`, `sql`, and `kgm` require one node and one linker.
+        - `hcb_ab` requires two nodes and no linker.
+        - For multi-node topologies, node assignment follows `input_nodes` order
+            or alphabetical order in default folder mode.
 
     The main workflow is:
-    1. Resolve node and linker input sources.
+    1. Resolve node and linker input sources based on topology.
     2. Optionally preprocess input XYZ files into pormake-compatible format.
-    3. Build one framework from exactly one node and one linker.
+    3. Build one framework from the required node/linker inputs.
     4. Write an unoptimized CIF into the single-layer output directory.
     5. Adjust the interlayer distance to 15 Å in the output CIF.
 
@@ -824,20 +809,20 @@ class BuildCOF2D:
         topo: str,
         cof_name: str,
         bond_type: str,
-        input_node: str | os.PathLike[str] | None = None,
-        input_linker: str | os.PathLike[str] | None = None,
+        input_nodes: Sequence[str | os.PathLike[str]] | None = None,
+        input_linkers: Sequence[str | os.PathLike[str]] | None = None,
         output_folder: str | None = None,
     ) -> list[str]:
         """Build one unoptimized single-layer COF CIF from node/linker inputs.
 
-        The method expects exactly one node and one linker file after input
-        resolution. If `bond_type` is set, input files are preprocessed to map
-        dummy atoms and inject bond annotations required by pormake. If explicit
-        input files are not provided, default source folders are used.
+        The method expects node/linker counts defined by the topology after
+        input resolution. If `bond_type` is set, input files are preprocessed
+        to map dummy atoms and inject bond annotations required by pormake. If
+        explicit input files are not provided, default source folders are used.
 
         Default input behavior:
-        - With `bond_type` set: read from `0_node/*.xyz` and `0_linker/*.xyz`.
-        - With `bond_type=None`: read from `nodes/*.xyz` and `linker/*.xyz`.
+        - Nodes are read from `0_node/*.xyz`.
+        - Linkers are read from `0_linker/*.xyz` only when required by topology.
 
         Default output behavior:
             The output CIF is written to
@@ -846,14 +831,14 @@ class BuildCOF2D:
 
         Args:
             topo: Topology key used for construction. Allowed values are
-                `"hcb"` and `"sql"`.
+                `"hcb"`, `"sql"`, `"hcb_ab"`, and `"kgm"`.
             cof_name: COF identifier used in output folder and filename patterns.
             bond_type: Connection mode. Allowed values are `"single"` and
                 `"double"`.
-            input_node: Optional explicit node `.xyz` path. Defaults to `None`
+            input_nodes: Optional explicit node `.xyz` paths. Defaults to `None`
                 (reads from `0_node/*.xyz`).
-            input_linker: Optional explicit linker `.xyz` path. Defaults to
-                `None` (reads from `0_linker/*.xyz`).
+            input_linkers: Optional explicit linker `.xyz` paths. Defaults to
+                `None` (reads from `0_linker/*.xyz` when required).
             output_folder: Optional output folder override. Defaults to `None`
                 (uses `{cof_name}/1_{cof_name}_single_layer`).
 
@@ -861,52 +846,81 @@ class BuildCOF2D:
             List containing one output CIF path.
 
         Raises:
-            ValueError: If `topo` is not one of `"hcb"` or `"sql"`.
+            ValueError: If `topo` is not one of `"hcb"`, `"sql"`,
+                `"hcb_ab"`, or `"kgm"`.
             ValueError: If `bond_type` is not one of `"single"` or `"double"`.
-            ValueError: If input resolution does not yield exactly one node and one linker.
+            ValueError: If input resolution does not match topology input counts.
         """
         _disable_pormake_file_logging()
-        if topo not in {"hcb", "sql"}:
-            raise ValueError("topo must be either 'hcb' or 'sql'")
+        if topo not in TOPOLOGY_INPUT_COUNTS:
+            raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'")
         if bond_type not in {"single", "double"}:
             raise ValueError("bond_type must be either 'single' or 'double'")
 
         mode_map = {"double": "Se", "single": "He"}
         mode = mode_map[bond_type]
 
+        required_nodes = TOPOLOGY_INPUT_COUNTS[topo]["nodes"]
+        required_linkers = TOPOLOGY_INPUT_COUNTS[topo]["linkers"]
+
         with ExitStack() as stack:
             nodes_dir_used = stack.enter_context(tempfile.TemporaryDirectory())
-            if input_node is not None:
-                _prepare_xyz_files(
-                    [os.fspath(input_node)],
-                    nodes_dir_used,
-                    mode,
-                )
+            if input_nodes is not None:
+                node_inputs = [os.fspath(path) for path in input_nodes]
+                _prepare_xyz_files(node_inputs, nodes_dir_used, mode)
+                nodes = [
+                    (
+                        Path(path).stem,
+                        str(Path(nodes_dir_used) / f"{Path(path).stem}.xyz"),
+                    )
+                    for path in node_inputs
+                ]
             else:
                 _prepare_xyz("0_node", nodes_dir_used, bond_type)
+                nodes = self._list_xyz(nodes_dir_used)
 
-            linker_dir_used = stack.enter_context(
-                tempfile.TemporaryDirectory()
-            )
-            if input_linker is not None:
-                _prepare_xyz_files(
-                    [os.fspath(input_linker)],
-                    linker_dir_used,
-                    mode,
+            linkers: list[tuple[str, str]] = []
+            if input_linkers is not None:
+                linker_dir_used = stack.enter_context(
+                    tempfile.TemporaryDirectory()
                 )
-            else:
+                linker_inputs = [os.fspath(path) for path in input_linkers]
+                _prepare_xyz_files(linker_inputs, linker_dir_used, mode)
+                linkers = [
+                    (
+                        Path(path).stem,
+                        str(Path(linker_dir_used) / f"{Path(path).stem}.xyz"),
+                    )
+                    for path in linker_inputs
+                ]
+            elif required_linkers > 0:
+                linker_dir_used = stack.enter_context(
+                    tempfile.TemporaryDirectory()
+                )
                 _prepare_xyz("0_linker", linker_dir_used, bond_type)
+                linkers = self._list_xyz(linker_dir_used)
+            else:
+                extra_linkers = sorted(Path("0_linker").glob("*.xyz"))
+                if extra_linkers:
+                    warnings.warn(
+                        "Topology 'hcb_ab' ignores linker files in 0_linker/.",
+                        stacklevel=2,
+                    )
 
-            nodes = self._list_xyz(nodes_dir_used)
-            linkers = self._list_xyz(linker_dir_used)
-
-            if len(nodes) != 1 or len(linkers) != 1:
+            if (
+                len(nodes) != required_nodes
+                or len(linkers) != required_linkers
+            ):
                 raise ValueError(
-                    "Expected exactly one node and one linker file."
+                    f"Topology '{topo}' requires exactly {required_nodes} node file(s) "
+                    f"and {required_linkers} linker file(s). Found {len(nodes)} node "
+                    f"file(s) and {len(linkers)} linker file(s). Either keep only "
+                    "the required files in 0_node/ and 0_linker/, or pass explicit "
+                    "paths via input_nodes=[...] and input_linkers=[...]."
                 )
 
-            node_name, node_path = nodes[0]
-            linker_name, linker_path = linkers[0]
+            node_paths = [path for _, path in nodes]
+            linker_paths = [path for _, path in linkers]
 
             output_folder_used = output_folder or os.path.join(
                 cof_name, f"1_{cof_name}_single_layer"
@@ -915,10 +929,8 @@ class BuildCOF2D:
             Path(output_folder_used).mkdir(parents=True, exist_ok=True)
             output = _build_cof(
                 topo,
-                node_name,
-                node_path,
-                linker_name,
-                linker_path,
+                node_paths,
+                linker_paths,
                 output_folder_used,
                 cof_name=cof_name,
             )

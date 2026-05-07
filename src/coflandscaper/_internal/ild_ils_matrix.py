@@ -150,7 +150,7 @@ class IlsSerr:
             input_folder: Folder containing ILD‑modified CIFs.
             output_folder: Destination folder for serrated structures.
             topo: Topology string used for defaults. Allowed values are
-                `"hcb"` and `"sql"`.
+                `"hcb"`, `"sql"`, and `"hcb_ab"`.
             cof_name: Optional name used for output file naming. Defaults to
                 `None`.
             ils_length_step: Step size for slip length in Å. Defaults to `1.0`.
@@ -163,13 +163,16 @@ class IlsSerr:
                 Defaults to `False`.
 
         Raises:
-            ValueError: If `topo` is not "hcb" or "sql".
+            ValueError: If `topo` is not "hcb", "sql", or "hcb_ab".
         """
+        if topo not in {"hcb", "sql", "hcb_ab"}:
+            raise ValueError("topo must be 'hcb', 'sql', or 'hcb_ab'.")
+        topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
-                cif_files[0], topo, print_shift=print_shift
+                cif_files[0], topo_used, print_shift=print_shift
             )
             if ils_length_end is None:
                 ils_length_end = auto_len
@@ -269,7 +272,7 @@ class IlsIncl:
             input_folder: Folder containing ILD‑modified CIFs.
             output_folder: Destination folder for inclined structures.
             topo: Topology string used for defaults. Allowed values are
-                `"hcb"` and `"sql"`.
+                `"hcb"`, `"sql"`, and `"hcb_ab"`.
             cof_name: Optional name used for output file naming. Defaults to
                 `None`.
             ils_length_start: Minimum slip length in Å. Defaults to `0.0`.
@@ -282,13 +285,16 @@ class IlsIncl:
                 Defaults to `False`.
 
         Raises:
-            ValueError: If `topo` is not "hcb" or "sql".
+            ValueError: If `topo` is not "hcb", "sql", or "hcb_ab".
         """
+        if topo not in {"hcb", "sql", "hcb_ab"}:
+            raise ValueError("topo must be 'hcb', 'sql', or 'hcb_ab'.")
+        topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
-                cif_files[0], topo, print_shift=print_shift
+                cif_files[0], topo_used, print_shift=print_shift
             )
             if ils_length_end is None:
                 ils_length_end = auto_len
@@ -418,7 +424,7 @@ class CreateMatrix:
         Args:
             cof_name: COF name used for input/output folder naming.
             topo: Topology string used for defaults. Allowed values are
-                `"hcb"` and `"sql"`.
+                `"hcb"`, `"sql"`, and `"hcb_ab"`.
             mode: ILS mode selector. Allowed values are `"incl"`, `"serr"`,
                 or `"both"`.
             input_cif: Optional path to a pre-optimized CIF file.

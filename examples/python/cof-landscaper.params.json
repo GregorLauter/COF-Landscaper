@@ -1,0 +1,15 @@
+{
+  "TOPOLOGY": "sql",
+  "BOND_TYPE": "single",
+  "COF_NAME": "ILCOF-1",
+  "MODE": "both",
+  "NODES": null,
+  "LINKERS": null,
+  "MACE_HEAD": "spice_wB97M",
+  "DEVICE": "cuda",
+  "MAX_STEPS": 3000,
+  "MINIMA_MODE": "local",
+  "SHOW_LANDSCAPE": false,
+  "SHOW_TITLE_BLOCK": false,
+  "SHOW_MINIMA_MARKERS": true
+}

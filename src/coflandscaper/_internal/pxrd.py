@@ -318,7 +318,7 @@ class PXRD:
         output_folder: str | Path | None = None,
         max_peaks: int = 10,
         min_relative_intensity: float = 1.0,
-        print_peaks: bool = True,
+        print_peaks: bool = False,
         save_csv: bool = True,
     ) -> dict[str, pd.DataFrame]:
         """Extract simulated peak tables from PXRD .xy files.
@@ -338,6 +338,7 @@ class PXRD:
             max_peaks: Maximum number of peaks to retain per structure.
             min_relative_intensity: Minimum relative intensity threshold.
             print_peaks: If True, print a grouped summary per structure.
+                Defaults to False.
             save_csv: If True, write pxrd_peaks.csv to disk.
 
         Returns:

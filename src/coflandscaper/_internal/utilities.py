@@ -39,6 +39,19 @@ def get_int_param(params: dict[str, object], key: str) -> int:
     )
 
 
+def get_optional_path_list(
+    params: dict[str, object],
+    key: str,
+) -> list[str] | None:
+    """Return an optional list of paths from JSON parameters."""
+    value = params.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise TypeError(f"{key} must be a list of paths or null.")
+    return [str(path) for path in value]
+
+
 def read_cif_atom_lines(input_file: str | Path) -> list[str]:
     """Read atom-site lines from a CIF file.
 
@@ -84,6 +97,7 @@ def read_cif_atom_lines(input_file: str | Path) -> list[str]:
 
 __all__ = [
     "get_int_param",
+    "get_optional_path_list",
     "load_params",
     "read_cif_atom_lines",
 ]
