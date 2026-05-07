@@ -52,6 +52,21 @@ def get_optional_path_list(
     return [str(path) for path in value]
 
 
+def get_float_param(
+    params: dict[str, object],
+    key: str,
+    default: float,
+) -> float:
+    """Read a float-like parameter from a JSON payload."""
+    value = params.get(key, default)
+    if isinstance(value, (int, float, str)):
+        return float(value)
+    raise TypeError(
+        f"Parameter '{key}' must be an int, float, or numeric string, "
+        f"got {type(value).__name__}."
+    )
+
+
 def read_cif_atom_lines(input_file: str | Path) -> list[str]:
     """Read atom-site lines from a CIF file.
 
@@ -96,6 +111,7 @@ def read_cif_atom_lines(input_file: str | Path) -> list[str]:
 
 
 __all__ = [
+    "get_float_param",
     "get_int_param",
     "get_optional_path_list",
     "load_params",
