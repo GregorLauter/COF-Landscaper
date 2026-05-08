@@ -309,7 +309,7 @@ def default_shift_from_cif(
 
     Args:
         input_file: Path to the CIF file.
-        topo: Topology string. Allowed values are `"sql"` or `"hcb"`.
+        topo: Topology string. Allowed values are `"sql"`, `"hcb"`, or `"kgm"`.
         print_shift: If `True`, print computed default shift values.
             Defaults to `False`.
 
@@ -317,10 +317,10 @@ def default_shift_from_cif(
         (length, angle_deg) tuple.
 
     Raises:
-        ValueError: If `topo` is not "sql" or "hcb".
+        ValueError: If `topo` is not "sql", "hcb", or "kgm".
     """
-    if topo not in ("sql", "hcb"):
-        raise ValueError("topo must be 'sql' or 'hcb'")
+    if topo not in ("sql", "hcb", "kgm"):
+        raise ValueError("topo must be 'sql', 'hcb', or 'kgm'")
     struct = Structure.from_file(input_file)
     a_vec, b_vec, _ = struct.lattice.matrix
 
@@ -328,8 +328,10 @@ def default_shift_from_cif(
     vec_xy = np.array([vec[0], vec[1]], dtype=float)
     sql_len = float(np.linalg.norm(vec_xy))
 
-    if topo == "hcb":
+    if topo in {"hcb", "kgm"}:
         length = (2.0 / math.sqrt(3.0)) * sql_len
+        if topo == "kgm":
+            length *= 1.5
         angle = 90.0
         if print_shift:
             print(

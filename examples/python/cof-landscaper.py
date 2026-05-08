@@ -24,11 +24,18 @@ def run_workflow(params: dict[str, object]) -> None:
     mode = str(params["MODE"])
     mace_head = str(params["MACE_HEAD"])
     device = str(params["DEVICE"])
+
     mace_opt_max_steps = cl.utilities.get_int_param(params, "MAX_STEPS")
+
+    ild_start = cl.utilities.get_float_param(params, "ILD_START", 3.0)
+    ild_end = cl.utilities.get_float_param(params, "ILD_END", 4.0)
+    ild_step = cl.utilities.get_float_param(params, "ILD_STEP", 0.1)
+
     minima_mode = str(params.get("MINIMA_MODE", "global"))
     show_landscape = bool(params.get("SHOW_LANDSCAPE", False))
     show_title_block = bool(params.get("SHOW_TITLE_BLOCK", False))
     show_minima_markers = bool(params.get("SHOW_MINIMA_MARKERS", True))
+
     input_nodes = cl.utilities.get_optional_path_list(params, "NODES")
     input_linkers = cl.utilities.get_optional_path_list(params, "LINKERS")
 
@@ -44,14 +51,15 @@ def run_workflow(params: dict[str, object]) -> None:
     preopt = cl.MaceOpt(head=mace_head, device=device, fix_z=True)
     preopt.run_preopt(cof_name=cof_name)
 
-    matrix = cl.CreateMatrix()
+    matrix = cl.CreateMatrix(
+        ild_start=ild_start,
+        ild_end=ild_end,
+        ild_step=ild_step,
+    )
     matrix.run(cof_name=cof_name, topo=topology, mode=mode)
 
     sp = cl.MaceSP(head=mace_head, device=device)
     sp.run_mode(cof_name=cof_name, mode=mode)
-
-    crystal_sp = cl.CrystalSP()
-    crystal_sp.generate_input(cof_name=cof_name, mode=mode)
 
     landscape = cl.Landscape()
     landscape.run_mode(
@@ -77,9 +85,6 @@ def run_workflow(params: dict[str, object]) -> None:
         max_steps=mace_opt_max_steps,
     )
     mace_opt.run_mode(cof_name=cof_name, mode=mode)
-
-    crystal_opt = cl.CrystalOpt()
-    crystal_opt.generate_input(cof_name=cof_name, mode=mode)
 
     analyzer = cl.AnalyzeStacking()
     analyzer.analyze(cof_name=cof_name, mode=mode)

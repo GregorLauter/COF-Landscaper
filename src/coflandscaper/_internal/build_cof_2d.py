@@ -32,7 +32,6 @@ from rdkit.Geometry import Point3D
 from .ild_ils_matrix import ChangeIld
 from .ild_ils_utils import _unwrap_fractional_z
 
-DEFAULT_ILD_GUESS = 15.0
 DEFAULT_X_SCALE = 0.8
 TOPOLOGY_INPUT_COUNTS = {
     "hcb": {"nodes": 1, "linkers": 1},
@@ -836,7 +835,8 @@ class BuildCOF2D:
     output directory, and adjusts the interlayer distance to 15 Å.
 
     Topology requirements: ``hcb``, ``sql``, and ``kgm`` require one node and
-    one linker. ``hcb_ab`` requires two nodes and no linker.
+    one linker. ``hcb_ab`` requires two nodes and no linker. Inputs default to
+    ``0_node/`` and ``0_linker/`` unless explicit paths are provided.
 
     Default output location is ``{cof_name}/1_{cof_name}_single_layer``, and the
     default output CIF name is ``{cof_name}_unopt.cif``.
@@ -873,6 +873,7 @@ class BuildCOF2D:
         Default input behavior:
         - Nodes are read from `0_node/*.xyz`.
         - Linkers are read from `0_linker/*.xyz` only when required by topology.
+        - Pass `input_linkers=[]` to explicitly provide no linkers.
 
         Default output behavior:
             The output CIF is written to
@@ -888,7 +889,8 @@ class BuildCOF2D:
             input_nodes: Optional explicit node `.xyz` paths. Defaults to `None`
                 (reads from `0_node/*.xyz`).
             input_linkers: Optional explicit linker `.xyz` paths. Defaults to
-                `None` (reads from `0_linker/*.xyz` when required).
+                `None` (reads from `0_linker/*.xyz` when required). Use an empty
+                list to explicitly pass no linkers.
             output_folder: Optional output folder override. Defaults to `None`
                 (uses `{cof_name}/1_{cof_name}_single_layer`).
 

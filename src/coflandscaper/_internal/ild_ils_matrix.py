@@ -167,7 +167,7 @@ class IlsSerr:
         """
         if topo not in {"hcb", "sql", "hcb_ab", "kgm"}:
             raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'.")
-        topo_used = "hcb" if topo in {"hcb_ab", "kgm"} else topo
+        topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
@@ -289,7 +289,7 @@ class IlsIncl:
         """
         if topo not in {"hcb", "sql", "hcb_ab", "kgm"}:
             raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'.")
-        topo_used = "hcb" if topo in {"hcb_ab", "kgm"} else topo
+        topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
@@ -368,7 +368,8 @@ class CreateMatrix:
     (ILS) is applied either as a serrated bilayer shift or as an inclined
     lattice tilt. Both serrated and inclined modes converge to the AB stacking
     limit; the corresponding default shift length and angle are computed
-    automatically and can be printed via `print_shift`.
+    automatically when unset and can be printed via `print_shift`. The default
+    ILD range is 3.0–4.0 Å in 0.1 Å steps.
 
     Users may override the slip angle, minimum/maximum slip length, and step
     size to scan a specific region or alternative slip pathway. Outputs are

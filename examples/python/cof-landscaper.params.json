@@ -7,8 +7,11 @@
   "LINKERS": null,
   "MACE_HEAD": "spice_wB97M",
   "DEVICE": "cuda",
-  "MAX_STEPS": 3000,
-  "MINIMA_MODE": "local",
+  "MAX_STEPS": 2000,
+  "ILD_START": 3.0,
+  "ILD_END": 4.0,
+  "ILD_STEP": 0.1,
+  "MINIMA_MODE": "gloabal",
   "SHOW_LANDSCAPE": false,
   "SHOW_TITLE_BLOCK": false,
   "SHOW_MINIMA_MARKERS": true

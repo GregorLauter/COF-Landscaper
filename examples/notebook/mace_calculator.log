@@ -1,8 +1,8 @@
 Using Materials Project MACE for MACECalculator with /Users/gregorlauter/.cache/mace/macemh1model
 Using float64 for MACECalculator, which is slower but more accurate. Recommended for geometry optimization.
 [runtime]
-head=omol
+head=spice_wB97M
 available_heads=['matpes_r2scan', 'mp_pbe_refit_add', 'spice_wB97M', 'oc20_usemppbe', 'omol', 'omat_pbe']
 device=cpu
 d3_detected=False
-requested_calc_settings={'head': 'omol', 'dispersion': False}
+requested_calc_settings={'head': 'spice_wB97M', 'dispersion': False}

@@ -140,10 +140,10 @@ def test_ab_half_diagonal_from_cif(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.unit
-def test_default_shift_from_cif_sql_and_hcb(
+def test_default_shift_from_cif_sql_hcb_kgm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures topology-specific default shifts match expected sql and hcb formulas."""
+    """This test ensures topology-specific default shifts match expected formulas."""
     matrix = np.array(
         [
             [2.0, 0.0, 0.0],
@@ -160,15 +160,78 @@ def test_default_shift_from_cif_sql_and_hcb(
 
     sql_length, sql_angle = cl.default_shift_from_cif("dummy.cif", "sql")
     hcb_length, hcb_angle = cl.default_shift_from_cif("dummy.cif", "hcb")
+    kgm_length, kgm_angle = cl.default_shift_from_cif("dummy.cif", "kgm")
 
     assert sql_length == pytest.approx(np.sqrt(2.0))
     assert sql_angle == pytest.approx(45.0)
     assert hcb_length == pytest.approx((2.0 / np.sqrt(3.0)) * np.sqrt(2.0))
     assert hcb_angle == pytest.approx(90.0)
+    assert kgm_length == pytest.approx(1.5 * hcb_length)
+    assert kgm_angle == pytest.approx(90.0)
 
 
 @pytest.mark.unit
 def test_default_shift_from_cif_rejects_invalid_topology() -> None:
     """This test ensures invalid topology names fail fast in default shift computation."""
-    with pytest.raises(ValueError, match="topo must be 'sql' or 'hcb'"):
-        cl.default_shift_from_cif("dummy.cif", "kgm")
+    with pytest.raises(
+        ValueError, match="topo must be 'sql', 'hcb', or 'kgm'"
+    ):
+        cl.default_shift_from_cif("dummy.cif", "bad")
+
+
+@pytest.mark.unit
+def test_ils_defaults_map_hcb_ab_but_not_kgm(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures hcb_ab maps to hcb while kgm passes through."""
+    cif_dir = tmp_path / "cifs"
+    cif_dir.mkdir()
+    (cif_dir / "sample.cif").write_text("data_test\n", encoding="utf-8")
+
+    module = importlib.import_module(cl.IlsIncl.__module__)
+    seen: list[str] = []
+
+    def fake_default_shift(
+        _input_file: str,
+        topo: str,
+        print_shift: bool = False,
+    ) -> tuple[float, float]:
+        _ = print_shift
+        seen.append(topo)
+        return 1.0, 90.0
+
+    def fake_inclined_shift(
+        _self: object,
+        _input_file: str,
+        _output_file: str,
+        _ils_length: float,
+        _ils_angle_deg: float,
+    ) -> None:
+        _ = (_self, _input_file, _output_file, _ils_length, _ils_angle_deg)
+
+    def fake_serrated_shift(
+        _self: object,
+        _input_file: str,
+        _output_file: str,
+        _ils_length: float,
+        _ils_angle_deg: float,
+    ) -> None:
+        _ = (_self, _input_file, _output_file, _ils_length, _ils_angle_deg)
+
+    monkeypatch.setattr(module, "default_shift_from_cif", fake_default_shift)
+    monkeypatch.setattr(cl.IlsIncl, "_inclined_shift", fake_inclined_shift)
+    monkeypatch.setattr(cl.IlsSerr, "_shift_serrated", fake_serrated_shift)
+
+    cl.IlsIncl().run(
+        input_folder=str(cif_dir),
+        output_folder=str(tmp_path / "incl"),
+        topo="hcb_ab",
+    )
+    cl.IlsSerr().run(
+        input_folder=str(cif_dir),
+        output_folder=str(tmp_path / "serr"),
+        topo="kgm",
+    )
+
+    assert seen == ["hcb", "kgm"]
