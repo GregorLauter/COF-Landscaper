@@ -474,7 +474,7 @@ def _build_rdkit_mol(xyz_block: str) -> Mol | None:
     mol = Chem.MolFromXYZBlock(xyz_block)
     if mol is None:
         return None
-    rdDetermineBonds.DetermineBonds(mol)
+    rdDetermineBonds.DetermineConnectivity(mol)
     return mol
 
 
@@ -531,69 +531,34 @@ def _write_xyz_with_bonds(mol: Mol, out_path: str) -> None:
 
         for bond in mol.GetBonds():
             atom1, atom2 = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-            bond_type = bond.GetBondTypeAsDouble()
-
-            if bond_type == 1.0:
-                bond_type_str = "S"
-            elif bond_type == 1.5 and bond.IsInRing():
-                bond_type_str = "A"
-            elif (
-                bond_type == 1.5 and not bond.IsInRing()
-            ) or bond_type == 2.0:
-                bond_type_str = "D"
-            elif bond_type == 3.0:
-                bond_type_str = "T"
-            else:
-                bond_type_str = "S"
-
-            xyz_file.write(f"{atom1}    {atom2}    {bond_type_str}\n")
+            xyz_file.write(f"{atom1}    {atom2}    S\n")
 
 
-def _prepare_xyz(
-    input_folder: str,
-    output_folder: str,
-    bond_type: str,
-) -> list[str]:
+def _prepare_xyz(input_folder: str, output_folder: str) -> list[str]:
     """Prepare all XYZ files in a folder for pormake input.
 
     Args:
         input_folder: Folder with raw XYZ files.
         output_folder: Folder to write prepared XYZ files.
-        bond_type: Bond type, "single" or "double".
 
     Returns:
         List of input XYZ file paths processed.
-
-    Raises:
-        ValueError: If bond_type is not supported.
     """
-    mode_map = {
-        "double": "Se",
-        "single": "He",
-        "Se": "Se",
-        "He": "He",
-    }
-    if bond_type not in mode_map:
-        raise ValueError("bond_type must be 'double' or 'single'")
-    mode = mode_map[bond_type]
-
     Path(output_folder).mkdir(parents=True, exist_ok=True)
     xyz_files = sorted(glob.glob(os.path.join(input_folder, "*.xyz")))
 
-    return _prepare_xyz_files(xyz_files, output_folder, mode)
+    return _prepare_xyz_files(xyz_files, output_folder)
 
 
 def _prepare_xyz_files(
     xyz_files: list[str],
     output_folder: str,
-    mode: str,
 ) -> list[str]:
     """Prepare explicit XYZ file paths into pormake-compatible XYZ files.
 
     Args:
         xyz_files: Absolute or relative paths to input .xyz files.
         output_folder: Folder to write prepared XYZ files.
-        mode: Dummy atom mode, either "Se" or "He".
 
     Returns:
         The list of processed XYZ input file paths.
@@ -602,10 +567,7 @@ def _prepare_xyz_files(
 
     for path in xyz_files:
         atoms = cast("Atoms", ase.io.read(path))
-        if mode == "Se":
-            xyz_block, x_indices = _replace_atoms(atoms, "Se", "O")
-        else:
-            xyz_block, x_indices = _replace_atoms(atoms, "He", "H")
+        xyz_block, x_indices = _replace_atoms(atoms, "He", "H")
 
         mol = _build_rdkit_mol(xyz_block)
         if mol is None:
@@ -825,9 +787,7 @@ class BuildCOF2D:
 
     This class wraps preprocessing needed for pormake-based assembly of 2D COFs.
     It supports topology-driven construction for ``hcb``, ``sql``, ``kgm``,
-    and ``hcb_ab``. Dummy-atom preprocessing is controlled by ``bond_type``.
-    For ``bond_type="single"``, connection markers are interpreted from ``He``;
-    for ``bond_type="double"``, connection markers are interpreted from ``Se``.
+    and ``hcb_ab``. Dummy-atom preprocessing expects ``He`` connection markers.
 
     The main workflow resolves topology-dependent node/linker inputs,
     optionally preprocesses input XYZ files into pormake-compatible format,
@@ -858,7 +818,6 @@ class BuildCOF2D:
         self,
         topo: str,
         cof_name: str,
-        bond_type: str,
         input_nodes: Sequence[str | os.PathLike[str]] | None = None,
         input_linkers: Sequence[str | os.PathLike[str]] | None = None,
         output_folder: str | None = None,
@@ -866,9 +825,9 @@ class BuildCOF2D:
         """Build one unoptimized single-layer COF CIF from node/linker inputs.
 
         The method expects node/linker counts defined by the topology after
-        input resolution. If `bond_type` is set, input files are preprocessed
-        to map dummy atoms and inject bond annotations required by pormake. If
-        explicit input files are not provided, default source folders are used.
+        input resolution. Input files are preprocessed to map dummy atoms and
+        inject bond annotations required by pormake. If explicit input files are
+        not provided, default source folders are used.
 
         Default input behavior:
         - Nodes are read from `0_node/*.xyz`.
@@ -884,8 +843,6 @@ class BuildCOF2D:
             topo: Topology key used for construction. Allowed values are
                 `"hcb"`, `"sql"`, `"hcb_ab"`, and `"kgm"`.
             cof_name: COF identifier used in output folder and filename patterns.
-            bond_type: Connection mode. Allowed values are `"single"` and
-                `"double"`.
             input_nodes: Optional explicit node `.xyz` paths. Defaults to `None`
                 (reads from `0_node/*.xyz`).
             input_linkers: Optional explicit linker `.xyz` paths. Defaults to
@@ -900,17 +857,11 @@ class BuildCOF2D:
         Raises:
             ValueError: If `topo` is not one of `"hcb"`, `"sql"`,
                 `"hcb_ab"`, or `"kgm"`.
-            ValueError: If `bond_type` is not one of `"single"` or `"double"`.
             ValueError: If input resolution does not match topology input counts.
         """
         _disable_pormake_file_logging()
         if topo not in TOPOLOGY_INPUT_COUNTS:
             raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'")
-        if bond_type not in {"single", "double"}:
-            raise ValueError("bond_type must be either 'single' or 'double'")
-
-        mode_map = {"double": "Se", "single": "He"}
-        mode = mode_map[bond_type]
 
         required_nodes = TOPOLOGY_INPUT_COUNTS[topo]["nodes"]
         required_linkers = TOPOLOGY_INPUT_COUNTS[topo]["linkers"]
@@ -919,7 +870,7 @@ class BuildCOF2D:
             nodes_dir_used = stack.enter_context(tempfile.TemporaryDirectory())
             if input_nodes is not None:
                 node_inputs = [os.fspath(path) for path in input_nodes]
-                _prepare_xyz_files(node_inputs, nodes_dir_used, mode)
+                _prepare_xyz_files(node_inputs, nodes_dir_used)
                 nodes = [
                     (
                         Path(path).stem,
@@ -928,7 +879,7 @@ class BuildCOF2D:
                     for path in node_inputs
                 ]
             else:
-                _prepare_xyz("0_node", nodes_dir_used, bond_type)
+                _prepare_xyz("0_node", nodes_dir_used)
                 nodes = self._list_xyz(nodes_dir_used)
 
             linkers: list[tuple[str, str]] = []
@@ -937,7 +888,7 @@ class BuildCOF2D:
                     tempfile.TemporaryDirectory()
                 )
                 linker_inputs = [os.fspath(path) for path in input_linkers]
-                _prepare_xyz_files(linker_inputs, linker_dir_used, mode)
+                _prepare_xyz_files(linker_inputs, linker_dir_used)
                 linkers = [
                     (
                         Path(path).stem,
@@ -949,7 +900,7 @@ class BuildCOF2D:
                 linker_dir_used = stack.enter_context(
                     tempfile.TemporaryDirectory()
                 )
-                _prepare_xyz("0_linker", linker_dir_used, bond_type)
+                _prepare_xyz("0_linker", linker_dir_used)
                 linkers = self._list_xyz(linker_dir_used)
             else:
                 extra_linkers = sorted(Path("0_linker").glob("*.xyz"))

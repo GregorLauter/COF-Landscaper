@@ -13,14 +13,7 @@ def test_buildcof2d_rejects_invalid_topology() -> None:
     with pytest.raises(
         ValueError, match="topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'"
     ):
-        cl.BuildCOF2D().build(topo="bad", bond_type="single", cof_name="cof")
-
-
-@pytest.mark.unit
-def test_buildcof2d_rejects_invalid_bond_type() -> None:
-    """This test ensures unsupported bond types fail fast."""
-    with pytest.raises(ValueError, match="bond_type must be either"):
-        cl.BuildCOF2D().build(topo="hcb", bond_type="bad", cof_name="cof")
+        cl.BuildCOF2D().build(topo="bad", cof_name="cof")
 
 
 @pytest.mark.unit
@@ -35,9 +28,7 @@ def test_buildcof2d_requires_exactly_one_node_and_linker(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
-        _mode: str,
     ) -> list[str]:
-        _ = _mode
         for path in xyz_files:
             shutil.copy(path, output_folder)
         return xyz_files
@@ -71,7 +62,6 @@ def test_buildcof2d_requires_exactly_one_node_and_linker(
     ):
         cl.BuildCOF2D().build(
             topo="hcb",
-            bond_type="single",
             cof_name="cof",
         )
 
@@ -82,7 +72,6 @@ def test_buildcof2d_rejects_missing_input_paths(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match=r"missing\.xyz"):
         cl.BuildCOF2D().build(
             topo="hcb",
-            bond_type="single",
             cof_name="cof",
             input_nodes=[tmp_path / "missing.xyz"],
             input_linkers=[tmp_path / "missing.xyz"],
@@ -100,9 +89,7 @@ def test_buildcof2d_hcb_ab_accepts_two_nodes_no_linkers(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
-        _mode: str,
     ) -> list[str]:
-        _ = _mode
         for path in xyz_files:
             shutil.copy(path, output_folder)
         return xyz_files
@@ -144,7 +131,6 @@ def test_buildcof2d_hcb_ab_accepts_two_nodes_no_linkers(
 
     cl.BuildCOF2D().build(
         topo="hcb_ab",
-        bond_type="single",
         cof_name="cof",
         input_nodes=[node_a, node_b],
         input_linkers=[],
@@ -162,9 +148,7 @@ def test_buildcof2d_hcb_ab_rejects_wrong_node_counts(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
-        _mode: str,
     ) -> list[str]:
-        _ = _mode
         for path in xyz_files:
             shutil.copy(path, output_folder)
         return xyz_files
@@ -187,7 +171,6 @@ def test_buildcof2d_hcb_ab_rejects_wrong_node_counts(
     ):
         cl.BuildCOF2D().build(
             topo="hcb_ab",
-            bond_type="single",
             cof_name="cof",
             input_nodes=[],
             input_linkers=[],
@@ -202,7 +185,6 @@ def test_buildcof2d_hcb_ab_rejects_wrong_node_counts(
     ):
         cl.BuildCOF2D().build(
             topo="hcb_ab",
-            bond_type="single",
             cof_name="cof",
             input_nodes=[node_a],
             input_linkers=[],
@@ -217,7 +199,6 @@ def test_buildcof2d_hcb_ab_rejects_wrong_node_counts(
     ):
         cl.BuildCOF2D().build(
             topo="hcb_ab",
-            bond_type="single",
             cof_name="cof",
             input_nodes=[node_a, node_b, node_c],
             input_linkers=[],
@@ -235,9 +216,7 @@ def test_buildcof2d_hcb_ab_warns_on_linkers_in_default_folder(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
-        _mode: str,
     ) -> list[str]:
-        _ = _mode
         for path in xyz_files:
             shutil.copy(path, output_folder)
         return xyz_files
@@ -292,7 +271,6 @@ def test_buildcof2d_hcb_ab_warns_on_linkers_in_default_folder(
     with pytest.warns(UserWarning, match="Topology 'hcb_ab' ignores linker"):
         cl.BuildCOF2D().build(
             topo="hcb_ab",
-            bond_type="single",
             cof_name="cof",
         )
 
@@ -308,9 +286,7 @@ def test_buildcof2d_requires_exactly_one_node_and_linker_for_kgm(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
-        _mode: str,
     ) -> list[str]:
-        _ = _mode
         for path in xyz_files:
             shutil.copy(path, output_folder)
         return xyz_files
@@ -344,6 +320,5 @@ def test_buildcof2d_requires_exactly_one_node_and_linker_for_kgm(
     ):
         cl.BuildCOF2D().build(
             topo="kgm",
-            bond_type="single",
             cof_name="cof",
         )

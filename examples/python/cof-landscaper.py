@@ -19,7 +19,6 @@ DEFAULT_PARAMS_FILE = Path(__file__).with_name("cof-landscaper.params.json")
 def run_workflow(params: dict[str, object]) -> None:
     """Run the full benchmark workflow using parameters from JSON."""
     topology = str(params["TOPOLOGY"])
-    bond_type = str(params["BOND_TYPE"])
     cof_name = str(params["COF_NAME"])
     mode = str(params["MODE"])
     mace_head = str(params["MACE_HEAD"])
@@ -42,7 +41,6 @@ def run_workflow(params: dict[str, object]) -> None:
     builder = cl.BuildCOF2D()
     builder.build(
         topo=topology,
-        bond_type=bond_type,
         cof_name=cof_name,
         input_nodes=input_nodes,
         input_linkers=input_linkers,
