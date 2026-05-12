@@ -15,7 +15,6 @@ dependencies = [
     "pormake @ git+https://github.com/Sangwon91/PORMAKE.git",
     "py3dmol>=2.5.4",
     "pymatgen>=2024.4.12",
-    "rdkit>=2025.9.3",
     "torch-dftd>=0.5.2",
 ]
 requires-python = "==3.12.*"

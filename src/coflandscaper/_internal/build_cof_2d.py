@@ -12,7 +12,6 @@ import tempfile
 import warnings
 from collections.abc import Mapping, Sequence
 from contextlib import ExitStack, suppress
-from io import StringIO
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,14 +19,11 @@ import ase.io
 import numpy as np
 import pormake as pm
 from ase.atoms import Atoms
+from ase.neighborlist import NeighborList, natural_cutoffs
 from pormake.building_block import BuildingBlock
 from pormake.framework import Framework
 from pormake.topology import Topology
 from pymatgen.core import Structure
-from rdkit import Chem
-from rdkit.Chem import rdDetermineBonds
-from rdkit.Chem.rdchem import Mol
-from rdkit.Geometry import Point3D
 
 from .ild_ils_matrix import ChangeIld
 from .ild_ils_utils import _unwrap_fractional_z
@@ -437,101 +433,93 @@ _disable_pormake_file_logging()
 
 def _replace_atoms(
     atoms: Atoms, from_symbol: str, to_symbol: str
-) -> tuple[str, list[int]]:
-    """Replace one element symbol and return XYZ text plus replaced indices.
+) -> tuple[Atoms, list[int]]:
+    """Replace one element symbol and return updated atoms plus indices.
 
     Args:
-        atoms: ASE atoms object to modify in memory.
+        atoms: ASE atoms object to read.
         from_symbol: Element symbol to replace.
         to_symbol: Replacement element symbol.
 
     Returns:
-        Tuple of XYZ block text and replaced atom indices.
+        Tuple of updated atoms and replaced atom indices.
     """
-    x_indices = []
-    xyz_file = StringIO()
+    x_indices: list[int] = []
+    updated = atoms.copy()
 
-    for i, atom in enumerate(atoms):
+    for i, atom in enumerate(updated):
         if atom.symbol == from_symbol:
             atom.symbol = to_symbol
             x_indices.append(i)
 
-    ase.io.write(xyz_file, atoms, format="xyz")
-    xyz_block = xyz_file.getvalue()
-    xyz_file.close()
-    return xyz_block, x_indices
+    return updated, x_indices
 
 
-def _build_rdkit_mol(xyz_block: str) -> Mol | None:
-    """Create an RDKit molecule with inferred bonds from XYZ text.
+def _infer_connectivity(
+    atoms: Atoms,
+    mult: float = 1.1,
+) -> list[tuple[int, int]]:
+    """Infer undirected atom connectivity using ASE covalent-radius cutoffs."""
+    cutoffs = natural_cutoffs(atoms, mult=mult)
+    nl = NeighborList(cutoffs, self_interaction=False, bothways=True)
+    nl.update(atoms)
 
-    Args:
-        xyz_block: XYZ block text containing atom coordinates.
-
-    Returns:
-        RDKit molecule, or `None` when parsing fails.
-    """
-    mol = Chem.MolFromXYZBlock(xyz_block)
-    if mol is None:
-        return None
-    rdDetermineBonds.DetermineConnectivity(mol)
-    return mol
-
-
-def _tag_isotopes(mol: Mol, indices: list[int]) -> None:
-    """Mark selected atoms with isotope label `2` for downstream processing.
-
-    Args:
-        mol: RDKit molecule to modify in place.
-        indices: Atom indices to tag.
-    """
-    for atom in mol.GetAtoms():
-        if atom.GetIdx() in indices:
-            atom.SetIsotope(2)
+    bonds: set[tuple[int, int]] = set()
+    for i in range(len(atoms)):
+        indices, _offsets = nl.get_neighbors(i)
+        for j in indices:
+            a, b = sorted((i, int(j)))
+            if a != b:
+                bonds.add((a, b))
+    return sorted(bonds)
 
 
-def _write_xyz_with_bonds(mol: Mol, out_path: str) -> None:
+def _write_xyz_with_bonds(
+    atoms: Atoms,
+    x_indices: list[int],
+    bonds: list[tuple[int, int]],
+    out_path: str,
+) -> None:
     """Write a pormake-style XYZ file with bond records.
 
     Args:
-        mol: RDKit molecule containing coordinates and bond graph.
+        atoms: ASE atoms containing coordinates and symbols.
+        x_indices: Atom indices to mark as connection sites.
+        bonds: List of bonded atom index pairs.
         out_path: Destination XYZ file path.
     """
+    x_index_set = set(x_indices)
+    neighbor_map: dict[int, list[int]] = {i: [] for i in x_indices}
+    for i, j in bonds:
+        if i in neighbor_map:
+            neighbor_map[i].append(j)
+        if j in neighbor_map:
+            neighbor_map[j].append(i)
+
+    positions = atoms.get_positions()
+
     with open(out_path, "w") as xyz_file:
-        num_atoms = mol.GetNumAtoms()
-        xyz_file.write(f"{num_atoms}\n")
+        xyz_file.write(f"{len(atoms)}\n")
         xyz_file.write("Molecule\n")
 
-        conf = mol.GetConformer()
-        for atom in mol.GetAtoms():
-            pos = conf.GetAtomPosition(atom.GetIdx())
-            if atom.GetIsotope() == 2:
+        for i, atom in enumerate(atoms):
+            pos = positions[i].copy()
+            if i in x_index_set:
                 symbol = "X"
-                neighbors = [a.GetIdx() for a in atom.GetNeighbors()]
+                neighbors = neighbor_map.get(i)
                 if neighbors:
                     connected_idx = neighbors[0]
-                    connected_pos = conf.GetAtomPosition(connected_idx)
-                    vector = Point3D(
-                        pos.x - connected_pos.x,
-                        pos.y - connected_pos.y,
-                        pos.z - connected_pos.z,
-                    )
-                    vector.x *= DEFAULT_X_SCALE
-                    vector.y *= DEFAULT_X_SCALE
-                    vector.z *= DEFAULT_X_SCALE
-                    pos = Point3D(
-                        connected_pos.x + vector.x,
-                        connected_pos.y + vector.y,
-                        connected_pos.z + vector.z,
-                    )
+                    connected_pos = positions[connected_idx]
+                    vector = pos - connected_pos
+                    pos = connected_pos + DEFAULT_X_SCALE * vector
             else:
-                symbol = atom.GetSymbol()
+                symbol = atom.symbol
 
-            xyz_file.write(f"{symbol} {pos.x} {pos.y} {pos.z}\n")
+            xyz_file.write(f"{symbol} {pos[0]} {pos[1]} {pos[2]}\n")
 
-        for bond in mol.GetBonds():
-            atom1, atom2 = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-            xyz_file.write(f"{atom1}    {atom2}    S\n")
+        xyz_file.writelines(
+            f"{atom1}    {atom2}    S\n" for atom1, atom2 in bonds
+        )
 
 
 def _prepare_xyz(input_folder: str, output_folder: str) -> list[str]:
@@ -567,17 +555,12 @@ def _prepare_xyz_files(
 
     for path in xyz_files:
         atoms = cast("Atoms", ase.io.read(path))
-        xyz_block, x_indices = _replace_atoms(atoms, "He", "H")
-
-        mol = _build_rdkit_mol(xyz_block)
-        if mol is None:
-            continue
-
-        _tag_isotopes(mol, x_indices)
+        updated_atoms, x_indices = _replace_atoms(atoms, "He", "H")
+        bonds = _infer_connectivity(updated_atoms)
 
         base_filename = os.path.basename(os.path.splitext(path)[0] + ".xyz")
         out_path = os.path.join(output_folder, base_filename)
-        _write_xyz_with_bonds(mol, out_path)
+        _write_xyz_with_bonds(updated_atoms, x_indices, bonds, out_path)
 
     return xyz_files
 
