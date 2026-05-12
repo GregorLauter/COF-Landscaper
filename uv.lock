@@ -249,7 +249,6 @@ dependencies = [
     { name = "ase" },
     { name = "mace-torch" },
     { name = "numpy" },
-    { name = "pormake" },
     { name = "py3dmol" },
     { name = "pymatgen" },
     { name = "torch-dftd" },
@@ -265,6 +264,7 @@ notebook = [
 dev = [
     { name = "furo" },
     { name = "mypy" },
+    { name = "pormake" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -280,7 +280,6 @@ requires-dist = [
     { name = "jupyter", marker = "extra == 'notebook'", specifier = ">=1.1.1" },
     { name = "mace-torch", specifier = ">=0.3.15" },
     { name = "numpy", specifier = "<2.0" },
-    { name = "pormake", git = "https://github.com/Sangwon91/PORMAKE.git" },
     { name = "py3dmol", specifier = ">=2.5.4" },
     { name = "pymatgen", specifier = ">=2024.4.12" },
     { name = "torch-dftd", specifier = ">=0.5.2" },
@@ -291,6 +290,7 @@ provides-extras = ["notebook"]
 dev = [
     { name = "furo" },
     { name = "mypy" },
+    { name = "pormake", git = "https://github.com/Sangwon91/PORMAKE.git" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
