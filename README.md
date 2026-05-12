@@ -1,38 +1,23 @@
 # COF-Landscaper
 
-COF-Landscaper is a Python package for building and analyzing 2D COF stacking-energy landscapes.
+COF-Landscaper is a Python package for building and analyzing 2D COFs.
 
-Researchers interested in applying COF-Landscaper to their own systems are welcome to contact me at gjl342@student.bham.ac.uk, particularly if they are unable or prefer not to install and run the workflow themselves. Depending on availability and the scope of the project, I may be able to provide support or explore a possible collaboration.
+Researchers interested in applying COF-Landscaper to their own systems are welcome to contact me at gjl342@student.bham.ac.uk. Depending on availability and the scope of the project, I may be able to provide support or explore a possible collaboration.
 
 ## Platform Support
 
 - Tested on macOS and Linux.
 - Microsoft Windows is currently not tested.
 
-## Install From Source (PyPI release planned)
+## Installation
 
-Create a virtual environment with Python 3.12.
+COF-Landscaper requires Python 3.12.
+
+Create and activate a virtual environment.
 
 ```bash
 python3.12 -m venv test-coflandscaper
-```
-
-Activate the environment.
-
-```bash
 source test-coflandscaper/bin/activate
-```
-
-Confirm the active Python executable.
-
-```bash
-which python
-```
-
-Confirm the Python version is 3.12.
-
-```bash
-python --version
 ```
 
 Upgrade pip.
@@ -41,40 +26,111 @@ Upgrade pip.
 pip install --upgrade pip
 ```
 
-Confirm pip is available.
+Install COF-Landscaper from PyPI.
 
 ```bash
-pip --version
+pip install cof-landscaper
 ```
 
-Clone the repository.
+Install PORMAKE, which is required for COF construction.
 
 ```bash
-git clone https://github.com/GregorLauter/COF-Landscaper.git
+pip install "pormake @ git+https://github.com/Sangwon91/PORMAKE.git"
 ```
 
-Enter the project directory.
+Check that the installation works.
 
 ```bash
-cd COF-Landscaper
+python -c "import coflandscaper as cl; print(cl.__file__)"
 ```
 
-Install the package.
+## Running the Notebooks
+
+Install Jupyter support if you want to run the notebooks.
 
 ```bash
-pip install .
+pip install jupyter ipykernel
 ```
 
-Install the Jupyter kernel package.
-
-```bash
-pip install ipykernel
-```
-
-Register this environment as a Jupyter kernel.
+Register the environment as a Jupyter kernel.
 
 ```bash
 python -m ipykernel install --user --name test-coflandscaper --display-name "Python (test-coflandscaper)"
+```
+
+In VS Code or Jupyter, select the kernel:
+
+```text
+Python (test-coflandscaper)
+```
+
+Run a test cell:
+
+```python
+import coflandscaper as cl
+```
+
+## Example Files
+
+After installation, COF-Landscaper can be imported and used directly in your own Python scripts or notebooks.
+
+If you want to start from the provided example workflows, run:
+
+```bash
+cof-landscaper-copy-examples
+```
+
+This copies the example files into the current directory under:
+
+```text
+examples/
+```
+
+The copied examples include an executable Python workflow under:
+
+```text
+examples/python/
+```
+
+This folder contains the workflow script and a separate `cof-landscaper.params.json` file where the workflow settings can be configured. It also includes a minimal notebook for plotting simulated PXRD data together with experimental PXRD data after the workflow has finished.
+
+The copied examples also include three notebook versions under:
+
+```text
+examples/notebook/
+```
+
+The notebook versions are:
+
+- `cof-landscaper_configurable.ipynb`: full notebook with Markdown explanations for all configurable options.
+- `cof-landscaper.ipynb`: default workflow notebook with explanations for the default settings.
+- `cof-landscaper_minimal.ipynb`: minimal code-only workflow for running the notebook without extended explanations.
+
+You can then edit the copied Python script, JSON parameter file, notebook, and input `.xyz` files for your own system.
+
+## Developer Setup
+
+Install `just`.
+
+Install `uv`.
+
+Clone the repository and enter the source directory.
+
+```bash
+git clone https://github.com/GregorLauter/COF-Landscaper.git
+cd COF-Landscaper
+```
+
+Set up the development environment.
+
+```bash
+just setup
+```
+
+Run code checks.
+
+```bash
+just check
 ```
 
 ## Workflow Notes
@@ -85,29 +141,30 @@ python -m ipykernel install --user --name test-coflandscaper --display-name "Pyt
 
 ![COF-Landscaper workflow](docs/readme/workflow.png)
 
-## Example Notebook
-
-- Example notebook location in this repository: `examples/COF-1/0_all/cof-landscaper.ipynb`
-- After installation, you can work from any project folder on your computer.
-- A practical workflow is to copy the example notebook into your own project directory and keep the original examples folder as a reference.
-
 ## Required Input Files
 
-- The workflow requires separate node and linker fragments provided as `.xyz` files.
-- Input fragments should ideally be pre-optimized with a generic force field, such as UFF, to remove severe steric clashes and obtain reasonable approximate bond lengths.
-- The subsequent pre-optimization step handles the assembled framework. Therefore, the main requirement at this stage is that the individual fragments are chemically sensible and can be connected cleanly by the builder.
-- The `.xyz` files can be prepared using any suitable molecular editor or visualizer, for example Avogadro, Mercury, or ChemDraw.
+The workflow requires building-block fragments provided as `.xyz` files.
 
-## VS Code Recommendation
+Supported topologies are:
 
-VS Code is (personally) recommended for running and editing the notebook and Python code.
+- `hcb`
+- `sql`
+- `hcb_ab`
+- `kgm`
 
-To use the correct kernel in VS Code:
+Input requirements:
 
-1. Open the notebook.
-2. Click the kernel selector in the top-right.
-3. Choose `Python (test-coflandscaper)`.
-4. Run a test cell such as `import coflandscaper as cl`.
+- `hcb`, `sql`, and `kgm` require one node `.xyz` file and one linker `.xyz` file.
+- `hcb_ab` requires two node `.xyz` files and no linker file.
+- By default, node files are read from `0_node/`.
+- By default, linker files are read from `0_linker/` when required by the topology.
+- Explicit paths can be provided with `input_nodes=[...]` and `input_linkers=[...]`.
+
+Input fragments should ideally be pre-optimized with a generic force field, such as UFF, to remove severe steric clashes and obtain reasonable approximate bond lengths.
+
+The subsequent pre-optimization step handles the assembled framework. Therefore, the main requirement at this stage is that the individual fragments are chemically sensible and can be connected cleanly by the builder.
+
+The `.xyz` files can be prepared using any suitable molecular editor or visualizer, for example Avogadro, Mercury, or DrawMol.
 
 ## Where To Find Explanations
 
