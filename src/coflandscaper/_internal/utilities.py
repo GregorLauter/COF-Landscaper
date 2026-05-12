@@ -128,10 +128,10 @@ def _parse_extra_points(raw: object) -> list[tuple[float, float]] | None:
 
 
 __all__ = [
+    "_parse_extra_points",
     "get_float_param",
     "get_int_param",
     "get_optional_path_list",
     "load_params",
-    "_parse_extra_points",
     "read_cif_atom_lines",
 ]
