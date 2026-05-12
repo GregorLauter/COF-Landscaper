@@ -80,7 +80,7 @@ python -m ipykernel install --user --name test-coflandscaper --display-name "Pyt
 ## Workflow Notes
 
 - The DFT workflow requires additional external HPC infrastructure.
-- The MACE workflow can be executed fully on a local machine.
+- The MLIP workflow can be executed fully on a local machine.
 - Workflow diagram:
 
 ![COF-Landscaper workflow](docs/readme/workflow.png)

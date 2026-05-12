@@ -38,6 +38,9 @@ def run_workflow(params: dict[str, object]) -> None:
     input_nodes = cl.utilities.get_optional_path_list(params, "NODES")
     input_linkers = cl.utilities.get_optional_path_list(params, "LINKERS")
 
+    extra_serr = cl.utilities._parse_extra_points(params.get("EXTRA_SERR"))
+    extra_incl = cl.utilities._parse_extra_points(params.get("EXTRA_INCL"))
+
     builder = cl.BuildCOF2D()
     builder.build(
         topo=topology,
@@ -73,6 +76,8 @@ def run_workflow(params: dict[str, object]) -> None:
     selector.run_mode(
         cof_name=cof_name,
         mode=mode,
+        selections_serr=extra_serr,
+        selections_incl=extra_incl,
         include_autoselect=True,
         autoselect_minima=minima_mode,
     )

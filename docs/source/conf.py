@@ -14,9 +14,9 @@ warnings.filterwarnings(
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "millie"
-project_copyright = "2023, Lukas Turcani"
-author = "Lukas Turcani"
+project = "coflandscaper"
+project_copyright = "2026, Gregor Lauter"
+author = "Gregor Lauter"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

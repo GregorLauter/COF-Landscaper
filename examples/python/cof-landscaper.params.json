@@ -13,5 +13,7 @@
   "MINIMA_MODE": "global",
   "SHOW_LANDSCAPE": false,
   "SHOW_TITLE_BLOCK": false,
-  "SHOW_MINIMA_MARKERS": true
+  "SHOW_MINIMA_MARKERS": true,
+  "EXTRA_SERR": [],
+  "EXTRA_INCL": []
 }

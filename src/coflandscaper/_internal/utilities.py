@@ -110,10 +110,28 @@ def read_cif_atom_lines(input_file: str | Path) -> list[str]:
     return atom_lines
 
 
+def _parse_extra_points(raw: object) -> list[tuple[float, float]] | None:
+    """Normalize optional extra (ILD, ILS) points into list-of-tuples."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise TypeError("EXTRA_* must be a list of [ILD, ILS] pairs")
+
+    points: list[tuple[float, float]] = []
+    for item in raw:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            raise ValueError("EXTRA_* entries must be [ILD, ILS] pairs")
+        ild, ils = item
+        points.append((float(ild), float(ils)))
+
+    return points or None
+
+
 __all__ = [
     "get_float_param",
     "get_int_param",
     "get_optional_path_list",
     "load_params",
+    "_parse_extra_points",
     "read_cif_atom_lines",
 ]
