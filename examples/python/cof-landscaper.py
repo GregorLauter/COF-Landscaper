@@ -34,6 +34,7 @@ def run_workflow(params: dict[str, object]) -> None:
     show_landscape = bool(params.get("SHOW_LANDSCAPE", False))
     show_title_block = bool(params.get("SHOW_TITLE_BLOCK", False))
     show_minima_markers = bool(params.get("SHOW_MINIMA_MARKERS", True))
+    fix_z = bool(params.get("FIX_Z", True))
 
     input_nodes = cl.utilities.get_optional_path_list(params, "NODES")
     input_linkers = cl.utilities.get_optional_path_list(params, "LINKERS")
@@ -49,7 +50,7 @@ def run_workflow(params: dict[str, object]) -> None:
         input_linkers=input_linkers,
     )
 
-    preopt = cl.MaceOpt(head=mace_head, device=device, fix_z=True)
+    preopt = cl.MaceOpt(head=mace_head, device=device, fix_z=fix_z)
     preopt.run_preopt(cof_name=cof_name)
 
     matrix = cl.CreateMatrix(

@@ -23,6 +23,9 @@ dynamic = ["version"]
 readme = "README.md"
 description = "Python toolkit for building and analyzing 2D COF stacking-energy landscapes."
 
+[project.scripts]
+cof-landscaper-copy-examples = "coflandscaper._internal.copy_examples:main"
+
 [project.optional-dependencies]
 notebook = [
   "jupyter>=1.1.1",
