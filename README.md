@@ -12,6 +12,7 @@ Researchers interested in applying COF-Landscaper to their own systems are welco
 ## Installation
 
 COF-Landscaper requires Python 3.12.
+
 First open a terminal check whether Python 3.12 is available:
 
 ```bash
@@ -21,7 +22,9 @@ python3.12 --version
 ```
 
 If this command returns a Python 3.12 version, continue with the virtual environment setup below.
+
 If you see an error such as `command not found: python3.12`, install Python 3.12 first.
+
 On macOS, Python 3.12 can be installed with Homebrew:
 
 ```bash
