@@ -12,7 +12,7 @@ Researchers interested in applying COF-Landscaper to their own systems are welco
 ## Installation
 
 COF-Landscaper requires Python 3.12.
-First check whether Python 3.12 is available:
+First open a terminal check whether Python 3.12 is available:
 
 ```bash
 
