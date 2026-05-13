@@ -162,5 +162,8 @@ The `.xyz` files can be prepared using any suitable molecular editor or visualiz
 
 ## Where To Find Explanations
 
-- A stepwise explanation of the computational workflow is provided in the Markdown cells of the example notebook.
-- Methodological details, assumptions, and validation context are documented in the accompanying manuscript [insert link here].
+The full documentation is available on Read the Docs:
+
+[COF-Landscaper documentation](https://cof-landscaper.readthedocs.io/)
+
+Additional stepwise explanations of the computational workflow are provided in the Markdown cells of the example notebooks.
