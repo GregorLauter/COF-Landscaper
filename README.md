@@ -38,12 +38,6 @@ Install PORMAKE, which is required for COF construction.
 pip install "pormake @ git+https://github.com/Sangwon91/PORMAKE.git"
 ```
 
-Check that the installation works.
-
-```bash
-python -c "import coflandscaper as cl; print(cl.__file__)"
-```
-
 ## Running the Notebooks
 
 Install Jupyter support if you want to run the notebooks.
@@ -103,7 +97,7 @@ examples/notebook/
 The notebook versions are:
 
 - `cof-landscaper_configurable.ipynb`: full notebook with Markdown explanations for all configurable options.
-- `cof-landscaper.ipynb`: default workflow notebook with explanations for the default settings.
+- `cof-landscaper_default.ipynb`: default workflow notebook with explanations for the default settings.
 - `cof-landscaper_minimal.ipynb`: minimal code-only workflow for running the notebook without extended explanations.
 
 You can then edit the copied Python script, JSON parameter file, notebook, and input `.xyz` files for your own system.

@@ -8,7 +8,7 @@ build:
     post_create_environment:
       - pip install uv
     post_install:
-      - uv sync --all-extras --dev
+      - uv pip install -e ".[notebook]" "pormake @ git+https://github.com/Sangwon91/PORMAKE.git" sphinx-copybutton furo
 
 sphinx:
   configuration: docs/source/conf.py
