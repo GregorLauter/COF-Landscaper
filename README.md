@@ -13,10 +13,15 @@ Researchers interested in applying COF-Landscaper to their own systems are welco
 
 COF-Landscaper requires Python 3.12.
 
-Create and activate a virtual environment.
+Create a virtual environment.
 
 ```bash
 python3.12 -m venv test-coflandscaper
+```
+
+Activate the virtual environment.
+
+```bash
 source test-coflandscaper/bin/activate
 ```
 
