@@ -175,15 +175,16 @@ In COF-Landscaper, the terms **node** and **linker** refer to the structural fra
 
 The schematic below illustrates this distinction for COF-1:
 
-![COF-1 structure](docs/readme/cof-1.png)
+<p align="center">
+  <img src="docs/readme/cof-1.png" alt="COF-1 structure" width="500">
+</p>
 
-Node fragment used for COF-1 structure generation:
+Node and linker fragments used for COF-1 structure generation:
 
-![COF-1 node fragment](docs/readme/cof-1_node.png)
-
-Linker fragment used for COF-1 structure generation:
-
-![COF-1 linker fragment](docs/readme/cof-1_linker.png)
+<p align="center">
+  <img src="docs/readme/cof-1_node.png" alt="COF-1 node fragment" width="280">
+  <img src="docs/readme/cof-1_linker.png" alt="COF-1 linker fragment" width="280">
+</p>
 
 Supported topologies:
 
