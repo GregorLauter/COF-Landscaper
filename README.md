@@ -13,7 +13,7 @@ Researchers interested in applying COF-Landscaper to their own systems are welco
 
 COF-Landscaper requires Python 3.12.
 
-First open a terminal check whether Python 3.12 is available:
+First open a terminal and check whether Python 3.12 is available:
 
 ```bash
 
@@ -67,32 +67,6 @@ Install PORMAKE, which is required for COF construction.
 pip install "pormake @ git+https://github.com/Sangwon91/PORMAKE.git"
 ```
 
-## Running the Notebooks
-
-Install Jupyter support if you want to run the notebooks.
-
-```bash
-pip install jupyter ipykernel
-```
-
-Register the environment as a Jupyter kernel.
-
-```bash
-python -m ipykernel install --user --name test-coflandscaper --display-name "Python (test-coflandscaper)"
-```
-
-In VS Code or Jupyter, select the kernel:
-
-```text
-Python (test-coflandscaper)
-```
-
-Run a test cell:
-
-```python
-import coflandscaper as cl
-```
-
 ## Example Files
 
 After installation, COF-Landscaper can be imported and used directly in your own Python scripts or notebooks.
@@ -131,6 +105,32 @@ The notebook versions are:
 
 You can then edit the copied Python script, JSON parameter file, notebook, and input `.xyz` files for your own system.
 
+## Running the Notebooks
+
+Install Jupyter support if you want to run the notebooks.
+
+```bash
+pip install jupyter ipykernel
+```
+
+Register the environment as a Jupyter kernel.
+
+```bash
+python -m ipykernel install --user --name test-coflandscaper --display-name "Python (test-coflandscaper)"
+```
+
+In VS Code or Jupyter, select the kernel:
+
+```text
+Python (test-coflandscaper)
+```
+
+Run a test cell:
+
+```python
+import coflandscaper as cl
+```
+
 ## Developer Setup
 
 Install `just`.
@@ -158,9 +158,12 @@ just check
 
 ## Workflow Notes
 
-- The DFT workflow requires additional external HPC infrastructure.
-- The MLIP workflow can be executed fully on a local machine.
-- Workflow diagram:
+- The DFT (Crystal23) workflow requires additional external HPC infrastructure.
+- The MLIP workflow can be executed on a local machine, but GPU access can provide a substantial speedup.
+- For large systems, long screening workflows, or cases where local hardware is limiting, running the workflow on an external GPU or CPU cluster is recommended.
+- If you are interested in applying COF-Landscaper but do not have access to suitable computational resources, feel free to contact me.
+
+Workflow diagram:
 
 ![COF-Landscaper workflow](docs/readme/workflow.png)
 
@@ -168,17 +171,40 @@ just check
 
 The workflow requires building-block fragments provided as `.xyz` files.
 
-Supported topologies are:
+In COF-Landscaper, the terms **node** and **linker** refer to the structural fragments used by the builder to assemble the framework. They do not necessarily correspond one-to-one to synthetic precursors. In practice, the node and linker files should represent the molecular fragments that are connected during structure generation.
 
-- `hcb`
-- `sql`
-- `hcb_ab`
-- `kgm`
+The schematic below illustrates this distinction for COF-1:
+
+![COF-1 structure](docs/readme/cof-1.png)
+
+Node fragment used for COF-1 structure generation:
+
+![COF-1 node fragment](docs/readme/cof-1_node.png)
+
+Linker fragment used for COF-1 structure generation:
+
+![COF-1 linker fragment](docs/readme/cof-1_linker.png)
+
+Supported topologies:
+
+| Topology | Keyword | Description | Node amount | Node connectivity | Linker amount | Linker connectivity |
+|---|---|---|---:|---|---:|---|
+| Honeycomb | `hcb` | standard honeycomb. | 1 | 3 | 1 | 2 |
+| Square lattice | `sql` |  | 1 | 4 | 1 | 2 |
+| Binary honeycomb | `hcb_ab` | two different nodes nodes with no linker inbetween them linker. | 2 | 3 each | 0 | — |
+| Kagome | `kgm` |  | 1 | 4 | 1 | 2 |
+
+### Connection Points
+
+Connection points must be marked with helium atoms (`He`) in the input `.xyz` files.
+
+During preprocessing, COF-Landscaper converts these `He` atoms into pormake-compatible connection points. The number and geometry of the `He` atoms must match the selected topology and the intended connectivity shown in the table above.
 
 Input requirements:
 
 - `hcb`, `sql`, and `kgm` require one node `.xyz` file and one linker `.xyz` file.
 - `hcb_ab` requires two node `.xyz` files and no linker file.
+
 - By default, node files are read from `0_node/`.
 - By default, linker files are read from `0_linker/` when required by the topology.
 - Explicit paths can be provided with `input_nodes=[...]` and `input_linkers=[...]`.

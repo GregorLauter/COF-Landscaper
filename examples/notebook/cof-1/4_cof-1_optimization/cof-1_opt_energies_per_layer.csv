@@ -1,3 +1,3 @@
 structure,stacking_mode,energy_eV_per_layer,energy_rel_eV_per_layer,stopped_due_to_max_steps
-cof-1_z33_L020_incl,incl,-35223.38874674231,0.0,False
-cof-1_z33_L020_serr,serr,-35223.38256673965,0.006180002659675665,False
+cof-1_z33_L030_incl,incl,-31217.20187693651,0.00040132170033757575,False
+cof-1_z33_L030_serr,serr,-31217.20227825821,0.0,False
