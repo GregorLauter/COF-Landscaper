@@ -16,7 +16,6 @@ COF-Landscaper requires Python 3.12.
 First open a terminal and check whether Python 3.12 is available:
 
 ```bash
-
 python3.12 --version
 
 ```
@@ -40,13 +39,13 @@ python3.12 --version
 Create a virtual environment.
 
 ```bash
-python3.12 -m venv test-coflandscaper
+python3.12 -m venv coflandscaper
 ```
 
 Activate the virtual environment.
 
 ```bash
-source test-coflandscaper/bin/activate
+source coflandscaper/bin/activate
 ```
 
 Upgrade pip.
@@ -59,12 +58,6 @@ Install COF-Landscaper from PyPI.
 
 ```bash
 pip install cof-landscaper
-```
-
-Install PORMAKE, which is required for COF construction.
-
-```bash
-pip install "pormake @ git+https://github.com/Sangwon91/PORMAKE.git"
 ```
 
 ## Example Files
@@ -116,13 +109,13 @@ pip install jupyter ipykernel
 Register the environment as a Jupyter kernel.
 
 ```bash
-python -m ipykernel install --user --name test-coflandscaper --display-name "Python (test-coflandscaper)"
+python -m ipykernel install --user --name coflandscaper --display-name "Python (coflandscaper)"
 ```
 
 In VS Code or Jupyter, select the kernel:
 
 ```text
-Python (test-coflandscaper)
+Python (coflandscaper)
 ```
 
 Run a test cell:
@@ -205,7 +198,6 @@ Input requirements:
 
 - `hcb`, `sql`, and `kgm` require one node `.xyz` file and one linker `.xyz` file.
 - `hcb_ab` requires two node `.xyz` files and no linker file.
-
 - By default, node files are read from `0_node/`.
 - By default, linker files are read from `0_linker/` when required by the topology.
 - Explicit paths can be provided with `input_nodes=[...]` and `input_linkers=[...]`.

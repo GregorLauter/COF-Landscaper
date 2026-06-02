@@ -16,6 +16,7 @@ dependencies = [
     "jaxlib<0.5",
     "py3dmol>=2.5.4",
     "pymatgen>=2024.4.12",
+    "pormake>=0.2.3",
     "torch-dftd>=0.5.2",
 ]
 requires-python = "==3.12.*"
@@ -42,7 +43,6 @@ dev = [
   "sphinx-copybutton",
   "furo",
   "twine",
-  "pormake @ git+https://github.com/Sangwon91/PORMAKE.git",
 ]
 
 [project.urls]

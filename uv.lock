@@ -251,6 +251,7 @@ dependencies = [
     { name = "jaxlib" },
     { name = "mace-torch" },
     { name = "numpy" },
+    { name = "pormake" },
     { name = "py3dmol" },
     { name = "pymatgen" },
     { name = "torch-dftd" },
@@ -266,7 +267,6 @@ notebook = [
 dev = [
     { name = "furo" },
     { name = "mypy" },
-    { name = "pormake" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -284,6 +284,7 @@ requires-dist = [
     { name = "jupyter", marker = "extra == 'notebook'", specifier = ">=1.1.1" },
     { name = "mace-torch", specifier = ">=0.3.15" },
     { name = "numpy", specifier = "<2.0" },
+    { name = "pormake", specifier = ">=0.2.3" },
     { name = "py3dmol", specifier = ">=2.5.4" },
     { name = "pymatgen", specifier = ">=2024.4.12" },
     { name = "torch-dftd", specifier = ">=0.5.2" },
@@ -294,7 +295,6 @@ provides-extras = ["notebook"]
 dev = [
     { name = "furo" },
     { name = "mypy" },
-    { name = "pormake", git = "https://github.com/Sangwon91/PORMAKE.git" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -1903,13 +1903,17 @@ wheels = [
 
 [[package]]
 name = "pormake"
-version = "0.2.2"
-source = { git = "https://github.com/Sangwon91/PORMAKE.git#639caad9d315ef6cb4838d0f8e44336d4a41aa7a" }
+version = "0.2.3"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ase" },
     { name = "jax" },
     { name = "networkx" },
     { name = "pymatgen" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a4/f4/c20b66d5ea4d3aac8f37817f764b5571fe97f5b23035654e55199d9335c9/pormake-0.2.3.tar.gz", hash = "sha256:ce8f7338be267fbbb0ee96406effca2ede62448c0264ea550bce16bc68b1ea8a", size = 36302047, upload-time = "2026-05-30T15:02:37.654Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a5/0d/0b3cfeb7d75cf907d2114b25ffa12e6f03938dddd4a2c54eddbd41875cd6/pormake-0.2.3-py3-none-any.whl", hash = "sha256:e49543b511ca5f812d50ece26b8f4a92a66b86950a5bf192f769c6f340152dcf", size = 2278268, upload-time = "2026-05-30T15:02:40.434Z" },
 ]
 
 [[package]]
