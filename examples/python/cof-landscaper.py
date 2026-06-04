@@ -34,7 +34,9 @@ def run_workflow(params: dict[str, object]) -> None:
     show_landscape = bool(params.get("SHOW_LANDSCAPE", False))
     show_title_block = bool(params.get("SHOW_TITLE_BLOCK", False))
     show_minima_markers = bool(params.get("SHOW_MINIMA_MARKERS", True))
-    fix_z = bool(params.get("FIX_Z", True))
+    fix_z = params.get("FIX_Z", True)
+    if not isinstance(fix_z, bool):
+        raise TypeError("FIX_Z must be a boolean (true/false) in JSON.")
 
     input_nodes = cl.utilities.get_optional_path_list(params, "NODES")
     input_linkers = cl.utilities.get_optional_path_list(params, "LINKERS")
@@ -50,8 +52,8 @@ def run_workflow(params: dict[str, object]) -> None:
         input_linkers=input_linkers,
     )
 
-    preopt = cl.MaceOpt(head=mace_head, device=device, fix_z=fix_z)
-    preopt.run_preopt(cof_name=cof_name)
+    preopt = cl.MaceOpt(head=mace_head, device=device)
+    preopt.run_preopt(cof_name=cof_name, fix_z=fix_z)
 
     matrix = cl.CreateMatrix(
         ild_start=ild_start,
