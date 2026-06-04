@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from pymatgen.core import Lattice, Structure
 
 import coflandscaper as cl
 
@@ -207,8 +208,16 @@ def test_ils_defaults_map_hcb_ab_but_not_kgm(
         _output_file: str,
         _ils_length: float,
         _ils_angle_deg: float,
+        explicit_bilayer: bool = False,
     ) -> None:
-        _ = (_self, _input_file, _output_file, _ils_length, _ils_angle_deg)
+        _ = (
+            _self,
+            _input_file,
+            _output_file,
+            _ils_length,
+            _ils_angle_deg,
+            explicit_bilayer,
+        )
 
     def fake_serrated_shift(
         _self: object,
@@ -216,8 +225,16 @@ def test_ils_defaults_map_hcb_ab_but_not_kgm(
         _output_file: str,
         _ils_length: float,
         _ils_angle_deg: float,
+        explicit_bilayer: bool = False,
     ) -> None:
-        _ = (_self, _input_file, _output_file, _ils_length, _ils_angle_deg)
+        _ = (
+            _self,
+            _input_file,
+            _output_file,
+            _ils_length,
+            _ils_angle_deg,
+            explicit_bilayer,
+        )
 
     monkeypatch.setattr(module, "default_shift_from_cif", fake_default_shift)
     monkeypatch.setattr(cl.IlsIncl, "_inclined_shift", fake_inclined_shift)
@@ -235,3 +252,191 @@ def test_ils_defaults_map_hcb_ab_but_not_kgm(
     )
 
     assert seen == ["hcb", "kgm"]
+
+
+@pytest.mark.unit
+def test_serrated_explicit_bilayer_shifts_only_top_layer(
+    tmp_path: Path,
+) -> None:
+    input_cif = tmp_path / "in.cif"
+    output_cif = tmp_path / "out.cif"
+
+    struct = Structure(
+        lattice=Lattice.cubic(20.0),
+        species=["C", "C", "C", "C"],
+        coords=[
+            [0.10, 0.10, 0.496],
+            [0.30, 0.10, 0.250],
+            [0.10, 0.10, 0.504],
+            [0.30, 0.10, 0.750],
+        ],
+        coords_are_cartesian=False,
+    )
+    struct.to(filename=str(input_cif))
+
+    cl.IlsSerr()._shift_serrated(
+        input_file=str(input_cif),
+        output_file=str(output_cif),
+        ils_length=1.0,
+        ils_angle_deg=0.0,
+        explicit_bilayer=True,
+    )
+
+    out = Structure.from_file(str(output_cif))
+    assert len(out) == len(struct)
+
+    in_cart = np.array(struct.cart_coords)
+    out_cart = np.array(out.cart_coords)
+    top_mask = np.array(struct.frac_coords[:, 2], dtype=float) > 0.5
+    assert np.allclose(out_cart[top_mask, 0], in_cart[top_mask, 0] + 1.0)
+    assert np.allclose(out_cart[top_mask, 1:], in_cart[top_mask, 1:])
+    assert np.allclose(out_cart[~top_mask], in_cart[~top_mask])
+
+
+@pytest.mark.unit
+def test_inclined_explicit_bilayer_shifts_only_top_and_keeps_count(
+    tmp_path: Path,
+) -> None:
+    input_cif = tmp_path / "in.cif"
+    output_cif = tmp_path / "out.cif"
+
+    struct = Structure(
+        lattice=Lattice.cubic(20.0),
+        species=["C", "C", "C", "C"],
+        coords=[
+            [0.10, 0.10, 0.496],
+            [0.30, 0.10, 0.250],
+            [0.10, 0.10, 0.504],
+            [0.30, 0.10, 0.750],
+        ],
+        coords_are_cartesian=False,
+    )
+    struct.to(filename=str(input_cif))
+
+    cl.IlsIncl()._inclined_shift(
+        input_file=str(input_cif),
+        output_file=str(output_cif),
+        ils_length=1.0,
+        ils_angle_deg=0.0,
+        explicit_bilayer=True,
+    )
+
+    out = Structure.from_file(str(output_cif))
+    assert len(out) == len(struct)
+
+    in_frac = np.array(struct.frac_coords, dtype=float)
+    out_frac = np.array(out.frac_coords, dtype=float)
+    top_mask = in_frac[:, 2] > 0.5
+    # y and z fractional coordinates are preserved for all atoms.
+    assert np.allclose(out_frac[:, 1], in_frac[:, 1])
+    assert np.allclose(out_frac[:, 2], in_frac[:, 2])
+
+    dx = out_frac[:, 0] - in_frac[:, 0]
+    # With tilted c-vector, all fractional x values shift, but top and bottom
+    # layers move in opposite directions when only top-layer cartesian x is shifted.
+    assert float(np.mean(dx[top_mask])) > 0.0
+    assert float(np.mean(dx[~top_mask])) < 0.0
+
+
+@pytest.mark.unit
+def test_create_matrix_forwards_explicit_bilayer_flag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cof_name = "cof-x"
+    single_layer = tmp_path / cof_name / f"1_{cof_name}_single_layer"
+    single_layer.mkdir(parents=True)
+    input_cif = single_layer / f"{cof_name}_preopt.cif"
+    input_cif.write_text("data_test\n", encoding="utf-8")
+
+    module = importlib.import_module(cl.CreateMatrix.__module__)
+    seen: list[tuple[str, bool]] = []
+
+    def fake_change_ild_run(
+        _self: object,
+        input_folder: str,
+        output_folder: str,
+        ild_start: float = 3.0,
+        ild_end: float = 4.5,
+        ild_step: float = 0.1,
+        force_invalid_ild: bool = False,
+        explicit_bilayer: bool = False,
+    ) -> None:
+        _ = (
+            ild_start,
+            ild_end,
+            ild_step,
+            force_invalid_ild,
+            explicit_bilayer,
+        )
+        for cif in Path(input_folder).glob("*.cif"):
+            (Path(output_folder) / cif.name).write_text(
+                cif.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+    def fake_incl_run(
+        _self: object,
+        input_folder: str,
+        output_folder: str,
+        topo: str,
+        cof_name: str | None = None,
+        ils_length_start: float = 0.0,
+        ils_length_end: float | None = None,
+        ils_length_step: float = 1.0,
+        ils_angle: float | None = None,
+        print_shift: bool = False,
+        explicit_bilayer: bool = False,
+    ) -> None:
+        _ = (
+            input_folder,
+            output_folder,
+            topo,
+            cof_name,
+            ils_length_start,
+            ils_length_end,
+            ils_length_step,
+            ils_angle,
+            print_shift,
+        )
+        seen.append(("incl", explicit_bilayer))
+
+    def fake_serr_run(
+        _self: object,
+        input_folder: str,
+        output_folder: str,
+        topo: str,
+        cof_name: str | None = None,
+        ils_length_step: float = 1.0,
+        ils_length_start: float = 0.0,
+        ils_length_end: float | None = None,
+        ils_angle: float | None = None,
+        print_shift: bool = False,
+        explicit_bilayer: bool = False,
+    ) -> None:
+        _ = (
+            input_folder,
+            output_folder,
+            topo,
+            cof_name,
+            ils_length_step,
+            ils_length_start,
+            ils_length_end,
+            ils_angle,
+            print_shift,
+        )
+        seen.append(("serr", explicit_bilayer))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(module.ChangeIld, "run", fake_change_ild_run)
+    monkeypatch.setattr(module.IlsIncl, "run", fake_incl_run)
+    monkeypatch.setattr(module.IlsSerr, "run", fake_serr_run)
+
+    cl.CreateMatrix(explicit_bilayer=True).run(
+        cof_name=cof_name,
+        topo="sql",
+        mode="both",
+    )
+
+    assert ("incl", True) in seen
+    assert ("serr", True) in seen

@@ -6,7 +6,7 @@ from coflandscaper._internal.analyze import (
     Supercell,
     VisualizeCOF,
 )
-from coflandscaper._internal.build_cof_2d import BuildCOF2D
+from coflandscaper._internal.build_cof_2d import BuildCOF2D, combine_single_layers
 from coflandscaper._internal.dft import (
     Crystal,
     CrystalOpt,
@@ -65,6 +65,7 @@ __all__ = [
     "VisualizeCOF",
     "ab_half_diagonal_from_cif",
     "calculator_settings_for_head",
+    "combine_single_layers",
     "default_shift_from_cif",
     "extract_atoms",
     "find_last_occurrence",

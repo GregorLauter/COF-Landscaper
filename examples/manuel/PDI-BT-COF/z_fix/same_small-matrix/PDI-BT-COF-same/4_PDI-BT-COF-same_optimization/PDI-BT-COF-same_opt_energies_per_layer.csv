@@ -1,0 +1,3 @@
+structure,stacking_mode,energy_eV_per_layer,energy_rel_eV_per_layer,stopped_due_to_max_steps
+PDI-BT-COF-same_z37_L000_incl,incl,-155809.8014771478,0.963667904085014,False
+PDI-BT-COF-same_z37_L000_serr,serr,-155810.76514505188,0.0,True

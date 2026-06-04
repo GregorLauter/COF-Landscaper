@@ -30,6 +30,113 @@ from .ild_ils_utils import (
 )
 
 
+def _compact_unwrap_fractional_1d(fz_values: np.ndarray) -> tuple[np.ndarray, float]:
+    """Compactly unwrap 1D fractional z coordinates using the largest gap.
+
+    Returns the unwrapped coordinates in [0, 1) relative to the coordinate
+    after the largest periodic gap, and that local start coordinate.
+    """
+    fz_mod = np.mod(np.asarray(fz_values, dtype=float), 1.0)
+    if fz_mod.size == 0:
+        raise ValueError("Cannot unwrap an empty coordinate set.")
+    if fz_mod.size == 1:
+        return np.zeros(1, dtype=float), float(fz_mod[0])
+
+    fz_sorted = np.sort(fz_mod)
+    gaps = np.diff(fz_sorted)
+    wrap_gap = (fz_sorted[0] + 1.0) - fz_sorted[-1]
+    all_gaps = np.concatenate([gaps, np.array([wrap_gap])])
+    largest_gap_idx = int(np.argmax(all_gaps))
+    start = float(fz_sorted[(largest_gap_idx + 1) % fz_sorted.size])
+    z_rel_frac = np.mod(fz_mod - start, 1.0)
+    return z_rel_frac, start
+
+
+def _explicit_bilayer_cluster_masks(
+    struct: Structure,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Detect bottom/top layer masks from periodic z clustering.
+
+    Layers are split by the two largest periodic gaps in sorted fractional z,
+    then ordered as bottom/top by compact layer centers in a global unwrapped
+    frame.
+    """
+    fz = np.mod(np.asarray(struct.frac_coords[:, 2], dtype=float), 1.0)
+    n_atoms = fz.size
+    if n_atoms < 2:
+        raise ValueError("Explicit bilayer requires at least two atoms.")
+
+    order = np.argsort(fz)
+    fz_sorted = fz[order]
+    gaps = np.diff(fz_sorted)
+    wrap_gap = (fz_sorted[0] + 1.0) - fz_sorted[-1]
+    all_gaps = np.concatenate([gaps, np.array([wrap_gap])])
+
+    largest_two = np.argsort(all_gaps)[-2:]
+    cut_a = int((int(largest_two[0]) + 1) % n_atoms)
+    cut_b = int((int(largest_two[1]) + 1) % n_atoms)
+    if cut_a == cut_b:
+        raise ValueError("Could not identify two distinct layer boundaries.")
+
+    def _segment(start: int, end: int) -> list[int]:
+        out: list[int] = []
+        i = start
+        while i != end:
+            out.append(i)
+            i = (i + 1) % n_atoms
+        return out
+
+    seg1_pos = _segment(cut_a, cut_b)
+    seg2_pos = _segment(cut_b, cut_a)
+    if not seg1_pos or not seg2_pos:
+        raise ValueError("Degenerate explicit-bilayer clustering; empty layer detected.")
+
+    mask1 = np.zeros(n_atoms, dtype=bool)
+    mask2 = np.zeros(n_atoms, dtype=bool)
+    mask1[order[np.array(seg1_pos, dtype=int)]] = True
+    mask2[order[np.array(seg2_pos, dtype=int)]] = True
+
+    _all_rel, global_start = _compact_unwrap_fractional_1d(fz)
+
+    def _layer_center_rel(mask: np.ndarray) -> float:
+        z_rel_frac, layer_start = _compact_unwrap_fractional_1d(fz[mask])
+        z_mid_rel = 0.5 * (float(np.min(z_rel_frac)) + float(np.max(z_rel_frac)))
+        center_abs = (layer_start + z_mid_rel) % 1.0
+        return float((center_abs - global_start) % 1.0)
+
+    c1 = _layer_center_rel(mask1)
+    c2 = _layer_center_rel(mask2)
+
+    if c1 <= c2:
+        return mask1, mask2
+    return mask2, mask1
+
+
+def _compact_layer_offsets_from_fractional_z(
+    fz_layer: np.ndarray,
+    z_len_old: float,
+) -> tuple[np.ndarray, float]:
+    """Return compact cartesian offsets and thickness for one layer.
+
+    The compact frame is defined by finding the largest periodic gap on the
+    modulo-wrapped fractional z coordinates and taking the coordinate just
+    after that gap as the local origin.
+    """
+    if np.asarray(fz_layer, dtype=float).size == 0:
+        raise ValueError("Layer contains no atoms.")
+    if np.asarray(fz_layer, dtype=float).size == 1:
+        return np.zeros(1, dtype=float), 0.0
+
+    z_rel_frac, _start = _compact_unwrap_fractional_1d(fz_layer)
+    z_rel_cart = z_rel_frac * z_len_old
+    z_min = float(np.min(z_rel_cart))
+    z_max = float(np.max(z_rel_cart))
+    thickness = z_max - z_min
+    z_mid = 0.5 * (z_min + z_max)
+    dz = z_rel_cart - z_mid
+    return dz, thickness
+
+
 class ChangeIld:
     """Generate ILD variations by rescaling the layer separation along $z$.
 
@@ -47,6 +154,7 @@ class ChangeIld:
         ild_end: float = 4.5,
         ild_step: float = 0.1,
         force_invalid_ild: bool = False,
+        explicit_bilayer: bool = False,
     ) -> None:
         """Scan interlayer distances and write updated CIFs.
 
@@ -58,6 +166,12 @@ class ChangeIld:
             ild_step: Step size in Å. Defaults to `0.1`.
             force_invalid_ild: If `True`, continue even when the requested
                 ILD is smaller than the slab thickness, emitting a warning.
+                Defaults to `False`.
+            explicit_bilayer: If `True`, treat input as an explicit bilayer
+                and define layer identity from periodic z clustering.
+                Requested ILD is the layer reference-plane spacing (not free
+                vacuum gap), so target
+                c-length is `2 * requested_ild`.
                 Defaults to `False`.
 
         Raises:
@@ -77,6 +191,7 @@ class ChangeIld:
                     outpath,
                     float(new_z),
                     force_invalid_ild=force_invalid_ild,
+                    explicit_bilayer=explicit_bilayer,
                 )
 
     def _change_interlayer_distance(
@@ -85,6 +200,7 @@ class ChangeIld:
         output_file: str,
         new_z: float,
         force_invalid_ild: bool = False,
+        explicit_bilayer: bool = False,
     ) -> None:
         """Write one CIF with a rescaled $z$ lattice vector.
 
@@ -95,6 +211,14 @@ class ChangeIld:
             force_invalid_ild: If `True`, continue even when the requested
                 ILD is smaller than the slab thickness, emitting a warning.
                 Defaults to `False`.
+            explicit_bilayer: If `True`, treat `new_z` as the layer-to-layer
+                repeat distance for an already explicit bilayer, so target
+                c-length is `2 * new_z` with layers repacked around fractional
+                z of 0.25 and 0.75. Layer identity is obtained from periodic
+                z clustering. In this mode `new_z`
+                represents reference-plane spacing, not free gap. Layer
+                thickness/offsets are computed directly from fractional z
+                within each detected layer.
 
         Raises:
             ValueError: If the requested ILD cannot accommodate the slab and
@@ -111,21 +235,67 @@ class ChangeIld:
         fz_unwrapped = np.mod(fz - z0, 1.0)
         thickness = (np.max(fz_unwrapped) - np.min(fz_unwrapped)) * z_len_old
 
-        if new_z < thickness:
-            message = (
-                f"Requested ILD {new_z:.4f} Å is smaller than slab thickness "
-                f"{thickness:.4f} Å; periodic layers may overlap."
-            )
-            if force_invalid_ild:
-                warnings.warn(message, UserWarning, stacklevel=2)
-            else:
-                raise ValueError(
-                    f"New ILD {new_z:.4f} Å < slab thickness {thickness:.4f} Å; cannot fit."
+        if explicit_bilayer:
+            target_z = 2.0 * new_z
+        else:
+            if new_z < thickness:
+                message = (
+                    f"Requested ILD {new_z:.4f} Å is smaller than slab thickness "
+                    f"{thickness:.4f} Å; periodic layers may overlap."
                 )
+                if force_invalid_ild:
+                    warnings.warn(message, UserWarning, stacklevel=2)
+                else:
+                    raise ValueError(
+                        f"New ILD {new_z:.4f} Å < slab thickness {thickness:.4f} Å; cannot fit."
+                    )
+            target_z = new_z
 
-        scale_factor = new_z / z_len_old
+        scale_factor = target_z / z_len_old
         new_c_vec = c_vec_old * scale_factor
         lat_new = Lattice([a_vec, b_vec, new_c_vec])
+
+        if explicit_bilayer:
+            if target_z <= 0.0:
+                raise ValueError("Target ILD/c length must be positive.")
+
+            frac_old = np.array(struct.frac_coords, dtype=float)
+            bottom_mask, top_mask = _explicit_bilayer_cluster_masks(struct)
+
+            dz_bottom, thickness_bottom = _compact_layer_offsets_from_fractional_z(
+                frac_old[bottom_mask, 2], z_len_old
+            )
+            dz_top, thickness_top = _compact_layer_offsets_from_fractional_z(
+                frac_old[top_mask, 2], z_len_old
+            )
+            required_ild = max(thickness_bottom, thickness_top)
+            if new_z < required_ild:
+                message = (
+                    f"New ILD {new_z:.4f} Å < slab thickness {required_ild:.4f} Å; cannot fit."
+                )
+                if force_invalid_ild:
+                    warnings.warn(message, UserWarning, stacklevel=2)
+                else:
+                    raise ValueError(message)
+
+            z_final = np.empty(frac_old.shape[0], dtype=float)
+            z_final[bottom_mask] = 0.25 * target_z + dz_bottom
+            z_final[top_mask] = 0.75 * target_z + dz_top
+
+            fz_final = z_final / target_z
+
+            fx = np.mod(frac_old[:, 0], 1.0)
+            fy = np.mod(frac_old[:, 1], 1.0)
+            frac_final = np.column_stack([fx, fy, fz_final])
+
+            new_struct = Structure(
+                lattice=lat_new,
+                species=struct.species,
+                coords=frac_final.tolist(),
+                coords_are_cartesian=False,
+            )
+            CifWriter(new_struct).write_file(output_file, mode="wt")
+            return
 
         frac_raw = lat_new.get_fractional_coords(struct.cart_coords)
         fz_new = frac_raw[:, 2]
@@ -167,6 +337,7 @@ class IlsSerr:
         ils_length_end: float | None = None,
         ils_angle: float | None = None,
         print_shift: bool = False,
+        explicit_bilayer: bool = False,
     ) -> None:
         """Generate serrated ILS variants for each input CIF.
 
@@ -184,6 +355,12 @@ class IlsSerr:
             ils_angle: Slip direction angle in degrees. Defaults to `None`
                 (auto-computed from AB shift).
             print_shift: If `True`, print auto-computed default shift values.
+                Defaults to `False`.
+            explicit_bilayer: If `True`, treat inputs as already-explicit
+                bilayers and shift only the existing top layer without
+                creating a z supercell. `ChangeIld` canonicalizes explicit
+                bilayers to lower/upper layer centers near 0.25/0.75
+                fractional z, so ILS selects the top layer with `z > 0.5`.
                 Defaults to `False`.
 
         Raises:
@@ -221,7 +398,13 @@ class IlsSerr:
                 else:
                     outname = f"{base}_ser_{tag}.cif"
                 outpath = os.path.join(output_folder, outname)
-                self._shift_serrated(input_file, outpath, slen, ils_angle)
+                self._shift_serrated(
+                    input_file,
+                    outpath,
+                    slen,
+                    ils_angle,
+                    explicit_bilayer=explicit_bilayer,
+                )
 
     def _shift_serrated(
         self,
@@ -229,6 +412,7 @@ class IlsSerr:
         output_file: str,
         ils_length: float,
         ils_angle_deg: float,
+        explicit_bilayer: bool = False,
     ) -> None:
         """Write a serrated bilayer CIF with a shifted upper layer.
 
@@ -237,9 +421,12 @@ class IlsSerr:
             output_file: Output CIF path.
             ils_length: Slip length in Å.
             ils_angle_deg: Slip direction angle in degrees.
+            explicit_bilayer: If `True`, do not create a z supercell and
+                shift only the top layer in the existing bilayer. Layer
+                identity uses canonical split `fractional z > 0.5` after
+                explicit-bilayer `ChangeIld` canonicalization.
         """
         struct = Structure.from_file(input_file)
-        supercell = struct * (1, 1, 2)
 
         angle_rad = math.radians(ils_angle_deg)
         shift_cart = np.array(
@@ -249,23 +436,50 @@ class IlsSerr:
                 0.0,
             ]
         )
-        fx, fy, _ = supercell.lattice.get_fractional_coords(shift_cart)
+        if explicit_bilayer:
+            frac_z = np.mod(np.array(struct.frac_coords[:, 2], dtype=float), 1.0)
+            top_mask = frac_z > 0.5
+            fx, fy, _ = struct.lattice.get_fractional_coords(shift_cart)
 
-        mid_z = 0.5
-        new_frac = []
-        for site in supercell.sites:
-            f = np.array(site.frac_coords, dtype=float)
-            if f[2] > mid_z:
-                f[0] += fx
-                f[1] += fy
-            new_frac.append(np.mod(f, 1.0))
+            new_frac = []
+            for idx, site in enumerate(struct.sites):
+                f = np.array(site.frac_coords, dtype=float)
+                if top_mask[idx]:
+                    f[0] += fx
+                    f[1] += fy
+                f[0] = np.mod(f[0], 1.0)
+                f[1] = np.mod(f[1], 1.0)
+                new_frac.append(f)
 
-        out = Structure(
-            lattice=supercell.lattice,
-            species=supercell.species,
-            coords=new_frac,
-            coords_are_cartesian=False,
-        )
+            out = Structure(
+                lattice=struct.lattice,
+                species=struct.species,
+                coords=new_frac,
+                coords_are_cartesian=False,
+            )
+            if len(out) != len(struct):
+                raise ValueError(
+                    "Explicit bilayer serrated output atom count mismatch."
+                )
+        else:
+            supercell = struct * (1, 1, 2)
+            fx, fy, _ = supercell.lattice.get_fractional_coords(shift_cart)
+
+            mid_z = 0.5
+            new_frac = []
+            for site in supercell.sites:
+                f = np.array(site.frac_coords, dtype=float)
+                if f[2] > mid_z:
+                    f[0] += fx
+                    f[1] += fy
+                new_frac.append(np.mod(f, 1.0))
+
+            out = Structure(
+                lattice=supercell.lattice,
+                species=supercell.species,
+                coords=new_frac,
+                coords_are_cartesian=False,
+            )
         CifWriter(out).write_file(output_file, mode="wt")
 
 
@@ -289,6 +503,7 @@ class IlsIncl:
         ils_length_step: float = 1.0,
         ils_angle: float | None = None,
         print_shift: bool = False,
+        explicit_bilayer: bool = False,
     ) -> None:
         """Generate inclined ILS variants for each input CIF.
 
@@ -306,6 +521,12 @@ class IlsIncl:
             ils_angle: Slip direction angle in degrees. Defaults to `None`
                 (auto-computed from AB shift).
             print_shift: If `True`, print auto-computed default shift values.
+                Defaults to `False`.
+            explicit_bilayer: If `True`, treat inputs as already-explicit
+                bilayers and shift only the existing top layer while applying
+                the inclined c-vector tilt. `ChangeIld` canonicalizes explicit
+                bilayers to lower/upper layer centers near 0.25/0.75
+                fractional z, so ILS selects the top layer with `z > 0.5`.
                 Defaults to `False`.
 
         Raises:
@@ -343,7 +564,13 @@ class IlsIncl:
                 else:
                     outname = f"{base}_inc_{tag}.cif"
                 outpath = os.path.join(output_folder, outname)
-                self._inclined_shift(input_file, outpath, ilen, ils_angle)
+                self._inclined_shift(
+                    input_file,
+                    outpath,
+                    ilen,
+                    ils_angle,
+                    explicit_bilayer=explicit_bilayer,
+                )
 
     def _inclined_shift(
         self,
@@ -351,6 +578,7 @@ class IlsIncl:
         output_file: str,
         ils_length: float,
         ils_angle_deg: float,
+        explicit_bilayer: bool = False,
     ) -> None:
         """Write an inclined CIF by tilting the $c$ lattice vector.
 
@@ -359,6 +587,10 @@ class IlsIncl:
             output_file: Output CIF path.
             ils_length: Slip length in Å.
             ils_angle_deg: Slip direction angle in degrees.
+            explicit_bilayer: If `True`, shift only top-layer atoms in the
+                existing bilayer before applying the inclined c-vector tilt.
+                Layer identity uses canonical split `fractional z > 0.5`
+                after explicit-bilayer `ChangeIld` canonicalization.
         """
         struct = Structure.from_file(input_file)
 
@@ -372,7 +604,12 @@ class IlsIncl:
         new_c_vec = [x_shift, y_shift, c_len]
         new_lattice = Lattice([a_vec, b_vec, new_c_vec])
 
-        cart_coords = struct.cart_coords
+        cart_coords = np.array(struct.cart_coords, dtype=float)
+        if explicit_bilayer:
+            frac_z = np.mod(np.array(struct.frac_coords[:, 2], dtype=float), 1.0)
+            top_mask = frac_z > 0.5
+            cart_coords[top_mask, 0] += x_shift
+            cart_coords[top_mask, 1] += y_shift
         new_frac = new_lattice.get_fractional_coords(cart_coords)
 
         new_struct = Structure(
@@ -381,6 +618,10 @@ class IlsIncl:
             coords=new_frac.tolist(),
             coords_are_cartesian=False,
         )
+        if explicit_bilayer and len(new_struct) != len(struct):
+            raise ValueError(
+                "Explicit bilayer inclined output atom count mismatch."
+            )
         CifWriter(new_struct).write_file(output_file, mode="wt")
 
 
@@ -412,6 +653,7 @@ class CreateMatrix:
         ils_angle: float | None = None,
         print_shift: bool = False,
         force_invalid_ild: bool = False,
+        explicit_bilayer: bool = False,
     ) -> None:
         """Configure the ILD×ILS scan parameters.
 
@@ -430,6 +672,12 @@ class CreateMatrix:
             force_invalid_ild: If `True`, continue even when the requested ILD
                 is smaller than the slab thickness, emitting a warning.
                 Defaults to `False`.
+            explicit_bilayer: If `True`, treat inputs as already-explicit
+                bilayers for ILS generation (no z supercell in serrated mode;
+                top-layer-only shifts). Layer identity uses canonical split
+                `fractional z > 0.5` after explicit-bilayer `ChangeIld`
+                canonicalization.
+                Defaults to `False`.
         """
         self._ild_start = ild_start
         self._ild_end = ild_end
@@ -440,6 +688,7 @@ class CreateMatrix:
         self._ils_angle = ils_angle
         self._print_shift = print_shift
         self._force_invalid_ild = force_invalid_ild
+        self._explicit_bilayer = explicit_bilayer
 
     def run(
         self,
@@ -500,6 +749,7 @@ class CreateMatrix:
                 ild_end=self._ild_end,
                 ild_step=self._ild_step,
                 force_invalid_ild=self._force_invalid_ild,
+                explicit_bilayer=self._explicit_bilayer,
             )
 
             if mode in {"incl", "both"}:
@@ -514,6 +764,7 @@ class CreateMatrix:
                     ils_length_step=self._ils_length_step,
                     ils_angle=self._ils_angle,
                     print_shift=self._print_shift,
+                    explicit_bilayer=self._explicit_bilayer,
                 )
 
             if mode in {"serr", "both"}:
@@ -528,4 +779,5 @@ class CreateMatrix:
                     ils_length_step=self._ils_length_step,
                     ils_angle=self._ils_angle,
                     print_shift=self._print_shift,
+                    explicit_bilayer=self._explicit_bilayer,
                 )

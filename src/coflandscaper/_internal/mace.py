@@ -654,9 +654,7 @@ class MaceOpt(Mace):
                     atoms.calc = self.calc
                     energy_ev = float(atoms.get_potential_energy())
                     # Serrated mode stores a bilayer; report per-layer energy.
-                    energy_ev_per_layer = (
-                        energy_ev / 2.0 if mode_tag == "serr" else energy_ev
-                    )
+                    energy_ev_per_layer = energy_ev / 2.0
                     rows.append(
                         {
                             "structure": cif_path.stem,

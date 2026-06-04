@@ -1,0 +1,52 @@
+The following modules were not unloaded:
+  (Use "module --force purge" to unload all):
+
+  1) gentoo/2023
+Job started on trig0031
+Working directory: /scratch/lauter/manuel/PDI-BT-COF/z_fix/same_small-matrix
+Python: /home/lauter/venvs/cof-landscaper-dev/bin/python
+Python 3.12.4
+CUDA available: True
+CUDA device count: 1
+Job finished on Thu 04 Jun 2026 03:08:49 AM EDT
+
+scontrol show job 567308
+JobId=567308 JobName=cof-landscaper
+   UserId=lauter(3158757) GroupId=lauter(3158757) MCS_label=N/A
+   Priority=1549650 Nice=0 Account=ctb-moosavi5 QOS=normal
+   JobState=COMPLETING Reason=None Dependency=(null)
+   Requeue=0 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0
+   RunTime=00:12:47 TimeLimit=00:30:00 TimeMin=N/A
+   SubmitTime=2026-06-04T02:55:37 EligibleTime=2026-06-04T02:55:37
+   AccrueTime=2026-06-04T02:55:37
+   StartTime=2026-06-04T02:56:02 EndTime=2026-06-04T03:08:49 Deadline=N/A
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-06-04T02:56:02 Scheduler=Backfill
+   Partition=compute AllocNode:Sid=trig-login01:2452947
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=trig0031
+   BatchHost=trig0031
+   NumNodes=1 NumCPUs=8 NumTasks=1 CPUs/Task=8 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=8,mem=192500M,node=1,billing=1,gres/gpu=1
+   AllocTRES=cpu=8,mem=192500M,node=1,billing=1,gres/gpu=1
+   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
+   MinCPUsNode=8 MinMemoryNode=192500M MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/scratch/lauter/manuel/PDI-BT-COF/z_fix/same_small-matrix/submit.sh
+   SubmitLine=SBATCH --comment /opt/slurm/bin/sbatch --export=NONE --get-user-env submit.sh --export=NONE --get-user-env submit.sh
+   WorkDir=/scratch/lauter/manuel/PDI-BT-COF/z_fix/same_small-matrix
+   Comment=/opt/slurm/bin/sbatch --export=NONE --get-user-env submit.sh
+   StdErr=/scratch/lauter/manuel/PDI-BT-COF/z_fix/same_small-matrix/slurm-567308.log
+   StdIn=/dev/null
+   StdOut=/scratch/lauter/manuel/PDI-BT-COF/z_fix/same_small-matrix/slurm-567308.log
+   TresPerNode=gres/gpu:h100:1
+   TresPerTask=cpu=8
+   MailUser=lauter@scinet.local MailType=FAIL
+
+sacct -j 567308
+JobID           JobName    Account    Elapsed  MaxVMSize     MaxRSS  SystemCPU    UserCPU ExitCode 
+------------ ---------- ---------- ---------- ---------- ---------- ---------- ---------- -------- 
+567308       cof-lands+ ctb-moosa+   00:12:47                         00:00:00   00:00:00      0:0 
+567308.batch      batch ctb-moosa+   00:12:47                         00:00:00   00:00:00      0:0 
+567308.exte+     extern ctb-moosa+   00:12:47                         00:00:00   00:00:00      0:0 
+

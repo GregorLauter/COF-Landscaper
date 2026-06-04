@@ -36,6 +36,9 @@ TOPOLOGY_INPUT_COUNTS = {
     "kgm": {"nodes": 1, "linkers": 1},
 }
 
+# Captured during _prepare_xyz_files: source stem -> anchor local indices.
+_ANCHOR_LOCAL_INDICES_BY_STEM: dict[str, list[int]] = {}
+
 
 def _package_topology_dir() -> Path:
     """Return the package-local topology directory path.
@@ -390,23 +393,7 @@ class CofLandscaperBuilder(pm.Builder):
                 topo_normal,
             )
 
-        bb_atoms_list = [v.atoms for v in located_bbs if v is not None]
-        if not bb_atoms_list:
-            return
-
-        updated_atoms = bb_atoms_list[0].copy()
-        for bb_atoms in bb_atoms_list[1:]:
-            updated_atoms += bb_atoms
-        updated_atoms.set_pbc(True)
-        updated_atoms.set_cell(topology.atoms.cell)
-        del updated_atoms[[a.symbol == "X" for a in updated_atoms]]
-
-        if len(updated_atoms) != len(framework.atoms):
-            raise ValueError(
-                "Aligned atom count mismatch after removing connection atoms."
-            )
-
-        framework.atoms.positions[:] = updated_atoms.positions
+        _rebuild_framework_atoms_from_located_bbs(framework)
 
 
 def _disable_pormake_file_logging() -> None:
@@ -460,7 +447,7 @@ def _infer_connectivity(
     mult: float = 1.1,
 ) -> list[tuple[int, int]]:
     """Infer undirected atom connectivity using ASE covalent-radius cutoffs."""
-    cutoffs = natural_cutoffs(atoms, mult=mult)
+    cutoffs = natural_cutoffs(atoms, mult=cast("Any", mult))
     nl = NeighborList(cutoffs, self_interaction=False, bothways=True)
     nl.update(atoms)
 
@@ -538,6 +525,44 @@ def _prepare_xyz(input_folder: str, output_folder: str) -> list[str]:
     return _prepare_xyz_files(xyz_files, output_folder)
 
 
+def _extract_anchor_local_indices(
+    x_indices: Sequence[int],
+    bonds: Sequence[tuple[int, int]],
+) -> list[int]:
+    """Map each connection-site index to its bonded real-atom index.
+
+    Args:
+        x_indices: Indices of connection-site atoms (former He, now X/H markers).
+        bonds: Bond list over the preprocessed atom indices.
+
+    Returns:
+        Anchor local indices in the same order as `x_indices`.
+
+    Raises:
+        ValueError: If an X atom does not have exactly one bonded real atom.
+    """
+    x_set = set(x_indices)
+    anchors: list[int] = []
+    for x_idx in x_indices:
+        neighbors = [
+            j
+            for i, j in bonds
+            if i == x_idx and j not in x_set
+        ] + [
+            i
+            for i, j in bonds
+            if j == x_idx and i not in x_set
+        ]
+        unique_neighbors = sorted(set(neighbors))
+        if len(unique_neighbors) != 1:
+            raise ValueError(
+                "Each connection-site atom must have exactly one bonded real atom; "
+                f"index {x_idx} has neighbors {unique_neighbors}."
+            )
+        anchors.append(unique_neighbors[0])
+    return anchors
+
+
 def _prepare_xyz_files(
     xyz_files: list[str],
     output_folder: str,
@@ -557,6 +582,8 @@ def _prepare_xyz_files(
         atoms = cast("Atoms", ase.io.read(path))
         updated_atoms, x_indices = _replace_atoms(atoms, "He", "H")
         bonds = _infer_connectivity(updated_atoms)
+        anchor_local_indices = _extract_anchor_local_indices(x_indices, bonds)
+        _ANCHOR_LOCAL_INDICES_BY_STEM[Path(path).stem] = anchor_local_indices
 
         base_filename = os.path.basename(os.path.splitext(path)[0] + ".xyz")
         out_path = os.path.join(output_folder, base_filename)
@@ -695,6 +722,9 @@ def _build_cof(
     linker_paths: Sequence[str],
     output_folder: str,
     cof_name: str | None = None,
+    linker_anchor_local_indices: list[int] | None = None,
+    linker_flip: bool = False,
+    output_filename: str | None = None,
 ) -> str:
     """Build one COF structure and write the unoptimized CIF to disk.
 
@@ -705,6 +735,11 @@ def _build_cof(
         output_folder: Output folder for CIF.
         cof_name: Optional COF name for output filename. Defaults to `None`
             (filename falls back to node/linker stems).
+        linker_anchor_local_indices: Local linker anchor indices derived during
+            XYZ preprocessing.
+        linker_flip: If `True`, rotate each placed linker building block by
+            180° around its local anchor axis.
+        output_filename: Explicit output filename override. Defaults to `None`.
 
     Returns:
         Path to the written CIF file.
@@ -744,7 +779,19 @@ def _build_cof(
             edge_bbs=edge_bbs,
         )
 
-    if cof_name:
+    if linker_flip:
+        if linker_anchor_local_indices is None:
+            raise ValueError(
+                "Cannot flip linkers without linker anchor local indices."
+            )
+        _flip_framework_linkers(
+            framework=cof,
+            anchor_local_indices=linker_anchor_local_indices,
+        )
+
+    if output_filename:
+        filename = output_filename
+    elif cof_name:
         filename = f"{cof_name}_unopt.cif"
     elif linker_paths:
         node_name = Path(node_paths[0]).stem
@@ -763,6 +810,89 @@ def _build_cof(
         )
         centered.to(filename=output_filename)
     return output_filename
+
+
+def _flip_linker_building_block(
+    edge_bb: BuildingBlock,
+    anchor_local_indices: Sequence[int],
+) -> None:
+    """Flip one placed linker building block around its anchor axis."""
+    if len(anchor_local_indices) != 2:
+        raise ValueError(
+            "Expected exactly two linker anchor local indices for flipping."
+        )
+
+    a1 = int(anchor_local_indices[0])
+    a2 = int(anchor_local_indices[1])
+    if a1 == a2:
+        raise ValueError("Linker anchor local indices must be distinct.")
+
+    positions = edge_bb.atoms.positions
+    if a1 < 0 or a2 < 0 or a1 >= len(positions) or a2 >= len(positions):
+        raise ValueError(
+            "Linker anchor local index is out of range for placed linker."
+        )
+
+    axis_start = positions[a1].copy()
+    axis_end = positions[a2].copy()
+    axis = axis_end - axis_start
+    axis_norm = np.linalg.norm(axis)
+    if axis_norm < 1e-8:
+        raise ValueError("Cannot flip linker: anchor axis has near-zero length.")
+
+    edge_bb.atoms.positions[:] = CofLandscaperBuilder._rotate_about_axis(
+        positions=positions,
+        axis_point=axis_start,
+        axis_dir=axis,
+        angle=np.pi,
+    )
+
+
+def _rebuild_framework_atoms_from_located_bbs(framework) -> None:
+    """Reassemble framework atoms from placed building blocks."""
+    info = framework.info
+    topology = info["topology"]
+    located_bbs = info["located_bbs"]
+
+    bb_atoms_list = [v.atoms for v in located_bbs if v is not None]
+    if not bb_atoms_list:
+        return
+
+    updated_atoms = bb_atoms_list[0].copy()
+    for bb_atoms in bb_atoms_list[1:]:
+        updated_atoms += bb_atoms
+    updated_atoms.set_pbc(True)
+    updated_atoms.set_cell(topology.atoms.cell)
+    del updated_atoms[[a.symbol == "X" for a in updated_atoms]]
+
+    if len(updated_atoms) != len(framework.atoms):
+        raise ValueError(
+            "Aligned atom count mismatch after removing connection atoms."
+        )
+
+    framework.atoms.positions[:] = updated_atoms.positions
+
+
+def _flip_framework_linkers(
+    framework,
+    anchor_local_indices: Sequence[int],
+) -> None:
+    """Flip each linker building block in a framework around its own axis."""
+    info = framework.info
+    topology = info["topology"]
+    located_bbs = info["located_bbs"]
+    edge_indices = {int(idx) for idx in topology.edge_indices}
+
+    for slot_idx in edge_indices:
+        edge_bb = located_bbs[slot_idx]
+        if edge_bb is None:
+            continue
+        _flip_linker_building_block(
+            edge_bb=edge_bb,
+            anchor_local_indices=anchor_local_indices,
+        )
+
+    _rebuild_framework_atoms_from_located_bbs(framework)
 
 
 class BuildCOF2D:
@@ -804,6 +934,8 @@ class BuildCOF2D:
         input_nodes: Sequence[str | os.PathLike[str]] | None = None,
         input_linkers: Sequence[str | os.PathLike[str]] | None = None,
         output_folder: str | None = None,
+        linker_flip: bool = False,
+        output_filename: str | None = None,
     ) -> list[str]:
         """Build one unoptimized single-layer COF CIF from node/linker inputs.
 
@@ -833,6 +965,10 @@ class BuildCOF2D:
                 list to explicitly pass no linkers.
             output_folder: Optional output folder override. Defaults to `None`
                 (uses `{cof_name}/1_{cof_name}_single_layer`).
+            linker_flip: If `True`, flip all placed linker building blocks by
+                180° around their anchor axis before writing the CIF.
+            output_filename: Optional output CIF filename override. Defaults to
+                `None` (uses `{cof_name}_unopt.cif`).
 
         Returns:
             List containing one output CIF path.
@@ -843,6 +979,7 @@ class BuildCOF2D:
             ValueError: If input resolution does not match topology input counts.
         """
         _disable_pormake_file_logging()
+        _ANCHOR_LOCAL_INDICES_BY_STEM.clear()
         if topo not in TOPOLOGY_INPUT_COUNTS:
             raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'")
 
@@ -883,7 +1020,10 @@ class BuildCOF2D:
                 linker_dir_used = stack.enter_context(
                     tempfile.TemporaryDirectory()
                 )
-                _prepare_xyz("0_linker", linker_dir_used)
+                _prepare_xyz_files(
+                    sorted(glob.glob(os.path.join("0_linker", "*.xyz"))),
+                    linker_dir_used,
+                )
                 linkers = self._list_xyz(linker_dir_used)
             else:
                 extra_linkers = sorted(Path("0_linker").glob("*.xyz"))
@@ -907,6 +1047,29 @@ class BuildCOF2D:
 
             node_paths = [path for _, path in nodes]
             linker_paths = [path for _, path in linkers]
+            linker_anchor_local_indices: list[int] | None = None
+            if linker_flip and required_linkers == 0:
+                raise ValueError(
+                    f"Topology '{topo}' does not contain linkers to flip."
+                )
+            if required_linkers > 0 and linkers:
+                linker_anchor_local_indices = _ANCHOR_LOCAL_INDICES_BY_STEM.get(
+                    linkers[0][0]
+                )
+                if linker_anchor_local_indices is None:
+                    raise ValueError(
+                        "Missing linker anchor metadata after XYZ preprocessing."
+                    )
+                if len(linker_anchor_local_indices) != 2:
+                    raise ValueError(
+                        "Expected exactly two linker anchor atoms derived from He dummies; "
+                        f"found {len(linker_anchor_local_indices)} for linker {linkers[0][0]}."
+                    )
+                if len(set(linker_anchor_local_indices)) != 2:
+                    raise ValueError(
+                        "Expected two distinct linker anchor atoms derived from He dummies; "
+                        f"got {linker_anchor_local_indices} for linker {linkers[0][0]}."
+                    )
 
             output_folder_used = output_folder or os.path.join(
                 cof_name, f"1_{cof_name}_single_layer"
@@ -919,6 +1082,9 @@ class BuildCOF2D:
                 linker_paths,
                 output_folder_used,
                 cof_name=cof_name,
+                linker_anchor_local_indices=linker_anchor_local_indices,
+                linker_flip=linker_flip,
+                output_filename=output_filename,
             )
             ChangeIld()._change_interlayer_distance(
                 input_file=output,
@@ -927,3 +1093,101 @@ class BuildCOF2D:
             )
 
             return [output]
+
+    def build_same_and_flip(
+        self,
+        topo: str,
+        cof_name: str,
+        input_nodes: Sequence[str | os.PathLike[str]] | None = None,
+        input_linkers: Sequence[str | os.PathLike[str]] | None = None,
+        output_folder: str | None = None,
+    ) -> dict[str, str]:
+        """Build same and flipped single-layer CIFs from identical inputs."""
+        same_output = self.build(
+            topo=topo,
+            cof_name=cof_name,
+            input_nodes=input_nodes,
+            input_linkers=input_linkers,
+            output_folder=output_folder,
+            linker_flip=False,
+            output_filename=f"{cof_name}_same_unopt.cif",
+        )[0]
+        flip_output = self.build(
+            topo=topo,
+            cof_name=cof_name,
+            input_nodes=input_nodes,
+            input_linkers=input_linkers,
+            output_folder=output_folder,
+            linker_flip=True,
+            output_filename=f"{cof_name}_flip_unopt.cif",
+        )[0]
+        return {
+            "same_unopt": same_output,
+            "flip_unopt": flip_output,
+        }
+
+
+def combine_single_layers(
+    layer_a_cif: str | os.PathLike[str],
+    layer_b_cif: str | os.PathLike[str],
+    output_cif: str | os.PathLike[str],
+    interlayer_distance: float = 15.0,
+) -> str:
+    """Combine two single-layer CIFs into one explicit double-layer CIF.
+
+    Layer A is kept as-is. Layer B is translated above layer A along the
+    layer-normal direction by the requested interlayer distance.
+    """
+    if interlayer_distance <= 0.0:
+        raise ValueError("interlayer_distance must be positive.")
+
+    layer_a_path = Path(layer_a_cif)
+    layer_b_path = Path(layer_b_cif)
+    output_path = Path(output_cif)
+
+    struct_a = Structure.from_file(str(layer_a_path))
+    struct_b = Structure.from_file(str(layer_b_path))
+
+    lattice_a = struct_a.lattice
+    a_vec = np.array(lattice_a.matrix[0], dtype=float)
+    b_vec = np.array(lattice_a.matrix[1], dtype=float)
+    c_vec_a = np.array(lattice_a.matrix[2], dtype=float)
+
+    c_norm = np.linalg.norm(c_vec_a)
+    if c_norm < 1e-8:
+        raise ValueError("Layer A lattice c vector has near-zero length.")
+    c_hat = c_vec_a / c_norm
+
+    cart_a = np.array(struct_a.cart_coords, dtype=float)
+    cart_b = np.array(struct_b.cart_coords, dtype=float)
+
+    z_a = cart_a @ c_hat
+    z_b = cart_b @ c_hat
+
+    shift_b = float(np.max(z_a) + interlayer_distance - np.min(z_b))
+    cart_b_shifted = cart_b + shift_b * c_hat
+
+    cart_all = np.vstack([cart_a, cart_b_shifted])
+    z_all = cart_all @ c_hat
+    z_min = float(np.min(z_all))
+    z_max = float(np.max(z_all))
+
+    vacuum_padding = 5.0
+    c_length = (z_max - z_min) + 2.0 * vacuum_padding
+    c_vec_new = c_hat * c_length
+
+    cart_all_shifted = cart_all + (vacuum_padding - z_min) * c_hat
+    lattice_new = np.vstack([a_vec, b_vec, c_vec_new])
+    frac_all = cart_all_shifted @ np.linalg.inv(lattice_new)
+
+    species_all = list(struct_a.species) + list(struct_b.species)
+    combined = Structure(
+        lattice=lattice_new,
+        species=species_all,
+        coords=frac_all.tolist(),
+        coords_are_cartesian=False,
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    combined.to(filename=str(output_path))
+    return str(output_path)
