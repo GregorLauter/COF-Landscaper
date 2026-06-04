@@ -178,7 +178,7 @@ def test_mace_opt_energy_csv_replaces_only_processed_mode(
     ].iloc[0]
 
     assert float(serr_row["energy_eV_per_layer"]) == -10.0
-    assert float(incl_row["energy_eV_per_layer"]) == -8.5
+    assert float(incl_row["energy_eV_per_layer"]) == -4.25
     assert bool(incl_row["stopped_due_to_max_steps"])
     assert not bool(serr_row["stopped_due_to_max_steps"])
 

@@ -347,7 +347,9 @@ def test_buildcof2d_requires_exactly_one_node_and_linker_for_kgm(
 
 
 @pytest.mark.unit
-def test_extract_anchor_local_indices_requires_two_distinct_real_atoms() -> None:
+def test_extract_anchor_local_indices_requires_two_distinct_real_atoms() -> (
+    None
+):
     module = importlib.import_module(cl.BuildCOF2D.__module__)
 
     anchors = module._extract_anchor_local_indices(
@@ -391,7 +393,7 @@ def test_build_same_and_flip_writes_expected_filenames(
     builder = cl.BuildCOF2D()
     calls: list[dict[str, object]] = []
 
-    def fake_build(self, **kwargs):  # type: ignore[no-untyped-def]
+    def fake_build(_self, **kwargs):  # type: ignore[no-untyped-def]
         calls.append(kwargs)
         out_dir = Path(kwargs["output_folder"])
         out_dir.mkdir(parents=True, exist_ok=True)

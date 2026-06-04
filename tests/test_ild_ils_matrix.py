@@ -63,7 +63,9 @@ def test_change_ild_force_invalid_warns_and_writes(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_change_ild_explicit_bilayer_uses_gap_semantics(tmp_path: Path) -> None:
+def test_change_ild_explicit_bilayer_uses_gap_semantics(
+    tmp_path: Path,
+) -> None:
     input_file = tmp_path / "input.cif"
     output_file = tmp_path / "out.cif"
     _write_test_cif(input_file)

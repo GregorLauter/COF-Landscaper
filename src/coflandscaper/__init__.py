@@ -6,7 +6,10 @@ from coflandscaper._internal.analyze import (
     Supercell,
     VisualizeCOF,
 )
-from coflandscaper._internal.build_cof_2d import BuildCOF2D, combine_single_layers
+from coflandscaper._internal.build_cof_2d import (
+    BuildCOF2D,
+    combine_single_layers,
+)
 from coflandscaper._internal.dft import (
     Crystal,
     CrystalOpt,

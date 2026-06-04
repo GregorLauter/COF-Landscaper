@@ -254,6 +254,7 @@ dependencies = [
     { name = "pormake" },
     { name = "py3dmol" },
     { name = "pymatgen" },
+    { name = "scipy" },
     { name = "torch-dftd" },
 ]
 
@@ -287,6 +288,7 @@ requires-dist = [
     { name = "pormake", specifier = ">=0.2.3" },
     { name = "py3dmol", specifier = ">=2.5.4" },
     { name = "pymatgen", specifier = ">=2024.4.12" },
+    { name = "scipy", specifier = ">=1.13" },
     { name = "torch-dftd", specifier = ">=0.5.2" },
 ]
 provides-extras = ["notebook"]

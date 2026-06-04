@@ -544,14 +544,8 @@ def _extract_anchor_local_indices(
     x_set = set(x_indices)
     anchors: list[int] = []
     for x_idx in x_indices:
-        neighbors = [
-            j
-            for i, j in bonds
-            if i == x_idx and j not in x_set
-        ] + [
-            i
-            for i, j in bonds
-            if j == x_idx and i not in x_set
+        neighbors = [j for i, j in bonds if i == x_idx and j not in x_set] + [
+            i for i, j in bonds if j == x_idx and i not in x_set
         ]
         unique_neighbors = sorted(set(neighbors))
         if len(unique_neighbors) != 1:
@@ -838,7 +832,9 @@ def _flip_linker_building_block(
     axis = axis_end - axis_start
     axis_norm = np.linalg.norm(axis)
     if axis_norm < 1e-8:
-        raise ValueError("Cannot flip linker: anchor axis has near-zero length.")
+        raise ValueError(
+            "Cannot flip linker: anchor axis has near-zero length."
+        )
 
     edge_bb.atoms.positions[:] = CofLandscaperBuilder._rotate_about_axis(
         positions=positions,
@@ -1053,8 +1049,8 @@ class BuildCOF2D:
                     f"Topology '{topo}' does not contain linkers to flip."
                 )
             if required_linkers > 0 and linkers:
-                linker_anchor_local_indices = _ANCHOR_LOCAL_INDICES_BY_STEM.get(
-                    linkers[0][0]
+                linker_anchor_local_indices = (
+                    _ANCHOR_LOCAL_INDICES_BY_STEM.get(linkers[0][0])
                 )
                 if linker_anchor_local_indices is None:
                     raise ValueError(

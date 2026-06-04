@@ -30,7 +30,9 @@ from .ild_ils_utils import (
 )
 
 
-def _compact_unwrap_fractional_1d(fz_values: np.ndarray) -> tuple[np.ndarray, float]:
+def _compact_unwrap_fractional_1d(
+    fz_values: np.ndarray,
+) -> tuple[np.ndarray, float]:
     """Compactly unwrap 1D fractional z coordinates using the largest gap.
 
     Returns the unwrapped coordinates in [0, 1) relative to the coordinate
@@ -89,7 +91,9 @@ def _explicit_bilayer_cluster_masks(
     seg1_pos = _segment(cut_a, cut_b)
     seg2_pos = _segment(cut_b, cut_a)
     if not seg1_pos or not seg2_pos:
-        raise ValueError("Degenerate explicit-bilayer clustering; empty layer detected.")
+        raise ValueError(
+            "Degenerate explicit-bilayer clustering; empty layer detected."
+        )
 
     mask1 = np.zeros(n_atoms, dtype=bool)
     mask2 = np.zeros(n_atoms, dtype=bool)
@@ -100,7 +104,9 @@ def _explicit_bilayer_cluster_masks(
 
     def _layer_center_rel(mask: np.ndarray) -> float:
         z_rel_frac, layer_start = _compact_unwrap_fractional_1d(fz[mask])
-        z_mid_rel = 0.5 * (float(np.min(z_rel_frac)) + float(np.max(z_rel_frac)))
+        z_mid_rel = 0.5 * (
+            float(np.min(z_rel_frac)) + float(np.max(z_rel_frac))
+        )
         center_abs = (layer_start + z_mid_rel) % 1.0
         return float((center_abs - global_start) % 1.0)
 
@@ -262,17 +268,17 @@ class ChangeIld:
             frac_old = np.array(struct.frac_coords, dtype=float)
             bottom_mask, top_mask = _explicit_bilayer_cluster_masks(struct)
 
-            dz_bottom, thickness_bottom = _compact_layer_offsets_from_fractional_z(
-                frac_old[bottom_mask, 2], z_len_old
+            dz_bottom, thickness_bottom = (
+                _compact_layer_offsets_from_fractional_z(
+                    frac_old[bottom_mask, 2], z_len_old
+                )
             )
             dz_top, thickness_top = _compact_layer_offsets_from_fractional_z(
                 frac_old[top_mask, 2], z_len_old
             )
             required_ild = max(thickness_bottom, thickness_top)
             if new_z < required_ild:
-                message = (
-                    f"New ILD {new_z:.4f} Å < slab thickness {required_ild:.4f} Å; cannot fit."
-                )
+                message = f"New ILD {new_z:.4f} Å < slab thickness {required_ild:.4f} Å; cannot fit."
                 if force_invalid_ild:
                     warnings.warn(message, UserWarning, stacklevel=2)
                 else:
@@ -437,7 +443,9 @@ class IlsSerr:
             ]
         )
         if explicit_bilayer:
-            frac_z = np.mod(np.array(struct.frac_coords[:, 2], dtype=float), 1.0)
+            frac_z = np.mod(
+                np.array(struct.frac_coords[:, 2], dtype=float), 1.0
+            )
             top_mask = frac_z > 0.5
             fx, fy, _ = struct.lattice.get_fractional_coords(shift_cart)
 
@@ -606,7 +614,9 @@ class IlsIncl:
 
         cart_coords = np.array(struct.cart_coords, dtype=float)
         if explicit_bilayer:
-            frac_z = np.mod(np.array(struct.frac_coords[:, 2], dtype=float), 1.0)
+            frac_z = np.mod(
+                np.array(struct.frac_coords[:, 2], dtype=float), 1.0
+            )
             top_mask = frac_z > 0.5
             cart_coords[top_mask, 0] += x_shift
             cart_coords[top_mask, 1] += y_shift
