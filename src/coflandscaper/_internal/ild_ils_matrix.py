@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import tempfile
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -45,6 +46,7 @@ class ChangeIld:
         ild_start: float = 3.0,
         ild_end: float = 4.5,
         ild_step: float = 0.1,
+        force_invalid_ild: bool = False,
     ) -> None:
         """Scan interlayer distances and write updated CIFs.
 
@@ -54,9 +56,13 @@ class ChangeIld:
             ild_start: Minimum ILD in Å. Defaults to `3.0`.
             ild_end: Maximum ILD in Å. Defaults to `4.5`.
             ild_step: Step size in Å. Defaults to `0.1`.
+            force_invalid_ild: If `True`, continue even when the requested
+                ILD is smaller than the slab thickness, emitting a warning.
+                Defaults to `False`.
 
         Raises:
-            ValueError: If a requested ILD is smaller than the slab thickness.
+            ValueError: If a requested ILD is smaller than the slab thickness
+                and `force_invalid_ild` is `False`.
         """
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         z_values = _generate_values(ild_start, ild_end, ild_step)
@@ -67,11 +73,18 @@ class ChangeIld:
                 outname = f"{base}_{_z_tag(new_z)}.cif"
                 outpath = os.path.join(output_folder, outname)
                 self._change_interlayer_distance(
-                    input_file, outpath, float(new_z)
+                    input_file,
+                    outpath,
+                    float(new_z),
+                    force_invalid_ild=force_invalid_ild,
                 )
 
     def _change_interlayer_distance(
-        self, input_file: str, output_file: str, new_z: float
+        self,
+        input_file: str,
+        output_file: str,
+        new_z: float,
+        force_invalid_ild: bool = False,
     ) -> None:
         """Write one CIF with a rescaled $z$ lattice vector.
 
@@ -79,9 +92,13 @@ class ChangeIld:
             input_file: Path to the source CIF.
             output_file: Output CIF path.
             new_z: Target interlayer distance in Å.
+            force_invalid_ild: If `True`, continue even when the requested
+                ILD is smaller than the slab thickness, emitting a warning.
+                Defaults to `False`.
 
         Raises:
-            ValueError: If the requested ILD cannot accommodate the slab.
+            ValueError: If the requested ILD cannot accommodate the slab and
+                `force_invalid_ild` is `False`.
         """
         struct = Structure.from_file(input_file)
         lat_old = struct.lattice
@@ -95,9 +112,16 @@ class ChangeIld:
         thickness = (np.max(fz_unwrapped) - np.min(fz_unwrapped)) * z_len_old
 
         if new_z < thickness:
-            raise ValueError(
-                f"New ILD {new_z:.4f} Å < slab thickness {thickness:.4f} Å; cannot fit."
+            message = (
+                f"Requested ILD {new_z:.4f} Å is smaller than slab thickness "
+                f"{thickness:.4f} Å; periodic layers may overlap."
             )
+            if force_invalid_ild:
+                warnings.warn(message, UserWarning, stacklevel=2)
+            else:
+                raise ValueError(
+                    f"New ILD {new_z:.4f} Å < slab thickness {thickness:.4f} Å; cannot fit."
+                )
 
         scale_factor = new_z / z_len_old
         new_c_vec = c_vec_old * scale_factor
@@ -387,6 +411,7 @@ class CreateMatrix:
         ils_length_step: float = 1.0,
         ils_angle: float | None = None,
         print_shift: bool = False,
+        force_invalid_ild: bool = False,
     ) -> None:
         """Configure the ILD×ILS scan parameters.
 
@@ -402,6 +427,9 @@ class CreateMatrix:
                 (auto-computed from AB shift).
             print_shift: If `True`, print auto-computed default shift values.
                 Defaults to `False`.
+            force_invalid_ild: If `True`, continue even when the requested ILD
+                is smaller than the slab thickness, emitting a warning.
+                Defaults to `False`.
         """
         self._ild_start = ild_start
         self._ild_end = ild_end
@@ -411,6 +439,7 @@ class CreateMatrix:
         self._ils_length_step = ils_length_step
         self._ils_angle = ils_angle
         self._print_shift = print_shift
+        self._force_invalid_ild = force_invalid_ild
 
     def run(
         self,
@@ -470,6 +499,7 @@ class CreateMatrix:
                 ild_start=self._ild_start,
                 ild_end=self._ild_end,
                 ild_step=self._ild_step,
+                force_invalid_ild=self._force_invalid_ild,
             )
 
             if mode in {"incl", "both"}:

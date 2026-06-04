@@ -1,0 +1,20 @@
+{
+  "COF_NAME": "PDI-BT-COF-diff",
+  "TOPOLOGY": "sql",
+  "MODE": "both",
+  "NODES": null,
+  "LINKERS": null,
+  "MACE_HEAD": "spice_wB97M",
+  "DEVICE": "cuda",
+  "MAX_STEPS": 3000,
+  "FIX_Z": false,
+  "ILD_START": 4.2,
+  "ILD_END": 5.7,
+  "ILD_STEP": 0.1,
+  "MINIMA_MODE": "global",
+  "SHOW_LANDSCAPE": false,
+  "SHOW_TITLE_BLOCK": false,
+  "SHOW_MINIMA_MARKERS": true,
+  "EXTRA_SERR": [],
+  "EXTRA_INCL": []
+}
