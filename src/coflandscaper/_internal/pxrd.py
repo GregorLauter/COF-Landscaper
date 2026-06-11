@@ -88,6 +88,38 @@ class PXRD:
         raise ValueError(f"Could not parse XY data from {file_path}")
 
     @staticmethod
+    def _visible_y_max(
+        x_vals: np.ndarray,
+        y_vals: np.ndarray,
+        xlim: tuple[float, float],
+        fallback: float = 1.0,
+    ) -> float:
+        """Return max y value within the visible x-range.
+
+        Args:
+            x_vals: X coordinates.
+            y_vals: Y values aligned with x_vals.
+            xlim: Visible x-range (xmin, xmax).
+            fallback: Value returned when no visible points are available.
+
+        Returns:
+            Maximum finite y value inside xlim, or fallback if unavailable.
+        """
+        x_arr = np.asarray(x_vals, dtype=float)
+        y_arr = np.asarray(y_vals, dtype=float)
+        mask = (x_arr >= float(xlim[0])) & (x_arr <= float(xlim[1]))
+        if not np.any(mask):
+            return float(fallback)
+
+        visible = y_arr[mask]
+        visible = visible[np.isfinite(visible)]
+        if visible.size == 0:
+            return float(fallback)
+
+        vmax = float(np.max(visible))
+        return vmax if vmax > 0 else float(fallback)
+
+    @staticmethod
     def _sim_label(file_path: str | Path) -> str:
         """Create a human-readable label from a simulated file path.
 
@@ -619,15 +651,11 @@ class PXRD:
         x_exp = np.asarray(x_exp, dtype=float)
         y_exp = np.asarray(y_exp, dtype=float)
         exp_shifted = y_exp - np.nanmin(y_exp)
-        exp_max = (
-            float(np.nanmax(exp_shifted))
-            if np.nanmax(exp_shifted) > 0
-            else 1.0
-        )
+        exp_max = self._visible_y_max(x_exp, exp_shifted, xlim)
 
-        figure_width = 8.0
-        figure_height_per_pattern = 2.1
-        dpi = 300
+        figure_width = 15.0
+        figure_height_per_pattern = 5.0
+        dpi = 500
 
         nrows = len(sim_files)
         figure_height = max(2.0, figure_height_per_pattern * nrows)
@@ -648,7 +676,7 @@ class PXRD:
             y_sim = y_sim[order]
 
             sim_shifted = y_sim - np.nanmin(y_sim)
-            sim_max = float(np.nanmax(sim_shifted))
+            sim_max = self._visible_y_max(x_sim, sim_shifted, xlim)
             if sim_max <= 0:
                 continue
 
@@ -670,7 +698,10 @@ class PXRD:
                 alpha=0.9,
             )
 
-            y_max = float(max(np.nanmax(exp_shifted), np.nanmax(y_sim_scaled)))
+            y_max = max(
+                self._visible_y_max(x_exp, exp_shifted, xlim),
+                self._visible_y_max(x_sim, y_sim_scaled, xlim),
+            )
             ax.set_ylim(0.0, y_max * 1.15 if y_max > 0 else 1.0)
             ax.text(
                 0.98,
