@@ -307,6 +307,9 @@ def default_shift_from_cif(
 ) -> tuple[float, float]:
     """Compute the default slip length and angle for AB stacking.
 
+    For both ``hcb`` and ``kgm``, the default AB shift length uses
+    ``(2/sqrt(3)) * ||0.5*(a+b)||`` and the angle is fixed to ``90°``.
+
     Args:
         input_file: Path to the CIF file.
         topo: Topology string. Allowed values are `"sql"`, `"hcb"`, or `"kgm"`.
@@ -330,8 +333,6 @@ def default_shift_from_cif(
 
     if topo in {"hcb", "kgm"}:
         length = (2.0 / math.sqrt(3.0)) * sql_len
-        if topo == "kgm":
-            length *= 1.5
         angle = 90.0
         if print_shift:
             print(

@@ -143,7 +143,7 @@ def test_ab_half_diagonal_from_cif(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_default_shift_from_cif_sql_hcb_kgm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures topology-specific default shifts match expected formulas."""
+    """This test ensures sql uses its own vector while hcb and kgm share one formula."""
     matrix = np.array(
         [
             [2.0, 0.0, 0.0],
@@ -166,7 +166,37 @@ def test_default_shift_from_cif_sql_hcb_kgm(
     assert sql_angle == pytest.approx(45.0)
     assert hcb_length == pytest.approx((2.0 / np.sqrt(3.0)) * np.sqrt(2.0))
     assert hcb_angle == pytest.approx(90.0)
-    assert kgm_length == pytest.approx(1.5 * hcb_length)
+    assert kgm_length == pytest.approx(hcb_length)
+    assert kgm_angle == pytest.approx(90.0)
+
+
+@pytest.mark.unit
+def test_default_shift_from_cif_hcb_and_kgm_match_for_hex_cell(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures hcb and kgm return the same AB shift on hexagonal cells."""
+    L = 6.0
+    matrix = np.array(
+        [
+            [L, 0.0, 0.0],
+            [-0.5 * L, (np.sqrt(3.0) / 2.0) * L, 0.0],
+            [0.0, 0.0, 12.0],
+        ],
+    )
+
+    def fake_from_file(_input_file: str) -> _FakeStructure:
+        return _FakeStructure(matrix)
+
+    module = importlib.import_module(cl.default_shift_from_cif.__module__)
+    monkeypatch.setattr(module.Structure, "from_file", fake_from_file)
+
+    hcb_length, hcb_angle = cl.default_shift_from_cif("dummy.cif", "hcb")
+    kgm_length, kgm_angle = cl.default_shift_from_cif("dummy.cif", "kgm")
+
+    expected = L / np.sqrt(3.0)
+    assert hcb_length == pytest.approx(expected)
+    assert kgm_length == pytest.approx(expected)
+    assert hcb_angle == pytest.approx(90.0)
     assert kgm_angle == pytest.approx(90.0)
 
 
