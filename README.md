@@ -1,13 +1,18 @@
-# COF-Landscaper
+<p align="center">
+  <img src="docs/readme/symbol.png" alt="COF-Landscaper symbol" width="220">
+</p>
 
-COF-Landscaper is a Python package for building and analyzing 2D COFs.
+<h1 align="center">COF-Landscaper</h1>
 
-Researchers interested in applying COF-Landscaper to their own systems are welcome to contact me at gjl342@student.bham.ac.uk. Depending on availability and the scope of the project, I may be able to provide support or explore a possible collaboration.
+<p align="center">
+  Automated structure generation, stacking-landscape screening, and PXRD simulation for 2D covalent organic frameworks.
+</p>
 
-## Platform Support
+---
 
-- Tested on macOS and Linux.
-- Microsoft Windows is currently not tested.
+COF-Landscaper is a Python package for building and analysing 2D covalent organic frameworks (COFs). It provides workflows for generating COF structures from molecular building blocks, exploring stacking configurations, and comparing simulated PXRD patterns with experimental data.
+
+Researchers interested in applying COF-Landscaper to their own systems are welcome to contact me at [gjl342@student.bham.ac.uk](mailto:gjl342@student.bham.ac.uk). Depending on availability and project scope, I may be able to provide support, discuss collaboration, or offer a short one- to two-day online introduction for users with limited software or terminal experience. This can cover installation, setup, input preparation, and running the workflow on example or user-provided systems.
 
 ## Installation
 
@@ -151,7 +156,7 @@ just check
 
 ## Workflow Notes
 
-- The DFT (Crystal23) workflow requires additional external HPC infrastructure.
+- The DFT workflow using Crystal23 requires additional external HPC infrastructure.
 - The MLIP workflow can be executed on a local machine, but GPU access can provide a substantial speedup.
 - For large systems, long screening workflows, or cases where local hardware is limiting, running the workflow on an external GPU or CPU cluster is recommended.
 - If you are interested in applying COF-Landscaper but do not have access to suitable computational resources, feel free to contact me.
@@ -208,7 +213,7 @@ The subsequent pre-optimization step handles the assembled framework. Therefore,
 
 The `.xyz` files can be prepared using any suitable molecular editor or visualizer, for example Avogadro, Mercury, or DrawMol.
 
-## Where To Find Explanations
+## Documentation
 
 The full documentation is available on Read the Docs:
 
