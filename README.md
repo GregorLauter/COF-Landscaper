@@ -5,7 +5,7 @@
 <h1 align="center">COF-Landscaper</h1>
 
 <p align="center">
-  Automated structure generation, stacking-landscape screening, and PXRD simulation for 2D covalent organic frameworks.
+  Automated structure generation, stacking-landscape screening, and PXRD simulation for two-dimensional covalent organic frameworks.
 </p>
 
 ---
@@ -156,32 +156,33 @@ just check
 
 ## Workflow Notes
 
-- The DFT workflow using Crystal23 requires additional external HPC infrastructure.
-- The MLIP workflow can be executed on a local machine, but GPU access can provide a substantial speedup.
-- For large systems, long screening workflows, or cases where local hardware is limiting, running the workflow on an external GPU or CPU cluster is recommended.
+- The workflow can be executed on a local machine (CPU), GPU access can provide a substantial speedup.
+- For large systems, long screening workflows, or cases where local hardware is limiting, running the workflow on an external cluster (GPU or CPU) is recommended.
 - If you are interested in applying COF-Landscaper but do not have access to suitable computational resources, feel free to contact me.
 
 Workflow diagram:
 
 ![COF-Landscaper workflow](docs/readme/workflow.png)
+<p align="center">
+  <em>
+    COF-Landscaper workflow. Node and linker fragments are placed on a selected topological net to construct a single-layer COF structure. From this layer, COF-Landscaper generates a matrix of stacked COF structures that differ in their interlayer distance (ILD) and interlayer slipping (ILS) values. A machine-learned interatomic potential (MLIP) single-point energy calculation is performed for each stacking configuration, yielding a simplified potential-energy landscape. Low-energy minima on this landscape are used as starting guesses for structure optimization. The optimized COF structures can then be visualized, analysed, and used to simulate PXRD patterns for comparison with experimental PXRD data.
+  </em>
+</p>
 
 ## Required Input Files
 
 The workflow requires building-block fragments provided as `.xyz` files.
 
-In COF-Landscaper, the terms **node** and **linker** refer to the structural fragments used by the builder to assemble the framework. They do not necessarily correspond one-to-one to synthetic precursors. In practice, the node and linker files should represent the molecular fragments that are connected during structure generation.
-
-The schematic below illustrates this distinction for COF-1:
+In this context, the terms **node** and **linker** refer to the structural fragments used by the builder to assemble the framework. They do **not** correspond directly to the synthetic precursors. Instead, they describe the molecular fragments that are placed on the selected topological net during structure generation.
 
 <p align="center">
-  <img src="docs/readme/cof-1.png" alt="COF-1 structure" width="500">
+  <img src="docs/readme/cutting.pdf" alt="COF-1 layer and extracted node/linker fragments" width="800">
 </p>
 
-Node and linker fragments used for COF-1 structure generation:
-
 <p align="center">
-  <img src="docs/readme/cof-1_node.png" alt="COF-1 node fragment" width="280">
-  <img src="docs/readme/cof-1_linker.png" alt="COF-1 linker fragment" width="280">
+  <em>
+    Schematic representation of fragment definition for COF-1. The full COF layer is shown on the left, with an enlarged local region indicating the conceptual bond cut used to define the input fragments. The resulting 3-connected node fragment and 2-connected linker fragment are shown on the right.
+  </em>
 </p>
 
 Supported topologies:
