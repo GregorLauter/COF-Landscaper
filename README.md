@@ -18,28 +18,46 @@ Researchers interested in applying COF-Landscaper to their own systems are welco
 
 COF-Landscaper requires Python 3.12.
 
-First open a terminal and check whether Python 3.12 is available:
+### Standard setup
+
+The recommended setup is to use a dedicated Conda environment. If you do not already have Conda installed, a lightweight option is [Miniforge](https://conda-forge.org/download/).
+
+Create and activate a new environment:
+
+```bash
+conda create -n coflandscaper python=3.12
+conda activate coflandscaper
+```
+
+Upgrade `pip`:
+
+```bash
+python -m pip install --upgrade pip
+```
+
+Install COF-Landscaper from PyPI:
+
+```bash
+python -m pip install cof-landscaper
+```
+
+Check that the installation works:
+
+```bash
+python -c "import coflandscaper as cl; print(cl.__version__)"
+```
+
+### Alternative: existing Python 3.12 installation
+
+If Python 3.12 is already available on your system, you can also use a standard virtual environment.
+
+Check whether Python 3.12 is available:
 
 ```bash
 python3.12 --version
-
 ```
 
-If this command returns a Python 3.12 version, continue with the virtual environment setup below.
-
-If you see an error such as `command not found: python3.12`, install Python 3.12 first.
-
-On macOS, Python 3.12 can be installed with Homebrew:
-
-```bash
-brew install python@3.12
-```
-
-After installation, check again:
-
-```bash
-python3.12 --version
-```
+If this command returns a Python 3.12 version, continue with the virtual environment setup (otherwise Python 3.12 can be installed from the [official Python downloads page](https://www.python.org/downloads/) or through a platform-specific package manager).
 
 Create a virtual environment.
 
@@ -47,22 +65,23 @@ Create a virtual environment.
 python3.12 -m venv coflandscaper
 ```
 
-Activate the virtual environment.
+Activate the virtual environment on macOS or Linux:
 
 ```bash
 source coflandscaper/bin/activate
 ```
 
-Upgrade pip.
+On Windows PowerShell, use:
 
-```bash
-pip install --upgrade pip
+```powershell
+.\coflandscaper\Scripts\Activate.ps1
 ```
 
-Install COF-Landscaper from PyPI.
+Then install COF-Landscaper:
 
 ```bash
-pip install cof-landscaper
+python -m pip install --upgrade pip
+python -m pip install cof-landscaper
 ```
 
 ## Example Files
@@ -131,9 +150,7 @@ import coflandscaper as cl
 
 ## Developer Setup
 
-Install `just`.
-
-Install `uv`.
+For development, install [`just`](https://github.com/casey/just) and [`uv`](https://docs.astral.sh/uv/getting-started/installation/).
 
 Clone the repository and enter the source directory.
 
@@ -156,13 +173,11 @@ just check
 
 ## Workflow Notes
 
-- The workflow can be executed on a local machine (CPU), GPU access can provide a substantial speedup.
+- The workflow can be executed on a local machine using a CPU, although GPU access can provide a substantial speedup.
 - For large systems, long screening workflows, or cases where local hardware is limiting, running the workflow on an external cluster (GPU or CPU) is recommended.
 - If you are interested in applying COF-Landscaper but do not have access to suitable computational resources, feel free to contact me.
 
 Workflow diagram:
-
-
 
 <p align="center">
   <img src="docs/readme/workflow.png" alt="COF-Landscaper workflow" width="850">
