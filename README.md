@@ -26,8 +26,8 @@ Create and activate a new environment:
 
 ```bash
 conda create -n coflandscaper python=3.12
-```bash
 ```
+```bash
 conda activate coflandscaper
 ```
 
@@ -83,8 +83,8 @@ Then install COF-Landscaper:
 
 ```bash
 python -m pip install --upgrade pip
-```bash
 ```
+```bash
 python -m pip install cof-landscaper
 ```
 
@@ -160,8 +160,8 @@ Clone the repository and enter the source directory.
 
 ```bash
 git clone https://github.com/GregorLauter/COF-Landscaper.git
-```bash
 ```
+```bash
 cd COF-Landscaper
 ```
 
