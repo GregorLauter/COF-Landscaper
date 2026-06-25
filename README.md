@@ -18,7 +18,7 @@ Researchers interested in applying COF-Landscaper to their own systems are welco
 
 COF-Landscaper requires Python 3.12.
 
-### Standard setup
+### Standard Conda installation
 
 The recommended setup is to use a dedicated Conda environment. If you do not already have Conda installed, a lightweight option is [Miniforge](https://conda-forge.org/download/).
 
@@ -26,6 +26,8 @@ Create and activate a new environment:
 
 ```bash
 conda create -n coflandscaper python=3.12
+```bash
+```
 conda activate coflandscaper
 ```
 
@@ -47,7 +49,7 @@ Check that the installation works:
 python -c "import coflandscaper as cl; print(cl.__version__)"
 ```
 
-### Alternative: existing Python 3.12 installation
+### Alternative virtual environment installation
 
 If Python 3.12 is already available on your system, you can also use a standard virtual environment.
 
@@ -81,6 +83,8 @@ Then install COF-Landscaper:
 
 ```bash
 python -m pip install --upgrade pip
+```bash
+```
 python -m pip install cof-landscaper
 ```
 
@@ -156,6 +160,8 @@ Clone the repository and enter the source directory.
 
 ```bash
 git clone https://github.com/GregorLauter/COF-Landscaper.git
+```bash
+```
 cd COF-Landscaper
 ```
 
