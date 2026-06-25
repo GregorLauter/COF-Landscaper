@@ -162,10 +162,15 @@ just check
 
 Workflow diagram:
 
-![COF-Landscaper workflow](docs/readme/workflow.png)
+
+
 <p align="center">
+  <img src="docs/readme/workflow.png" alt="COF-Landscaper workflow" width="850">
+</p>
+
+<p>
   <em>
-    COF-Landscaper workflow. Node and linker fragments are placed on a selected topological net to construct a single-layer COF structure. From this layer, COF-Landscaper generates a matrix of stacked COF structures that differ in their interlayer distance (ILD) and interlayer slipping (ILS) values. A machine-learned interatomic potential (MLIP) single-point energy calculation is performed for each stacking configuration, yielding a simplified potential-energy landscape. Low-energy minima on this landscape are used as starting guesses for structure optimization. The optimized COF structures can then be visualized, analysed, and used to simulate PXRD patterns for comparison with experimental PXRD data.
+    <strong>Figure:</strong> COF-Landscaper workflow. Node and linker fragments are placed on a selected topological net to construct a single-layer COF structure. From this layer, COF-Landscaper generates a matrix of stacked COF structures that differ in their interlayer distance (ILD) and interlayer slipping (ILS) values. A machine-learned interatomic potential (MLIP) single-point energy calculation is performed for each stacking configuration, yielding a simplified potential-energy landscape. Low-energy minima on this landscape are used as starting guesses for structure optimization. The optimized COF structures can then be visualized, analysed, and used to simulate PXRD patterns for comparison with experimental PXRD data.
   </em>
 </p>
 
@@ -179,9 +184,9 @@ In this context, the terms **node** and **linker** refer to the structural fragm
   <img src="docs/readme/cutting.png" alt="COF-1 layer and extracted node/linker fragments" width="800">
 </p>
 
-<p align="center">
+<p>
   <em>
-    Schematic representation of fragment definition for COF-1. The full COF layer is shown on the left, with an enlarged local region indicating the conceptual bond cut used to define the input fragments. The resulting 3-connected node fragment and 2-connected linker fragment are shown on the right.
+    <strong>Figure:</strong> Schematic representation of fragment definition for COF-1. The full COF layer is shown on the left, with an enlarged local region indicating the conceptual bond cut used to define the input fragments. The resulting 3-connected node fragment and 2-connected linker fragment are shown on the right.
   </em>
 </p>
 
