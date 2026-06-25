@@ -176,7 +176,7 @@ The workflow requires building-block fragments provided as `.xyz` files.
 In this context, the terms **node** and **linker** refer to the structural fragments used by the builder to assemble the framework. They do **not** correspond directly to the synthetic precursors. Instead, they describe the molecular fragments that are placed on the selected topological net during structure generation.
 
 <p align="center">
-  <img src="docs/readme/cutting.pdf" alt="COF-1 layer and extracted node/linker fragments" width="800">
+  <img src="docs/readme/cutting.png" alt="COF-1 layer and extracted node/linker fragments" width="800">
 </p>
 
 <p align="center">
