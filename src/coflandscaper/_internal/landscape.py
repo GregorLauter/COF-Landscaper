@@ -9,10 +9,11 @@ import re
 import shutil
 from pathlib import Path
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
 import numpy as np
 import pandas as pd
-from matplotlib import patches
 
 from .ild_ils_utils import get_mode_folders
 
@@ -65,7 +66,6 @@ class Landscape:
         dft: bool = False,
         output_folder: str | None = None,
         colorscheme: str = "viridis",
-        plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
         minima_mode: str = "global",
@@ -73,7 +73,7 @@ class Landscape:
         show_title_block: bool = False,
         show: bool = False,
     ) -> None:
-        """Build PES plots for one stacking mode.
+        """Build one fixed-style hybrid PES plot for a stacking mode.
 
         Args:
             input_folder: Mode folder path (serr or incl) used to infer mode;
@@ -86,12 +86,11 @@ class Landscape:
                 Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
             colorscheme: Any valid Matplotlib colormap name.
                 Defaults to `"viridis"`.
-            plot_mode: Plot variant selector. Allowed values are `"heatmap"`,
-                `"isolines"`, or `"both"`. Defaults to `"both"`.
             rel_energy_max: Optional max value (eV) to cap relative energies.
                 Values above this are clipped in the plots. Defaults to `None`.
-            show_minima_markers: If True (default), mark global and local minima
-                in red on heatmap/isolines. Defaults to `True`.
+            show_minima_markers: If `True`, mark the global minimum with a red
+                star and (for `minima_mode="local"`) additional local minima
+                with orange stars. Defaults to `True`.
             minima_mode: Minima marker mode: "global" (default) marks only the
                 single global minimum; "local" marks local minima as well.
                 Defaults to `"global"`.
@@ -139,19 +138,13 @@ class Landscape:
         rel_grid_csv_path: Path | None = None
 
         if use_mode_naming:
-            heatmap_path = (
-                heatmap_dir
-                / f"pes_{cof_name}_{folder_tag}_heatmap{lot_tag}.png"
-            )
-            isolines_path = (
-                heatmap_dir
-                / f"pes_{cof_name}_{folder_tag}_isolines{lot_tag}.png"
+            figure_path = (
+                heatmap_dir / f"pes_{cof_name}_{folder_tag}{lot_tag}.png"
             )
             write_rel_csv = False
         else:
             rel_grid_csv_path = csv_dir / "energy_relative.csv"
-            heatmap_path = heatmap_dir / f"heatmap{lot_tag}.png"
-            isolines_path = heatmap_dir / f"isolines{lot_tag}.png"
+            figure_path = heatmap_dir / f"pes_{folder_tag}{lot_tag}.png"
             write_rel_csv = True
 
         df = pd.read_csv(csv_path)
@@ -187,34 +180,43 @@ class Landscape:
                 )
             rel_grid.to_csv(rel_grid_csv_path, index=True)
 
-        plt.figure(figsize=(10, 6))
-        data = rel_grid.to_numpy()
+        data = rel_grid.to_numpy(dtype=float)
 
         cmap = self._resolve_cmap(colorscheme)
-        mode = (plot_mode or "heatmap").lower()
         minima_mode_norm = (minima_mode or "global").strip().lower()
         if minima_mode_norm not in {"global", "local"}:
             raise ValueError("minima_mode must be 'global' or 'local'.")
-        nrows, ncols = data.shape
         vmax = float(rel_energy_max) if rel_energy_max is not None else None
+        x_vals = rel_grid.columns.to_numpy(dtype=float)
+        y_vals = rel_grid.index.to_numpy(dtype=float)
+        xx, yy = np.meshgrid(x_vals, y_vals)
+        finite = np.isfinite(data)
+        if int(finite.sum()) < 3:
+            raise ValueError(
+                "Need at least three finite points to triangulate PES."
+            )
+        x_points = xx[finite]
+        y_points = yy[finite]
+        e_points = data[finite]
 
-        def _style_axes() -> None:
-            plt.xlim(-0.5, ncols - 0.5)
-            plt.ylim(-0.5, nrows - 0.5)
-            plt.xticks(
-                range(len(rel_grid.columns)),
-                [f"{c:.1f}" for c in rel_grid.columns],
-                rotation=45,
-                ha="right",
-                fontsize=10,
-            )
-            plt.yticks(
-                range(len(rel_grid.index)),
-                [f"{r:.1f}" for r in rel_grid.index],
-                fontsize=10,
-            )
-            plt.xlabel("Inter Layer Slipping [Å]", fontsize=12)
-            plt.ylabel("Inter Layer Distance [Å]", fontsize=12)
+        tri = mtri.Triangulation(x_points, y_points)
+
+        vmin = float(np.nanmin(e_points))
+        vmax_data = float(np.nanmax(e_points))
+        if np.isclose(vmin, vmax_data):
+            vmax_data = vmin + 1e-9
+        if vmax is not None:
+            vmax_data = min(vmax_data, vmax)
+
+        fill_levels = np.linspace(vmin, vmax_data, 24)
+        line_levels = np.linspace(vmin, vmax_data, 14)
+
+        def _style_axes(ax: plt.Axes) -> None:
+            ax.set_xlabel("Inter Layer Slipping [Å]", fontsize=12)
+            ax.set_ylabel("Inter Layer Distance [Å]", fontsize=12)
+            ax.set_xlim(float(np.nanmin(x_points)), float(np.nanmax(x_points)))
+            ax.set_ylim(float(np.nanmin(y_points)), float(np.nanmax(y_points)))
+            ax.grid(visible=True, alpha=0.16, linewidth=0.6)
             if show_header and show_title_block:
                 title_name = cof_name or "COF"
                 title_prefix = (
@@ -222,7 +224,7 @@ class Landscape:
                     if dft
                     else "Potential Energy Landscape"
                 )
-                plt.title(
+                ax.set_title(
                     f"{title_prefix} - {title_name}",
                     fontsize=14,
                     pad=36,
@@ -233,117 +235,95 @@ class Landscape:
                 elif folder_tag == "incl":
                     mode_label = "Inclined"
                 if mode_label:
-                    plt.text(
+                    ax.text(
                         0.5,
                         1.06,
                         f"Stacking Mode: {mode_label}",
-                        transform=plt.gca().transAxes,
+                        transform=ax.transAxes,
                         ha="center",
                         va="bottom",
                         fontsize=10,
                     )
                 if lot_label:
-                    plt.text(
+                    ax.text(
                         0.5,
                         1.02,
                         f"Level of Theory: {lot_label}",
-                        transform=plt.gca().transAxes,
+                        transform=ax.transAxes,
                         ha="center",
                         va="bottom",
                         fontsize=10,
                     )
 
-        def _mark_minima(use_rect: bool) -> None:
-            finite_vals = np.array(data, dtype=float)
-            min_pos = np.unravel_index(
-                np.nanargmin(finite_vals), finite_vals.shape
+        fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
+        cf = ax.tricontourf(
+            tri,
+            e_points,
+            levels=fill_levels,
+            cmap=cmap,
+            extend="both",
+            antialiased=True,
+        )
+        cs = ax.tricontour(
+            tri,
+            e_points,
+            levels=line_levels,
+            colors="k",
+            linewidths=0.65,
+            alpha=0.45,
+        )
+        ax.clabel(cs, inline=True, fmt="%.1f", fontsize=10)
+
+        if show_minima_markers:
+            min_pos = np.unravel_index(np.nanargmin(data), data.shape)
+            g_row, g_col = min_pos
+            ax.scatter(
+                [x_vals[g_col]],
+                [y_vals[g_row]],
+                marker="*",
+                s=250,
+                facecolor="red",
+                edgecolor="white",
+                linewidth=1.4,
+                zorder=7,
+                label="Global Minimum",
             )
-            y, x = min_pos
-            if use_rect:
-                rect = patches.Rectangle(
-                    (float(x) - 0.5, float(y) - 0.5),
-                    1,
-                    1,
-                    linewidth=2.5,
-                    edgecolor="red",
-                    facecolor="none",
-                )
-                plt.gca().add_patch(rect)
-            else:
-                plt.scatter(
-                    [x], [y], marker="x", color="red", s=120, linewidths=2.5
-                )
 
-            if minima_mode_norm == "global":
-                return
-
-            local_minima = self._find_local_minima(finite_vals)
-            if local_minima:
-                if use_rect:
-                    for ly, lx in local_minima:
-                        rect = patches.Rectangle(
-                            (lx - 0.5, ly - 0.5),
-                            1,
-                            1,
-                            linewidth=2.0,
-                            edgecolor="red",
-                            facecolor="none",
-                        )
-                        plt.gca().add_patch(rect)
-                else:
+            if minima_mode_norm == "local":
+                local_minima = [
+                    (ly, lx)
+                    for ly, lx in self._find_local_minima(data)
+                    if (ly, lx) != (g_row, g_col)
+                ]
+                if local_minima:
                     ys, xs = zip(*local_minima, strict=False)
-                    plt.scatter(
-                        xs,
-                        ys,
-                        marker="x",
-                        color="red",
-                        s=220,
-                        linewidths=3.0,
+                    ax.scatter(
+                        [x_vals[ix] for ix in xs],
+                        [y_vals[iy] for iy in ys],
+                        marker="*",
+                        s=180,
+                        facecolor="orange",
+                        edgecolor="white",
+                        linewidth=1.2,
+                        zorder=6,
+                        label="Local Minima",
                     )
 
-        paths: list[Path] = []
-        if mode in {"heatmap", "both"}:
-            plt.figure(figsize=(10, 6))
-            im = plt.imshow(
-                data,
-                aspect="auto",
-                origin="lower",
-                cmap=cmap,
-                extent=(-0.5, ncols - 0.5, -0.5, nrows - 0.5),
-                vmin=0.0,
-                vmax=vmax,
-            )
-            cbar = plt.colorbar(im, pad=0.02)
-            cbar.set_label("Relative energy (eV)", labelpad=18, fontsize=12)
-            _style_axes()
-            if show_minima_markers:
-                _mark_minima(use_rect=True)
-            plt.tight_layout()
-            plt.savefig(heatmap_path, dpi=200)
-            if show:
-                plt.show()
-            else:
-                plt.close()
-            print(f"Saved: {heatmap_path}")
-            paths.append(heatmap_path)
+            ax.legend(loc="upper left", frameon=True, framealpha=0.95)
 
-        if mode in {"isolines", "contour", "contours", "both"}:
-            plt.figure(figsize=(10, 6))
-            levels = np.linspace(0.0, vmax, 12) if vmax is not None else 12
-            im = plt.contour(data, levels=levels, cmap=cmap)
-            cbar = plt.colorbar(im, pad=0.02)
-            cbar.set_label("Relative energy (eV)", labelpad=18, fontsize=12)
-            _style_axes()
-            if show_minima_markers:
-                _mark_minima(use_rect=False)
-            plt.tight_layout()
-            plt.savefig(isolines_path, dpi=200)
-            if show:
-                plt.show()
-            else:
-                plt.close()
-            print(f"Saved: {isolines_path}")
-            paths.append(isolines_path)
+        _style_axes(ax)
+        cbar = fig.colorbar(cf, ax=ax, pad=0.02)
+        cbar.set_label("Relative energy [eV]")
+        cbar.ax.yaxis.set_major_formatter(
+            mpl.ticker.FormatStrFormatter("%.1f")
+        )
+
+        fig.savefig(figure_path, dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+        print(f"Saved: {figure_path}")
 
     def run_mode(
         self,
@@ -351,7 +331,6 @@ class Landscape:
         mode: str,
         dft: bool = False,
         colorscheme: str = "viridis",
-        plot_mode: str = "both",
         rel_energy_max: float | None = None,
         show_minima_markers: bool = True,
         minima_mode: str = "global",
@@ -371,11 +350,11 @@ class Landscape:
                 Defaults to `False`.
             colorscheme: Any valid Matplotlib colormap name.
                 Defaults to `"viridis"`.
-            plot_mode: Plot variant selector. Allowed values are `"heatmap"`,
-                `"isolines"`, or `"both"`. Defaults to `"both"`.
             rel_energy_max: Optional max value for relative energies.
                 Defaults to `None`.
-            show_minima_markers: If `True`, mark minima on plots.
+            show_minima_markers: If `True`, mark minima on plots
+                (global minimum in red; local minima in orange when
+                `minima_mode="local"`).
                 Defaults to `True`.
             minima_mode: "global" (default) marks only one global minimum;
                 "local" includes local minima markers too. Defaults to `"global"`.
@@ -427,7 +406,6 @@ class Landscape:
                 dft=dft,
                 output_folder=output_folder,
                 colorscheme=colorscheme,
-                plot_mode=plot_mode,
                 rel_energy_max=rel_energy_max,
                 show_minima_markers=show_minima_markers,
                 minima_mode=minima_mode,

@@ -1,0 +1,127 @@
+
++ uv run ruff check src/ tests/
+FBT003 Boolean positional value in function call
+   --> src/coflandscaper/_internal/landscape.py:215:21
+    |
+213 |             ax.set_xlim(float(np.nanmin(x_points)), float(np.nanmax(x_points)))
+214 |             ax.set_ylim(float(np.nanmin(y_points)), float(np.nanmax(y_points)))
+215 |             ax.grid(True, alpha=0.16, linewidth=0.6)
+    |                     ^^^^
+216 |             if show_header and show_title_block:
+217 |                 title_name = cof_name or "COF"
+    |
+
+Found 1 error.
+
++ uv run ruff format --check src/ tests/
+Would reformat: src/coflandscaper/_internal/landscape.py
+1 file would be reformatted, 19 files already formatted
+
++ uv run mypy src/ tests/
+Success: no issues found in 20 source files
+
++ uv run pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper
+configfile: pyproject.toml
+plugins: cov-7.0.0
+collected 71 items
+
+tests/test_analyze_contracts.py ......                                   [  8%]
+tests/test_buildcof2d_utils.py .......                                   [ 18%]
+tests/test_dft_parsing.py .............                                  [ 36%]
+tests/test_ild_ils_utils.py .............                                [ 54%]
+tests/test_landscape_routing.py ..                                       [ 57%]
+tests/test_mace_opt_contracts.py .....                                   [ 64%]
+tests/test_pxrd_routing.py ................                              [ 87%]
+tests/test_select_cofs_minima_mode.py .........                          [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.12.0-final-0 _______________
+
+Name                                            Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------------
+src/coflandscaper/__init__.py                      10      0   100%
+src/coflandscaper/_internal/__init__.py             0      0   100%
+src/coflandscaper/_internal/analyze.py            241    142    41%   51-58, 83-97, 111-132, 143-153, 165-167, 199-206, 231, 244, 349-350, 362-365, 450, 468-489, 515-538, 560-579, 615-652, 678-707
+src/coflandscaper/_internal/build_cof_2d.py       414    304    27%   46, 51-72, 80-96, 116-122, 147-154, 166-174, 194-199, 220-255, 267-273, 283-322, 337-345, 353-409, 421-422, 427-428, 447-455, 463-474, 491-520, 558-565, 581-591, 606-609, 623-629, 643-656, 668-684, 712-765
+src/coflandscaper/_internal/copy_examples.py       62     62     0%   3-109
+src/coflandscaper/_internal/dft.py                489    317    35%   39-43, 159, 167, 172-175, 189-227, 239-321, 371-398, 412-426, 486, 500-503, 565-566, 571, 573-574, 598, 609-610, 619-623, 683-704, 724-738, 760-769, 789-856, 867-877, 904-1003, 1020-1065, 1093-1109
+src/coflandscaper/_internal/ild_ils_matrix.py     166     97    42%   61-69, 86-124, 169, 190, 194, 196, 217-245, 291, 312, 316, 318, 339-360, 406-413, 441-491
+src/coflandscaper/_internal/ild_ils_utils.py      128     22    83%   54-71, 83-89, 102-103, 115, 146, 154, 252, 338, 346
+src/coflandscaper/_internal/landscape.py          307    187    39%   44-60, 108-320, 380, 384, 394-395, 412, 425-446, 460-465, 490, 511, 515, 524, 544-567, 581, 608, 618, 627, 701, 711, 721, 739, 745-749, 762, 764
+src/coflandscaper/_internal/mace.py               255    123    52%   41-47, 64, 78, 87-88, 210-244, 290-353, 376-385, 450-452, 543-551, 582, 599, 674-675, 678, 696-700, 732-765
+src/coflandscaper/_internal/pxrd.py               267     45    83%   83, 86-88, 112, 117, 184, 197, 339, 397-400, 404-407, 425, 454-457, 522-525, 580, 585, 590, 594, 600-602, 615-628, 633, 638, 681, 728-729, 731
+src/coflandscaper/_internal/utilities.py           61     51    16%   18-21, 34-37, 47-52, 61-64, 82-110, 115-127
+-----------------------------------------------------------------------------
+TOTAL                                            2400   1350    44%
+============================== 71 passed in 8.52s ==============================
+
++ rm -rf docs/build docs/source/_autosummary
++ uv run make -C docs doctest
+Running Sphinx v9.1.0
+loading translations [en]... done
+making output directory... done
+[autosummary] generating autosummary for: index.rst, modules.rst
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+[autosummary] generating autosummary for: /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.rst
+[autosummary] generating autosummary for: /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.AnalyzeStacking.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.BuildCOF2D.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.ChangeIld.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.CreateMatrix.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.Crystal.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.CrystalOpt.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.CrystalSP.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.IlsIncl.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.IlsSerr.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.Landscape.rst, ..., /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.find_last_occurrence.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.get_mode_folders.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.guess_symbol.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.list_cifs.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.parse_atom_lines.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.parse_cell.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.parse_xyz_from_atom_line.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.parse_z_L_from_stem.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.pick_lower_left_pair_from_lines.rst, /Users/gregorlauter/Documents/PhD/2d-cof-mapper/COF-Landscaper/docs/source/_autosummary/coflandscaper.wrap01.rst
+loading intersphinx inventory 'python' from https://docs.python.org/3/objects.inv ...
+building [mo]: targets for 0 po files that are out of date
+writing output... 
+building [doctest]: targets for 2 source files that are out of date
+updating environment: [new config] 34 added, 0 changed, 0 removed
+reading sources... [  3%] _autosummary/coflandscaper
+reading sources... [  6%] _autosummary/coflandscaper.AnalyzeStacking
+reading sources... [  9%] _autosummary/coflandscaper.BuildCOF2D
+reading sources... [ 12%] _autosummary/coflandscaper.ChangeIld
+reading sources... [ 15%] _autosummary/coflandscaper.CreateMatrix
+reading sources... [ 18%] _autosummary/coflandscaper.Crystal
+reading sources... [ 21%] _autosummary/coflandscaper.CrystalOpt
+reading sources... [ 24%] _autosummary/coflandscaper.CrystalSP
+reading sources... [ 26%] _autosummary/coflandscaper.IlsIncl
+reading sources... [ 29%] _autosummary/coflandscaper.IlsSerr
+reading sources... [ 32%] _autosummary/coflandscaper.Landscape
+reading sources... [ 35%] _autosummary/coflandscaper.Mace
+reading sources... [ 38%] _autosummary/coflandscaper.MaceOpt
+reading sources... [ 41%] _autosummary/coflandscaper.MaceSP
+reading sources... [ 44%] _autosummary/coflandscaper.PXRD
+reading sources... [ 47%] _autosummary/coflandscaper.SelectCofs
+reading sources... [ 50%] _autosummary/coflandscaper.Supercell
+reading sources... [ 53%] _autosummary/coflandscaper.VisualizeCOF
+reading sources... [ 56%] _autosummary/coflandscaper.ab_half_diagonal_from_cif
+reading sources... [ 59%] _autosummary/coflandscaper.calculator_settings_for_head
+reading sources... [ 62%] _autosummary/coflandscaper.default_shift_from_cif
+reading sources... [ 65%] _autosummary/coflandscaper.extract_atoms
+reading sources... [ 68%] _autosummary/coflandscaper.find_last_occurrence
+reading sources... [ 71%] _autosummary/coflandscaper.get_mode_folders
+reading sources... [ 74%] _autosummary/coflandscaper.guess_symbol
+reading sources... [ 76%] _autosummary/coflandscaper.list_cifs
+reading sources... [ 79%] _autosummary/coflandscaper.parse_atom_lines
+reading sources... [ 82%] _autosummary/coflandscaper.parse_cell
+reading sources... [ 85%] _autosummary/coflandscaper.parse_xyz_from_atom_line
+reading sources... [ 88%] _autosummary/coflandscaper.parse_z_L_from_stem
+reading sources... [ 91%] _autosummary/coflandscaper.pick_lower_left_pair_from_lines
+reading sources... [ 94%] _autosummary/coflandscaper.wrap01
+reading sources... [ 97%] index
+reading sources... [100%] modules
+
+looking for now-outdated files... none found
+pickling environment... done
+checking consistency... done
+preparing documents... done
+copying assets... 
+copying assets: done
+running tests...
+
+Doctest summary
+===============
+    0 tests
+    0 failures in tests
+    0 failures in setup code
+    0 failures in cleanup code
+build succeeded.
+
+Testing of doctests in the sources finished, look at the results in build/doctest/output.txt.
+error: Recipe `check` failed with exit code 1
