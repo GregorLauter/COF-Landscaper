@@ -98,6 +98,48 @@ def test_run_custom_parent_folder_routing(
 
 
 @pytest.mark.unit
+def test_run_single_mode_uses_mode_output_subfolder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures run always appends the selected mode to output roots."""
+    pxrd = cl.PXRD()
+    calls: list[tuple[Path, Path]] = []
+
+    def fake_produce_xy(
+        _self: cl.PXRD,
+        input_folder: str | Path,
+        output_folder: str | Path | None = None,
+    ) -> str:
+        assert output_folder is not None
+        in_path = Path(input_folder)
+        out_path = Path(output_folder)
+        calls.append((in_path, out_path))
+        return str(out_path)
+
+    monkeypatch.setattr(cl.PXRD, "produce_xy", fake_produce_xy)
+
+    default_outputs = pxrd.run(cof_name="cof-a", mode="incl")
+    custom_outputs = pxrd.run(
+        cof_name="cof-a",
+        mode="incl",
+        output_folder="my_outputs",
+    )
+
+    assert default_outputs == {"incl": "cof-a/5_cof-a_analysis/pxrd_xy/incl"}
+    assert custom_outputs == {"incl": "my_outputs/incl"}
+    assert calls == [
+        (
+            Path("cof-a/4_cof-a_optimization/incl"),
+            Path("cof-a/5_cof-a_analysis/pxrd_xy/incl"),
+        ),
+        (
+            Path("cof-a/4_cof-a_optimization/incl"),
+            Path("my_outputs/incl"),
+        ),
+    ]
+
+
+@pytest.mark.unit
 def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
     """This test ensures PXRD plot_sim routing writes mode-specific output image paths."""
     pxrd = cl.PXRD()
@@ -124,22 +166,69 @@ def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert outputs == {
-        "serr": "cof-b/5_cof-b_analysis/cof-b_sim_serr.png",
-        "incl": "cof-b/5_cof-b_analysis/cof-b_sim_incl.png",
+        "serr": "cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png",
+        "incl": "cof-b/5_cof-b_analysis/incl/cof-b_sim_incl.png",
     }
     assert calls == [
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/serr"),
-            Path("cof-b/5_cof-b_analysis/cof-b_sim_serr.png"),
+            Path("cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png"),
             (1.5, 60.0),
             False,
         ),
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/incl"),
-            Path("cof-b/5_cof-b_analysis/cof-b_sim_incl.png"),
+            Path("cof-b/5_cof-b_analysis/incl/cof-b_sim_incl.png"),
             (1.5, 60.0),
             False,
         ),
+    ]
+
+
+@pytest.mark.unit
+def test_plot_sim_single_mode_uses_mode_subfolders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures plot_sim treats custom folders as mode-independent roots."""
+    pxrd = cl.PXRD()
+    calls: list[tuple[Path, Path]] = []
+
+    def fake_plot_xy(
+        _self: cl.PXRD,
+        xy_folder: str | Path,
+        output_path: str | Path,
+        **_kwargs: object,
+    ) -> str:
+        xy_path = Path(xy_folder)
+        out_path = Path(output_path)
+        calls.append((xy_path, out_path))
+        return str(out_path)
+
+    monkeypatch.setattr(cl.PXRD, "plot_xy", fake_plot_xy)
+
+    default_outputs = pxrd.plot_sim(
+        cof_name="cof-b",
+        mode="serr",
+        show=False,
+    )
+    custom_outputs = pxrd.plot_sim(
+        cof_name="cof-b",
+        mode="serr",
+        xy_folder="my_xy",
+        output_folder="my_plots",
+        show=False,
+    )
+
+    assert default_outputs == {
+        "serr": "cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png"
+    }
+    assert custom_outputs == {"serr": "my_plots/serr/cof-b_sim_serr.png"}
+    assert calls == [
+        (
+            Path("cof-b/5_cof-b_analysis/pxrd_xy/serr"),
+            Path("cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png"),
+        ),
+        (Path("my_xy/serr"), Path("my_plots/serr/cof-b_sim_serr.png")),
     ]
 
 
@@ -296,7 +385,7 @@ def test_extract_peaks_single_mode_default_routing(
         cof_name="cof-a",
         mode="serr",
         print_peaks=False,
-        save_csv=False,
+        save_csv=True,
     )
 
     assert list(outputs.keys()) == ["serr"]
@@ -307,6 +396,14 @@ def test_extract_peaks_single_mode_default_routing(
         "two_theta_deg",
         "relative_intensity",
     ]
+    assert (
+        tmp_path
+        / "cof-a"
+        / "5_cof-a_analysis"
+        / "pxrd_peaks"
+        / "serr"
+        / "pxrd_peaks.csv"
+    ).exists()
 
 
 @pytest.mark.unit
@@ -347,6 +444,29 @@ def test_extract_peaks_both_writes_csv(
         / "incl"
         / "pxrd_peaks.csv"
     ).exists()
+
+
+@pytest.mark.unit
+def test_extract_peaks_single_mode_uses_custom_mode_subfolders(
+    tmp_path: Path,
+) -> None:
+    """This test ensures extract_peaks treats custom folders as mode roots."""
+    xy_root = tmp_path / "xy"
+    xy_dir = xy_root / "incl"
+    xy_dir.mkdir(parents=True)
+    np.savetxt(xy_dir / "sample.xy", np.array([[5.0, 10.0], [10.0, 20.0]]))
+    output_root = tmp_path / "peaks"
+
+    outputs = cl.PXRD().extract_peaks(
+        cof_name="cof-a",
+        mode="incl",
+        xy_folder=xy_root,
+        output_folder=output_root,
+        print_peaks=False,
+    )
+
+    assert list(outputs) == ["incl"]
+    assert (output_root / "incl" / "pxrd_peaks.csv").exists()
 
 
 @pytest.mark.unit

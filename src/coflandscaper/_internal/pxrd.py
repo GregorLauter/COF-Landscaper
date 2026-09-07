@@ -24,9 +24,10 @@ class PXRD:
     * Read CIFs from ``{cof_name}/4_{cof_name}_optimization/{serr|incl}``
         (or ``dft_{serr|incl}`` when ``dft=True``).
     * Write ``.xy`` files under
-        ``{cof_name}/5_{cof_name}_analysis/pxrd_xy``
-        (or ``pxrd_xy_dft`` when ``dft=True``).
-    * Write plots under ``{cof_name}/5_{cof_name}_analysis``.
+        ``{cof_name}/5_{cof_name}_analysis/pxrd_xy/{serr|incl}``
+        (or ``pxrd_xy_dft/{serr|incl}`` when ``dft=True``).
+    * Write plots under
+        ``{cof_name}/5_{cof_name}_analysis/{serr|incl}``.
     """
 
     def __init__(
@@ -154,18 +155,17 @@ class PXRD:
             input_folder: Optional explicit input folder. For mode="both",
                 this is treated as a parent folder and per-mode subfolders are used.
                 Defaults to `None`.
-            output_folder: Optional explicit output folder. Defaults to
-                {cof_name}/5_{cof_name}_analysis/pxrd_xy or pxrd_xy_dft.
-                For mode="both", this is treated as a parent folder and
-                per-mode subfolders are used.
+            output_folder: Optional root folder for generated XY files.
+                The selected ``serr`` or ``incl`` subfolder is always used.
+                Defaults to {cof_name}/5_{cof_name}_analysis/pxrd_xy or
+                pxrd_xy_dft.
                 Defaults to `None`.
 
         Returns:
             Mapping of mode to generated XY folder path.
 
         Notes:
-            - mode='both' writes into {output_root}/serr and {output_root}/incl.
-            - mode='incl' or mode='serr' writes directly into output_folder.
+            Every generated XY path is ``{output_root}/{mode}``.
         """
         modes = self._resolve_modes(mode)
 
@@ -187,16 +187,12 @@ class PXRD:
                     f"dft_{selected_mode}" if dft else selected_mode
                 )
 
-            if output_folder is None:
-                target_output = (
-                    default_xy_root / selected_mode
-                    if len(modes) > 1
-                    else default_xy_root
-                )
-            elif len(modes) == 1:
-                target_output = Path(output_folder)
-            else:
-                target_output = Path(output_folder) / selected_mode
+            output_root = (
+                default_xy_root
+                if output_folder is None
+                else Path(output_folder)
+            )
+            target_output = output_root / selected_mode
 
             outputs[selected_mode] = self.produce_xy(
                 input_folder=cif_dir,
@@ -361,11 +357,10 @@ class PXRD:
                 or "both". Defaults to "both".
             dft: If True, use pxrd_xy_dft and pxrd_peaks_dft folders.
                 Defaults to False.
-            xy_folder: Optional explicit XY folder. For mode="both",
-                this is treated as a parent folder with per-mode subfolders.
-                Defaults to None.
-            output_folder: Optional explicit output folder. For mode="both",
-                this is treated as a parent folder with per-mode subfolders.
+            xy_folder: Optional root folder for XY files. The selected
+                ``serr`` or ``incl`` subfolder is always used. Defaults to None.
+            output_folder: Optional root folder for peak CSV files. The
+                selected ``serr`` or ``incl`` subfolder is always used.
                 Defaults to None.
             max_peaks: Maximum number of peaks to retain per structure.
             min_relative_intensity: Minimum relative intensity threshold.
@@ -392,19 +387,14 @@ class PXRD:
 
         outputs: dict[str, pd.DataFrame] = {}
         for selected_mode in modes:
-            if xy_folder is None:
-                xy_dir = default_xy_root / selected_mode
-            elif len(modes) == 1:
-                xy_dir = Path(xy_folder)
-            else:
-                xy_dir = Path(xy_folder) / selected_mode
-
-            if output_folder is None:
-                target_output = default_output_root / selected_mode
-            elif len(modes) == 1:
-                target_output = Path(output_folder)
-            else:
-                target_output = Path(output_folder) / selected_mode
+            xy_root = default_xy_root if xy_folder is None else Path(xy_folder)
+            output_root = (
+                default_output_root
+                if output_folder is None
+                else Path(output_folder)
+            )
+            xy_dir = xy_root / selected_mode
+            target_output = output_root / selected_mode
 
             if not xy_dir.exists() or not xy_dir.is_dir():
                 raise FileNotFoundError(f"XY folder not found: {xy_dir}")
@@ -483,10 +473,11 @@ class PXRD:
                 or `"both"`. Defaults to `"both"`.
             dft: If `True`, default XY folders are read from `dft_{mode}`.
                 Defaults to `False`.
-            xy_folder: Optional explicit XY folder. For mode="both",
-                this is treated as a parent folder with per-mode subfolders.
-                Defaults to `None`.
-            output_folder: Optional explicit output folder for plot image(s).
+            xy_folder: Optional root folder for XY files. The selected
+                ``serr`` or ``incl`` subfolder is always used. Defaults to
+                `None`.
+            output_folder: Optional root folder for plot image(s). The
+                selected ``serr`` or ``incl`` subfolder is always used.
                 Defaults to `None` (uses `{cof_name}/5_{cof_name}_analysis`).
             xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
                 Defaults to `(1.5, 60.0)`.
@@ -513,18 +504,13 @@ class PXRD:
             else Path(f"{cof_name}/5_{cof_name}_analysis")
         )
         for selected_mode in modes:
-            if xy_folder is None:
-                xy_dir = (
-                    default_xy_root / selected_mode
-                    if len(modes) > 1
-                    else default_xy_root
-                )
-            elif len(modes) == 1:
-                xy_dir = Path(xy_folder)
-            else:
-                xy_dir = Path(xy_folder) / selected_mode
-
-            target_output = output_root / f"{cof_name}_sim_{selected_mode}.png"
+            xy_root = default_xy_root if xy_folder is None else Path(xy_folder)
+            xy_dir = xy_root / selected_mode
+            target_output = (
+                output_root
+                / selected_mode
+                / f"{cof_name}_sim_{selected_mode}.png"
+            )
 
             outputs[selected_mode] = self.plot_xy(
                 xy_folder=xy_dir,
