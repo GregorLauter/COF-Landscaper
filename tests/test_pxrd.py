@@ -1,8 +1,12 @@
 import importlib
 from pathlib import Path
+from typing import cast
 
 import numpy as np
+import pandas as pd
 import pytest
+from ase import Atoms
+from ase.io import read, write
 
 import coflandscaper as cl
 
@@ -149,7 +153,7 @@ def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
         _self: cl.PXRD,
         xy_folder: str | Path,
         output_path: str | Path,
-        xlim: tuple[float, float] = (1.5, 60.0),
+        xlim: tuple[float, float] = (1.5, 30.0),
         show: bool = True,
         save: bool = True,
     ) -> str:
@@ -166,20 +170,20 @@ def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert outputs == {
-        "serr": "cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png",
-        "incl": "cof-b/5_cof-b_analysis/incl/cof-b_sim_incl.png",
+        "serr": "cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf",
+        "incl": "cof-b/5_cof-b_analysis/pxrd_plots/incl/cof-b_sim_incl.pdf",
     }
     assert calls == [
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/serr"),
-            Path("cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png"),
-            (1.5, 60.0),
+            Path("cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf"),
+            (1.5, 30.0),
             False,
         ),
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/incl"),
-            Path("cof-b/5_cof-b_analysis/incl/cof-b_sim_incl.png"),
-            (1.5, 60.0),
+            Path("cof-b/5_cof-b_analysis/pxrd_plots/incl/cof-b_sim_incl.pdf"),
+            (1.5, 30.0),
             False,
         ),
     ]
@@ -220,15 +224,15 @@ def test_plot_sim_single_mode_uses_mode_subfolders(
     )
 
     assert default_outputs == {
-        "serr": "cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png"
+        "serr": "cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf"
     }
-    assert custom_outputs == {"serr": "my_plots/serr/cof-b_sim_serr.png"}
+    assert custom_outputs == {"serr": "my_plots/serr/cof-b_sim_serr.pdf"}
     assert calls == [
         (
             Path("cof-b/5_cof-b_analysis/pxrd_xy/serr"),
-            Path("cof-b/5_cof-b_analysis/serr/cof-b_sim_serr.png"),
+            Path("cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf"),
         ),
-        (Path("my_xy/serr"), Path("my_plots/serr/cof-b_sim_serr.png")),
+        (Path("my_xy/serr"), Path("my_plots/serr/cof-b_sim_serr.pdf")),
     ]
 
 
@@ -268,7 +272,10 @@ def test_plot_sim_vs_exp_default_routing(
         save=False,
     )
 
-    assert output == "cof-c/5_cof-c_analysis/cof-c_both.png"
+    assert output == [
+        "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_1_serr.pdf",
+        "cof-c/5_cof-c_analysis/pxrd_plots/incl/sim_2_incl.pdf",
+    ]
 
 
 class _FakePattern:
@@ -286,7 +293,7 @@ class _FakeCalculator:
         _structure: object,
         two_theta_range: tuple[float, float],
     ) -> _FakePattern:
-        assert two_theta_range == (1.5, 60.0)
+        assert two_theta_range == (1.5, 30.0)
         return _FakePattern()
 
 
@@ -402,7 +409,7 @@ def test_extract_peaks_single_mode_default_routing(
         / "5_cof-a_analysis"
         / "pxrd_peaks"
         / "serr"
-        / "pxrd_peaks.csv"
+        / "sample_all.csv"
     ).exists()
 
 
@@ -434,7 +441,7 @@ def test_extract_peaks_both_writes_csv(
         / "5_cof-a_analysis"
         / "pxrd_peaks"
         / "serr"
-        / "pxrd_peaks.csv"
+        / "serr_all.csv"
     ).exists()
     assert (
         tmp_path
@@ -442,7 +449,15 @@ def test_extract_peaks_both_writes_csv(
         / "5_cof-a_analysis"
         / "pxrd_peaks"
         / "incl"
-        / "pxrd_peaks.csv"
+        / "incl_all.csv"
+    ).exists()
+    assert (
+        tmp_path
+        / "cof-a"
+        / "5_cof-a_analysis"
+        / "pxrd_peaks"
+        / "incl"
+        / "incl_all.csv"
     ).exists()
 
 
@@ -466,7 +481,7 @@ def test_extract_peaks_single_mode_uses_custom_mode_subfolders(
     )
 
     assert list(outputs) == ["incl"]
-    assert (output_root / "incl" / "pxrd_peaks.csv").exists()
+    assert (output_root / "incl" / "sample_all.csv").exists()
 
 
 @pytest.mark.unit
@@ -536,3 +551,300 @@ def test_extract_peaks_raises_for_empty_folder(
             print_peaks=False,
             save_csv=False,
         )
+
+
+@pytest.mark.unit
+def test_postopt_run_routing_and_source_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures postopt PXRD routing uses its dedicated stage folders."""
+    calls: list[tuple[Path, Path]] = []
+
+    def fake_produce_xy(
+        _self: cl.PXRD,
+        input_folder: str | Path,
+        output_folder: str | Path | None,
+    ) -> str:
+        assert output_folder is not None
+        calls.append((Path(input_folder), Path(output_folder)))
+        return str(output_folder)
+
+    monkeypatch.setattr(cl.PXRD, "produce_xy", fake_produce_xy)
+    pxrd = cl.PXRD()
+    assert pxrd.run("cof-a", mode="serr", source="postopt") == {
+        "serr": "cof-a/7_cof-a_postanalysis/pxrd_xy/serr"
+    }
+    assert calls == [
+        (
+            Path("cof-a/6_cof-a_scaling/postopt/serr"),
+            Path("cof-a/7_cof-a_postanalysis/pxrd_xy/serr"),
+        )
+    ]
+    with pytest.raises(ValueError, match="source must be"):
+        pxrd.run("cof-a", source="invalid")
+
+
+@pytest.mark.unit
+def test_extract_peak_regions_normalizes_per_region_and_tracks_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures regional peaks use local normalization and source-aware state."""
+    xy_dir = tmp_path / "cof-a" / "7_cof-a_postanalysis" / "pxrd_xy" / "serr"
+    xy_dir.mkdir(parents=True)
+    np.savetxt(xy_dir / "sample.xy", [[3.0, 0.011], [3.5, 14.006], [8.0, 5.0]])
+    monkeypatch.chdir(tmp_path)
+    pxrd = cl.PXRD()
+    monkeypatch.setattr(
+        pxrd,
+        "_fit_exp_peak",
+        lambda **_kwargs: {"two_theta": 3.4, "intensity": 10.0, "sigma": 0.1},
+    )
+    peak_data = pxrd.extract_peak_regions(
+        cof_name="cof-a",
+        mode="serr",
+        peak_regions=[(2.5, 4.0), (7.5, 8.5)],
+        source="postopt",
+    )
+    assert peak_data is pxrd._peak_data_by_structure
+    assert pxrd._peak_data_source == "postopt"
+    structure_data = peak_data["sample"]
+    assert list(structure_data.columns) == [
+        "region",
+        "region_min",
+        "region_max",
+        "source",
+        "two_theta",
+        "intensity",
+        "relative_intensity",
+    ]
+    exp_rows = structure_data[structure_data["source"] == "exp"]
+    assert len(exp_rows) == 2
+    assert exp_rows["intensity"].isna().all()
+    assert exp_rows["relative_intensity"].isna().all()
+    sim_rows = structure_data[structure_data["source"] == "sim"]
+    assert len(sim_rows) == 2
+    assert sim_rows.loc[
+        sim_rows["two_theta"] == 3.5, "relative_intensity"
+    ].item() == pytest.approx(100.0)
+    assert sim_rows.loc[
+        sim_rows["two_theta"] == 8.0, "relative_intensity"
+    ].item() == pytest.approx(100.0)
+    assert (
+        tmp_path
+        / "cof-a"
+        / "7_cof-a_postanalysis"
+        / "pxrd_peaks"
+        / "serr"
+        / "sample_regions.csv"
+    ).exists()
+
+
+@pytest.mark.unit
+def test_sim_peak_centroid_and_median_scale_factor() -> None:
+    """This test ensures PXRD centroids and Bragg-law median scaling remain deterministic."""
+    pxrd = cl.PXRD()
+    two_peaks = pd.DataFrame(
+        {
+            "two_theta_deg": [3.8846, 3.8948],
+            "relative_intensity": [100.0, 99.97],
+        }
+    )
+    assert pxrd._sim_peak_centroid(two_peaks) == pytest.approx(
+        3.8897, abs=0.0001
+    )
+    assert pxrd._sim_peak_centroid(two_peaks.iloc[:1]) == pytest.approx(3.8846)
+    with pytest.raises(ValueError, match="No retained"):
+        pxrd._sim_peak_centroid(two_peaks.iloc[:0])
+
+    factors = [1.0245, 1.0152, 1.0230, 1.0246]
+    rows: list[dict[str, float | int | str]] = []
+    for region, factor in enumerate(factors, start=1):
+        exp_theta = 4.0
+        sim_theta = np.degrees(
+            2 * np.arcsin(factor * np.sin(np.radians(exp_theta / 2)))
+        )
+        rows.extend(
+            [
+                {
+                    "region": region,
+                    "source": "exp",
+                    "two_theta": exp_theta,
+                    "relative_intensity": np.nan,
+                },
+                {
+                    "region": region,
+                    "source": "sim",
+                    "two_theta": sim_theta,
+                    "relative_intensity": 100.0,
+                },
+            ]
+        )
+    assert pxrd._median_scale_factor(pd.DataFrame(rows)) == pytest.approx(
+        1.02375, abs=0.0001
+    )
+    with pytest.raises(ValueError, match="No valid"):
+        pxrd._median_scale_factor(
+            pd.DataFrame(
+                columns=["region", "source", "two_theta", "relative_intensity"]
+            )
+        )
+
+
+@pytest.mark.unit
+def test_generate_scaled_cif_scales_in_plane_vectors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures scaled CIF generation changes only in-plane cell vectors."""
+    monkeypatch.chdir(tmp_path)
+    source_dir = tmp_path / "cof-a" / "4_cof-a_optimization" / "serr"
+    source_dir.mkdir(parents=True)
+    source_path = source_dir / "original_structure.cif"
+    original = Atoms(
+        "C", positions=[[1.0, 2.0, 3.0]], cell=[10.0, 20.0, 30.0], pbc=True
+    )
+    write(source_path, original)
+    pxrd = cl.PXRD()
+    pxrd._peak_data_by_structure = {
+        "original_structure": pd.DataFrame(
+            {
+                "region": [1],
+                "source": ["exp"],
+                "two_theta": [4.0],
+                "relative_intensity": [np.nan],
+            }
+        )
+    }
+    monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: 1.0237)
+    output = Path(
+        pxrd.generate_scaled_cif("cof-a", "serr")["original_structure"]
+    )
+    scaled = cast("Atoms", read(output))
+    assert output == Path(
+        "cof-a/6_cof-a_scaling/scaling/serr/original_structure_1.0237.cif"
+    )
+    assert scaled.cell.lengths() == pytest.approx([10.237, 20.474, 30.0])
+    assert scaled.positions[0] == pytest.approx([1.0237, 2.0474, 3.0])
+
+
+@pytest.mark.unit
+def test_generate_scaled_cif_requires_peak_data_and_explicit_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures scaled CIF selection uses current peak-data state."""
+    monkeypatch.chdir(tmp_path)
+    source_dir = tmp_path / "cof-a" / "4_cof-a_optimization" / "serr"
+    source_dir.mkdir(parents=True)
+    pxrd = cl.PXRD()
+    pxrd._peak_data_by_structure = {
+        "b": pd.DataFrame({"region": [1]}),
+    }
+    with pytest.raises(FileNotFoundError, match="No CIF files"):
+        pxrd.generate_scaled_cif("cof-a", "serr")
+    for name in ["a.cif", "b.cif"]:
+        write(source_dir / name, Atoms("C", cell=[5, 5, 5], pbc=True))
+    monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: 1.0)
+    assert (
+        Path(
+            pxrd.generate_scaled_cif("cof-a", "serr", source_cif="b.cif")["b"]
+        ).name
+        == "b_1.0000.cif"
+    )
+
+
+@pytest.mark.unit
+def test_generate_scaled_cif_uses_selected_scale_regions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures only selected extracted regions reach scaling."""
+    pxrd = cl.PXRD()
+    peak_data = pd.DataFrame(
+        {
+            "region": [1, 2],
+            "source": ["exp", "exp"],
+            "two_theta": [4.0, 5.0],
+            "relative_intensity": [np.nan, np.nan],
+        }
+    )
+    pxrd._peak_data_by_structure = {"structure": peak_data}
+    captured: list[pd.DataFrame] = []
+
+    def capture_scale_factor(data: pd.DataFrame) -> float:
+        captured.append(data)
+        return 1.0
+
+    monkeypatch.setattr(pxrd, "_median_scale_factor", capture_scale_factor)
+    source_dir = tmp_path / "cof-a" / "4_cof-a_optimization" / "serr"
+    source_dir.mkdir(parents=True)
+    write(source_dir / "structure.cif", Atoms("C", cell=[1, 1, 1], pbc=True))
+    monkeypatch.chdir(tmp_path)
+    pxrd.generate_scaled_cif("cof-a", "serr", scale_regions=[2])
+    assert captured[0]["region"].unique().tolist() == [2]
+
+
+@pytest.mark.unit
+def test_plot_sim_vs_exp_rejects_stale_peak_data_source() -> None:
+    """This test ensures postopt plots never annotate peak data extracted from opt."""
+    pxrd = cl.PXRD()
+    pxrd._peak_data_by_structure = {"sample": pd.DataFrame({"region": [1]})}
+    pxrd._peak_data_source = "opt"
+    with pytest.raises(ValueError, match="belongs to source 'opt'"):
+        pxrd.plot_sim_vs_exp(
+            "cof-a", mode="serr", source="postopt", show=False
+        )
+
+
+@pytest.mark.unit
+def test_plot_region_selector_requires_current_peak_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures region selectors use stored regions and reject invalid state."""
+    pxrd = cl.PXRD()
+    with pytest.raises(ValueError, match="No peak-region data"):
+        pxrd.plot_sim_vs_exp(
+            "cof-a", mode="serr", xlim="region[1]", show=False
+        )
+    xy_dir = tmp_path / "cof-a" / "5_cof-a_analysis" / "pxrd_xy" / "serr"
+    xy_dir.mkdir(parents=True)
+    np.savetxt(xy_dir / "sample.xy", [[3.0, 1.0]])
+    exp_file = tmp_path / "experimental.xy"
+    np.savetxt(exp_file, [[3.0, 1.0]])
+    monkeypatch.chdir(tmp_path)
+    pxrd._peak_data_by_structure = {
+        "sample": pd.DataFrame(
+            {"region": [1], "region_min": [3.0], "region_max": [5.0]}
+        )
+    }
+    pxrd._peak_data_source = "opt"
+    with pytest.raises(ValueError, match="does not exist"):
+        pxrd.plot_sim_vs_exp(
+            "cof-a",
+            mode="serr",
+            xlim="region[2]",
+            exp_xy_file=exp_file,
+            show=False,
+        )
+    with pytest.raises(ValueError, match="must use the form"):
+        pxrd.plot_sim_vs_exp("cof-a", mode="serr", xlim="region-1", show=False)
+
+
+@pytest.mark.unit
+def test_extract_peaks_postopt_uses_postanalysis_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures postopt peak CSV extraction uses postanalysis input and output roots."""
+    xy_dir = tmp_path / "cof-a" / "7_cof-a_postanalysis" / "pxrd_xy" / "incl"
+    xy_dir.mkdir(parents=True)
+    np.savetxt(xy_dir / "sample.xy", [[5.0, 1.0]])
+    monkeypatch.chdir(tmp_path)
+    cl.PXRD().extract_peaks(
+        "cof-a", mode="incl", source="postopt", print_peaks=False
+    )
+    assert (
+        tmp_path
+        / "cof-a"
+        / "7_cof-a_postanalysis"
+        / "pxrd_peaks"
+        / "incl"
+        / "sample_all.csv"
+    ).exists()

@@ -313,7 +313,7 @@ class Landscape:
 
         _style_axes(ax)
         cbar = fig.colorbar(cf, ax=ax, pad=0.02)
-        cbar.set_label("Relative energy [eV]")
+        cbar.set_label("Relative energy [eV]", fontsize=12)
         cbar.ax.yaxis.set_major_formatter(
             mpl.ticker.FormatStrFormatter("%.1f")
         )

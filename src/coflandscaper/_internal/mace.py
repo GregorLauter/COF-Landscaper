@@ -388,7 +388,7 @@ class MaceSP(Mace):
 
 
 class MaceOpt(Mace):
-    """Optimize CIF structures with MACE and optional z-axis constraints.
+    """Optimize CIF structures with MACE and optional cell constraints.
 
     This class wraps ASE optimization with a MACE calculator and supports
     per-mode batch optimization plus optional energy-summary CSV generation.
@@ -405,6 +405,7 @@ class MaceOpt(Mace):
         model: str | None = None,
         device: str = "cpu",
         fix_z: bool = False,
+        cell_mode: str = "full",
         max_steps: int = 2000,
         verbose: bool = True,
     ) -> None:
@@ -418,6 +419,10 @@ class MaceOpt(Mace):
                 (resolved to `"mh-1"`).
             device: Torch device string. Defaults to `"cpu"`.
             fix_z: Whether to constrain atomic z motion. Defaults to `False`.
+            cell_mode: Cell relaxation mode. ``"full"`` allows full cell
+                relaxation; ``"out_of_plane"`` fixes in-plane strain and
+                allows only the Cartesian zz cell-strain component to relax.
+                Defaults to ``"full"``.
             max_steps: Maximum optimizer steps. Defaults to `2000`.
             verbose: Whether to emit calculator initialization logs.
                 Defaults to `True`.
@@ -431,6 +436,9 @@ class MaceOpt(Mace):
         )
         self._fmax = fmax
         self._fix_z = fix_z
+        if cell_mode not in {"full", "out_of_plane"}:
+            raise ValueError("cell_mode must be 'full' or 'out_of_plane'.")
+        self._cell_mode = cell_mode
         self._max_steps = max_steps
         _, _, model_used, calc_settings = self._resolve_params()
         self.calc = self._make_calc(
@@ -470,7 +478,13 @@ class MaceOpt(Mace):
         self._apply_constraints(atoms)
         atoms.calc = self.calc
 
-        fcf = FrechetCellFilter(atoms)
+        if self._cell_mode == "full":
+            fcf = FrechetCellFilter(atoms)
+        else:
+            fcf = FrechetCellFilter(
+                atoms,
+                mask=[False, False, True, False, False, False],
+            )
         dyn = LBFGS(cast("Any", fcf))
         converged = dyn.run(fmax=self._fmax, steps=self._max_steps)
         if not converged:
@@ -548,6 +562,80 @@ class MaceOpt(Mace):
                 output_path = os.path.join(output_folder, file_name)
                 converged = self.optimize_cof(input_path, output_path)
                 convergence_by_structure[Path(file_name).stem] = converged
+        return convergence_by_structure
+
+    def run(
+        self,
+        cof_name: str,
+        mode: str,
+        input_folder: str | None = None,
+        output_folder: str | None = None,
+        source_cif: str | None = None,
+    ) -> dict[str, bool]:
+        """Optimize scaled CIFs with out-of-plane cell relaxation.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            mode: Stacking mode, either ``"serr"``, ``"incl"``, or
+                ``"both"``.
+            input_folder: Optional explicit scaling-stage input folder.
+            output_folder: Optional explicit postopt output folder.
+            source_cif: Optional input CIF filename when the input folder
+                contains multiple CIF files.
+
+        Returns:
+            Mapping from ``"mode/structure"`` to the optimization convergence
+            status for each processed CIF.
+        """
+        from .ild_ils_utils import get_mode_folders
+
+        selected_modes = [
+            Path(folder).name for folder in get_mode_folders(cof_name, mode)
+        ]
+        if len(selected_modes) > 1 and (
+            input_folder is not None or output_folder is not None
+        ):
+            raise ValueError(
+                "input_folder and output_folder cannot be used with mode='both'; "
+                "use the default mode-routed folders."
+            )
+
+        convergence_by_structure: dict[str, bool] = {}
+        for selected_mode in selected_modes:
+            input_dir = Path(
+                input_folder
+                or f"{cof_name}/6_{cof_name}_scaling/scaling/{selected_mode}"
+            )
+            output_dir = Path(
+                output_folder
+                or f"{cof_name}/6_{cof_name}_scaling/postopt/{selected_mode}"
+            )
+            if source_cif is None:
+                cif_files = sorted(input_dir.glob("*.cif"))
+                if not cif_files:
+                    raise FileNotFoundError(
+                        f"No CIF files found in: {input_dir}"
+                    )
+                if len(cif_files) > 1:
+                    raise ValueError(
+                        f"Multiple CIF files found in {input_dir}; "
+                        "specify source_cif."
+                    )
+                input_path = cif_files[0]
+            else:
+                input_path = input_dir / source_cif
+                if not input_path.is_file():
+                    raise FileNotFoundError(
+                        f"Source CIF not found: {input_path}"
+                    )
+
+            output_dir.mkdir(parents=True, exist_ok=True)
+            convergence_by_structure[f"{selected_mode}/{input_path.stem}"] = (
+                self.optimize_cof(
+                    str(input_path), str(output_dir / input_path.name)
+                )
+            )
+
         return convergence_by_structure
 
     def _merge_with_existing_energy_csv(

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from coflandscaper import AnalyzeStacking
+from coflandscaper import AnalyzeStacking, VisualizeCOF
 
 
 def test_resolve_modes_accepts_supported_values() -> None:
@@ -181,3 +181,103 @@ def test_run_merges_with_existing_final_structures_csv(
     assert ("serr", "serr_new.cif") in by_key
     assert ("serr", "serr_old.cif") not in by_key
     assert by_key[("incl", "incl_keep.cif")]["ILD"] == "5.0"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("source", "expected_input", "expected_output"),
+    [
+        ("opt", "4_cof-a_optimization", "5_cof-a_analysis"),
+        ("postopt", "6_cof-a_scaling/postopt", "7_cof-a_postanalysis"),
+    ],
+)
+def test_analyze_source_routing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    expected_input: str,
+    expected_output: str,
+) -> None:
+    """This test ensures analysis routes each supported source to its stage folders."""
+    analyzer = AnalyzeStacking()
+    seen: dict[str, Path] = {}
+
+    def fake_collect(folder: Path) -> list[str]:
+        seen["input"] = folder.parent
+        return [str(tmp_path / "sample.cif")]
+
+    monkeypatch.setattr(analyzer, "_collect_cifs", fake_collect)
+    monkeypatch.setattr(
+        analyzer, "_compute_metrics", lambda *_args: (1.0, 2.0)
+    )
+    monkeypatch.setattr(analyzer, "_load_energy_map", lambda **_kwargs: {})
+    monkeypatch.chdir(tmp_path)
+    analyzer.run("cof-a", mode="serr", source=source, print_values=False)
+    assert seen["input"] == Path("cof-a") / expected_input
+    assert (
+        tmp_path / "cof-a" / expected_output / "final_structures.csv"
+    ).exists()
+
+
+@pytest.mark.unit
+def test_analyze_explicit_paths_override_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures explicit analysis paths take precedence over source defaults."""
+    analyzer = AnalyzeStacking()
+    seen: list[Path] = []
+
+    def fake_collect(folder: Path) -> list[str]:
+        seen.append(folder)
+        return [str(tmp_path / "a.cif")]
+
+    monkeypatch.setattr(
+        analyzer,
+        "_collect_cifs",
+        fake_collect,
+    )
+    monkeypatch.setattr(
+        analyzer, "_compute_metrics", lambda *_args: (1.0, 2.0)
+    )
+    monkeypatch.setattr(analyzer, "_load_energy_map", lambda **_kwargs: {})
+    analyzer.run(
+        "cof-a",
+        mode="serr",
+        source="postopt",
+        input_base=tmp_path / "input",
+        output_base=tmp_path / "output",
+        print_values=False,
+    )
+    assert seen == [tmp_path / "input" / "serr"]
+    assert (tmp_path / "output" / "final_structures.csv").exists()
+    with pytest.raises(ValueError, match="source must be"):
+        analyzer.run("cof-a", source="invalid")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("source", "expected_base"),
+    [("opt", "4_cof-a_optimization"), ("postopt", "6_cof-a_scaling/postopt")],
+)
+def test_visualize_cof_source_routing(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    expected_base: str,
+) -> None:
+    """This test ensures visualization selects the source-specific input base without rendering."""
+    visualizer = VisualizeCOF()
+    seen: list[Path] = []
+
+    def fake_collect(_self: AnalyzeStacking, folder: Path) -> list[str]:
+        seen.append(folder)
+        return []
+
+    monkeypatch.setattr(
+        AnalyzeStacking,
+        "_collect_cifs",
+        fake_collect,
+    )
+    visualizer.visualize_cof("cof-a", mode="serr", source=source)
+    assert seen == [Path("cof-a") / expected_base / "serr"]
+    with pytest.raises(ValueError, match="source must be"):
+        visualizer.visualize_cof("cof-a", source="invalid")

@@ -237,3 +237,153 @@ def test_run_preopt_can_disable_fix_z_for_single_run(
     assert converged is True
     assert seen["fix_z_during_call"] is False
     assert opt._fix_z is True
+
+
+@pytest.mark.unit
+def test_mace_opt_validates_cell_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """This test ensures MaceOpt accepts supported cell modes and rejects invalid ones."""
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    assert MaceOpt(cell_mode="full", verbose=False)._cell_mode == "full"
+    assert (
+        MaceOpt(cell_mode="out_of_plane", verbose=False)._cell_mode
+        == "out_of_plane"
+    )
+    with pytest.raises(ValueError, match="cell_mode must be"):
+        MaceOpt(cell_mode="invalid", verbose=False)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("cell_mode", "expected_mask"),
+    [
+        ("full", None),
+        ("out_of_plane", [False, False, True, False, False, False]),
+    ],
+)
+def test_optimize_cof_uses_requested_cell_filter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cell_mode: str,
+    expected_mask: list[bool] | None,
+) -> None:
+    """This test ensures cell mode selects the expected FrechetCellFilter mask."""
+    seen: dict[str, object] = {}
+    atoms = _DummyAtoms()
+
+    class _DummyOptimizer:
+        def __init__(self, _filter: object) -> None:
+            pass
+
+        def run(self, **_kwargs: object) -> bool:
+            return True
+
+    def fake_filter(_atoms: object, **kwargs: object) -> object:
+        seen["mask"] = kwargs.get("mask")
+        return object()
+
+    monkeypatch.setattr(mace_mod, "read", lambda _path: atoms)
+    monkeypatch.setattr(mace_mod, "FrechetCellFilter", fake_filter)
+    monkeypatch.setattr(mace_mod, "LBFGS", _DummyOptimizer)
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    opt = MaceOpt(cell_mode=cell_mode, fix_z=False, verbose=False)
+    opt.optimize_cof(str(tmp_path / "in.cif"), str(tmp_path / "out.cif"))
+    assert seen["mask"] == expected_mask
+
+
+@pytest.mark.unit
+def test_run_routes_one_scaled_cif_to_postopt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures the public postopt workflow preserves the scaled CIF filename."""
+    input_dir = tmp_path / "cof-a" / "6_cof-a_scaling" / "scaling" / "serr"
+    input_dir.mkdir(parents=True)
+    source = input_dir / "scaled_1.0237.cif"
+    source.write_text("data_dummy\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    opt = MaceOpt(verbose=False)
+    seen: dict[str, str] = {}
+    monkeypatch.setattr(
+        opt,
+        "optimize_cof",
+        lambda input_path, output_path: (
+            seen.update(input=input_path, output=output_path) or True
+        ),
+    )
+    assert opt.run("cof-a", "serr") == {"serr/scaled_1.0237": True}
+    assert seen == {
+        "input": "cof-a/6_cof-a_scaling/scaling/serr/scaled_1.0237.cif",
+        "output": "cof-a/6_cof-a_scaling/postopt/serr/scaled_1.0237.cif",
+    }
+
+
+@pytest.mark.unit
+def test_run_requires_unambiguous_scaled_cif(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures postopt CIF selection is explicit when scaling outputs are ambiguous."""
+    input_dir = tmp_path / "cof-a" / "6_cof-a_scaling" / "scaling" / "incl"
+    input_dir.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    opt = MaceOpt(verbose=False)
+    monkeypatch.setattr(opt, "optimize_cof", lambda *_args: True)
+    with pytest.raises(FileNotFoundError, match="No CIF files"):
+        opt.run("cof-a", "incl")
+    for filename in ["a.cif", "b.cif"]:
+        (input_dir / filename).write_text("data_dummy\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Multiple CIF"):
+        opt.run("cof-a", "incl")
+    assert opt.run("cof-a", "incl", source_cif="b.cif") == {"incl/b": True}
+
+
+@pytest.mark.unit
+def test_run_both_routes_modes_independently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This test ensures both mode folders are processed independently."""
+    for mode in ["serr", "incl"]:
+        input_dir = tmp_path / "cof-a" / "6_cof-a_scaling" / "scaling" / mode
+        input_dir.mkdir(parents=True)
+        (input_dir / f"{mode}.cif").write_text(
+            "data_dummy\n", encoding="utf-8"
+        )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    opt = MaceOpt(verbose=False)
+    seen: list[tuple[str, str]] = []
+
+    def record_optimization(input_path: str, output_path: str) -> bool:
+        seen.append((input_path, output_path))
+        return True
+
+    monkeypatch.setattr(
+        opt,
+        "optimize_cof",
+        record_optimization,
+    )
+
+    assert opt.run("cof-a", "both") == {
+        "serr/serr": True,
+        "incl/incl": True,
+    }
+    assert seen == [
+        (
+            "cof-a/6_cof-a_scaling/scaling/serr/serr.cif",
+            "cof-a/6_cof-a_scaling/postopt/serr/serr.cif",
+        ),
+        (
+            "cof-a/6_cof-a_scaling/scaling/incl/incl.cif",
+            "cof-a/6_cof-a_scaling/postopt/incl/incl.cif",
+        ),
+    ]

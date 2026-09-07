@@ -300,6 +300,7 @@ class AnalyzeStacking:
         output_base: str | Path | None = None,
         dft: bool = False,
         print_values: bool = True,
+        source: str = "opt",
     ) -> None:
         """Compute ILD/ILS metrics and write an analysis CSV.
 
@@ -316,6 +317,7 @@ class AnalyzeStacking:
                 final_structures_dft.csv. Defaults to `False`.
             print_values: If `True`, print ILD/ILS values to stdout.
                 Defaults to `True`.
+            source: Structure stage, either ``"opt"`` or ``"postopt"``.
 
         Notes:
                         - dft=False reads from `{input_base}/{serr|incl}` and writes
@@ -323,15 +325,21 @@ class AnalyzeStacking:
                         - dft=True reads from `{input_base}/dft_{serr|incl}` and writes
                             `final_structures_dft.csv`.
         """
-        base = (
-            Path(input_base)
-            if input_base
-            else Path(f"{cof_name}/4_{cof_name}_optimization")
+        if source not in {"opt", "postopt"}:
+            raise ValueError("source must be 'opt' or 'postopt'.")
+        default_input = (
+            f"{cof_name}/4_{cof_name}_optimization"
+            if source == "opt"
+            else f"{cof_name}/6_{cof_name}_scaling/postopt"
         )
+        default_output = (
+            f"{cof_name}/5_{cof_name}_analysis"
+            if source == "opt"
+            else f"{cof_name}/7_{cof_name}_postanalysis"
+        )
+        base = Path(input_base) if input_base else Path(default_input)
         output_base_path = (
-            Path(output_base)
-            if output_base
-            else Path(f"{cof_name}/5_{cof_name}_analysis")
+            Path(output_base) if output_base else Path(default_output)
         )
         modes = self._resolve_modes(mode)
         energy_map = self._load_energy_map(
@@ -401,6 +409,7 @@ class AnalyzeStacking:
         output_base: str | Path | None = None,
         dft: bool = False,
         print_values: bool = True,
+        source: str = "opt",
     ) -> None:
         """Backward-compatible alias for :meth:`analyze`.
 
@@ -414,6 +423,7 @@ class AnalyzeStacking:
                 Defaults to `None`.
             dft: If `True`, analyze DFT-mode folders. Defaults to `False`.
             print_values: If `True`, print ILD/ILS values. Defaults to `True`.
+            source: Structure stage, either ``"opt"`` or ``"postopt"``.
         """
         return self.analyze(
             cof_name=cof_name,
@@ -422,6 +432,7 @@ class AnalyzeStacking:
             output_base=output_base,
             dft=dft,
             print_values=print_values,
+            source=source,
         )
 
 
@@ -433,8 +444,8 @@ class VisualizeCOF:
     supports optional supercell expansion before display.
     """
 
-    width: int = 800
-    height: int = 600
+    width: int = 1200
+    height: int = 800
     background: str = "white"
     style: str = "stick"
 
@@ -584,6 +595,7 @@ class VisualizeCOF:
         mode: str = "both",
         input_base: str | Path | None = None,
         dft: bool = False,
+        source: str = "opt",
         add_unit_cell: bool = True,
         supercell_size_serr: tuple[int, int, int] = (2, 2, 1),
         supercell_size_incl: tuple[int, int, int] = (2, 2, 2),
@@ -597,6 +609,7 @@ class VisualizeCOF:
             input_base: Optional base folder containing per-mode subfolders.
                 Defaults to `None`
                 (uses `{cof_name}/4_{cof_name}_optimization`).
+            source: Structure stage, either ``"opt"`` or ``"postopt"``.
             dft: If `True`, read structures from `dft_{mode}` subfolders.
                 Defaults to `False`.
             add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
@@ -610,14 +623,21 @@ class VisualizeCOF:
 
         Notes:
             Viewer appearance is fixed to defaults
-            (width=800, height=600, background="white", style="stick").
+            (width=1200, height=800, background="white", style="stick").
         """
         analyzer = AnalyzeStacking()
+
+        if source not in {"opt", "postopt"}:
+            raise ValueError("source must be 'opt' or 'postopt'.")
 
         base = (
             Path(input_base)
             if input_base
-            else Path(f"{cof_name}/4_{cof_name}_optimization")
+            else Path(
+                f"{cof_name}/4_{cof_name}_optimization"
+                if source == "opt"
+                else f"{cof_name}/6_{cof_name}_scaling/postopt"
+            )
         )
         modes = analyzer._resolve_modes(mode)
 
