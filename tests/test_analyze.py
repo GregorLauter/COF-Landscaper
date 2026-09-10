@@ -6,18 +6,13 @@ import pytest
 from coflandscaper import AnalyzeStacking, VisualizeCOF
 
 
-def test_resolve_modes_accepts_supported_values() -> None:
+def test_resolve_modes() -> None:
     """This test ensures mode parsing stays stable for valid CLI/API inputs."""
     analyzer = AnalyzeStacking()
 
     assert analyzer._resolve_modes("incl") == ["incl"]
     assert analyzer._resolve_modes("serr") == ["serr"]
     assert analyzer._resolve_modes("both") == ["serr", "incl"]
-
-
-def test_resolve_modes_rejects_invalid_mode() -> None:
-    """This test ensures invalid mode values fail fast with a clear error."""
-    analyzer = AnalyzeStacking()
 
     with pytest.raises(
         ValueError, match="mode must be 'incl', 'serr', or 'both'"

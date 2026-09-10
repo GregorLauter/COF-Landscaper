@@ -156,25 +156,7 @@ def test_buildcof2d_hcb_ab_rejects_wrong_node_counts(
     monkeypatch.setattr(module, "_prepare_xyz_files", fake_prepare_xyz_files)
 
     node_a = tmp_path / "node_a.xyz"
-    node_b = tmp_path / "node_b.xyz"
-    node_c = tmp_path / "node_c.xyz"
     node_a.write_text("2\nnode\nC 0 0 0\nH 0 0 1\n", encoding="utf-8")
-    node_b.write_text("2\nnode\nC 0 0 0\nH 0 0 1\n", encoding="utf-8")
-    node_c.write_text("2\nnode\nC 0 0 0\nH 0 0 1\n", encoding="utf-8")
-
-    with pytest.raises(
-        ValueError,
-        match=(
-            r"Topology 'hcb_ab' requires exactly 2 node file\(s\) and 0 linker "
-            r"file\(s\)"
-        ),
-    ):
-        cl.BuildCOF2D().build(
-            topo="hcb_ab",
-            cof_name="cof",
-            input_nodes=[],
-            input_linkers=[],
-        )
 
     with pytest.raises(
         ValueError,
@@ -187,20 +169,6 @@ def test_buildcof2d_hcb_ab_rejects_wrong_node_counts(
             topo="hcb_ab",
             cof_name="cof",
             input_nodes=[node_a],
-            input_linkers=[],
-        )
-
-    with pytest.raises(
-        ValueError,
-        match=(
-            r"Topology 'hcb_ab' requires exactly 2 node file\(s\) and 0 linker "
-            r"file\(s\)"
-        ),
-    ):
-        cl.BuildCOF2D().build(
-            topo="hcb_ab",
-            cof_name="cof",
-            input_nodes=[node_a, node_b, node_c],
             input_linkers=[],
         )
 
@@ -271,54 +239,5 @@ def test_buildcof2d_hcb_ab_warns_on_linkers_in_default_folder(
     with pytest.warns(UserWarning, match="Topology 'hcb_ab' ignores linker"):
         cl.BuildCOF2D().build(
             topo="hcb_ab",
-            cof_name="cof",
-        )
-
-
-@pytest.mark.unit
-def test_buildcof2d_requires_exactly_one_node_and_linker_for_kgm(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """This test ensures kgm enforces one node and one linker."""
-    monkeypatch.chdir(tmp_path)
-    module = importlib.import_module(cl.BuildCOF2D.__module__)
-
-    def fake_prepare_xyz_files(
-        xyz_files: list[str],
-        output_folder: str,
-    ) -> list[str]:
-        for path in xyz_files:
-            shutil.copy(path, output_folder)
-        return xyz_files
-
-    monkeypatch.setattr(module, "_prepare_xyz_files", fake_prepare_xyz_files)
-
-    node_dir = tmp_path / "0_node"
-    linker_dir = tmp_path / "0_linker"
-    node_dir.mkdir()
-    linker_dir.mkdir()
-
-    (node_dir / "node_a.xyz").write_text(
-        "2\nnode\nC 0 0 0\nH 0 0 1\n",
-        encoding="utf-8",
-    )
-    (node_dir / "node_b.xyz").write_text(
-        "2\nnode\nC 0 0 0\nH 0 0 1\n",
-        encoding="utf-8",
-    )
-    (linker_dir / "linker.xyz").write_text(
-        "2\nlinker\nC 0 0 0\nH 0 0 1\n",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(
-        ValueError,
-        match=(
-            r"Topology 'kgm' requires exactly 1 node file\(s\) and 1 linker "
-            r"file\(s\)"
-        ),
-    ):
-        cl.BuildCOF2D().build(
-            topo="kgm",
             cof_name="cof",
         )

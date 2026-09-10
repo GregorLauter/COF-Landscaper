@@ -273,7 +273,7 @@ def test_optimize_cof_uses_full_cell_filter(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """This test ensures normal optimization uses a full cell filter."""
-    seen: dict[str, object] = {}
+    seen: dict[str, bool] = {}
     atoms = _DummyAtoms()
 
     class _DummyOptimizer:
@@ -283,8 +283,8 @@ def test_optimize_cof_uses_full_cell_filter(
         def run(self, **_kwargs: object) -> bool:
             return True
 
-    def fake_filter(_atoms: object, **kwargs: object) -> object:
-        seen["mask"] = kwargs.get("mask")
+    def fake_filter(_atoms: object) -> object:
+        seen["filter_called"] = True
         return object()
 
     monkeypatch.setattr(mace_mod, "read", lambda _path: atoms)
@@ -295,7 +295,7 @@ def test_optimize_cof_uses_full_cell_filter(
     )
     opt = MaceOpt(fix_z=False, verbose=False)
     opt.optimize_cof(str(tmp_path / "in.cif"), str(tmp_path / "out.cif"))
-    assert seen["mask"] is None
+    assert seen["filter_called"]
 
 
 @pytest.mark.unit

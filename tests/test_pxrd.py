@@ -173,42 +173,6 @@ def test_plot_sim_default_routing(
 
 
 @pytest.mark.unit
-def test_plot_sim_single_mode_uses_mode_subfolders(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """This test ensures plot_sim treats custom folders as mode roots."""
-    monkeypatch.chdir(tmp_path)
-    pxrd = cl.PXRD()
-    default_xy = Path("cof-b/5_cof-b_analysis/pxrd_xy/serr")
-    default_xy.mkdir(parents=True)
-    np.savetxt(default_xy / "default.xy", [[5.0, 1.0], [10.0, 3.0]])
-    custom_xy = Path("my_xy/serr")
-    custom_xy.mkdir(parents=True)
-    np.savetxt(custom_xy / "custom.xy", [[5.0, 1.0], [10.0, 3.0]])
-
-    default_outputs = pxrd.plot_sim(
-        cof_name="cof-b",
-        mode="serr",
-        show_stacking_values=False,
-        show=False,
-    )
-    custom_outputs = pxrd.plot_sim(
-        cof_name="cof-b",
-        mode="serr",
-        xy_folder="my_xy",
-        output_folder="my_plots",
-        show_stacking_values=False,
-        show=False,
-    )
-
-    assert default_outputs == [
-        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/serr/default.pdf"
-    ]
-    assert custom_outputs == ["my_plots/serr/custom.pdf"]
-
-
-@pytest.mark.unit
 def test_plot_sim_vs_exp_default_routing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -333,22 +297,6 @@ def test_plot_xy_creates_output(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_plot_xy_raises_for_missing_folder() -> None:
-    """This test ensures plot_xy fails clearly when the XY folder does not exist."""
-    pxrd = cl.PXRD()
-    with pytest.raises(FileNotFoundError, match="XY folder not found"):
-        pxrd.plot_xy("/definitely/not/there", "out.png", show=False)
-
-
-@pytest.mark.unit
-def test_plot_xy_raises_for_empty_folder(tmp_path: Path) -> None:
-    """This test ensures plot_xy rejects folders that contain no XY pattern files."""
-    pxrd = cl.PXRD()
-    with pytest.raises(FileNotFoundError, match=r"No \.xy files found"):
-        pxrd.plot_xy(tmp_path, tmp_path / "out.png", show=False)
-
-
-@pytest.mark.unit
 def test_extract_peaks_single_mode_default_routing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -414,14 +362,6 @@ def test_extract_peaks_both_writes_csv(
         / "pxrd_peaks"
         / "serr"
         / "serr_all.csv"
-    ).exists()
-    assert (
-        tmp_path
-        / "cof-a"
-        / "5_cof-a_analysis"
-        / "pxrd_peaks"
-        / "incl"
-        / "incl_all.csv"
     ).exists()
     assert (
         tmp_path

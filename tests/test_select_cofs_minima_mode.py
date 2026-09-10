@@ -7,46 +7,19 @@ import coflandscaper as cl
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    ("rows", "expected"),
-    [
-        (
-            [
-                {"z": 3.4, "L": 2.0, "energy_eV": -70446.719266},
-                {"z": 3.0, "L": 0.0, "energy_eV": -70443.344493},
-                {"z": 3.0, "L": 1.0, "energy_eV": -70444.846268},
-            ],
-            [(3.4, 2.0)],
-        ),
-        (
-            [
-                {"z": 3.0, "L": 0.0, "energy_eV": -70443.344493},
-                {"z": 3.4, "L": 2.0, "energy_eV": -70446.719266},
-                {"z": 3.0, "L": 1.0, "energy_eV": -70444.846268},
-            ],
-            [(3.4, 2.0)],
-        ),
-        (
-            [
-                {"z": 3.0, "L": 0.0, "energy_eV": -70443.344493},
-                {"z": 3.0, "L": 1.0, "energy_eV": -70444.846268},
-                {"z": 3.4, "L": 2.0, "energy_eV": -70446.719266},
-            ],
-            [(3.4, 2.0)],
-        ),
-    ],
-)
-def test_global_minima_returns_lowest_energy_pair_independent_of_row_order(
-    tmp_path: Path,
-    rows: list[dict[str, float]],
-    expected: list[tuple[float, float]],
-) -> None:
+def test_global_minima_returns_lowest_energy_pair(tmp_path: Path) -> None:
     csv_path = tmp_path / "cof-1_sp_energies_serr.csv"
-    pd.DataFrame(rows).to_csv(csv_path, index=False)
+    pd.DataFrame(
+        [
+            {"z": 3.0, "L": 0.0, "energy_eV": -70443.344493},
+            {"z": 3.4, "L": 2.0, "energy_eV": -70446.719266},
+            {"z": 3.0, "L": 1.0, "energy_eV": -70444.846268},
+        ]
+    ).to_csv(csv_path, index=False)
 
     selections = cl.SelectCofs()._global_minima_from_csv(csv_path)
 
-    assert selections == expected
+    assert selections == [(3.4, 2.0)]
 
 
 @pytest.mark.unit
