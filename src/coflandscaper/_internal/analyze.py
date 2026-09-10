@@ -1,8 +1,12 @@
-"""Analyze ILD/ILS metrics and visualize optimized COF structures.
+"""Analyze stacking geometry and visualize optimized COF structures.
 
-This module provides utilities to compute interlayer metrics from optimized
-structures, merge those metrics with per-layer energies, and visualize CIF
-structures (including supercell-expanded views) for selected stacking modes.
+This module provides utilities to calculate interlayer distance (ILD) and
+interlayer slipping (ILS) from optimized COF structures, combine these
+geometrical descriptors with available per-layer energies, write consolidated
+structure-analysis tables, and visualize normal or postoptimized structures.
+
+Both the standard optimization stage and the PXRD-guided fixed-cell
+postoptimization stage are supported.
 """
 
 from __future__ import annotations
@@ -28,10 +32,11 @@ from .utilities import read_cif_atom_lines
 
 
 class Supercell:
-    r"""Build a supercell $a\times b\times c$ from each input unit cell.
+    r"""Generate supercells from periodic COF structures.
 
-    Physically, this replicates the periodic unit cell in-plane and along $c$
-    to create a larger slab for visualization or downstream calculations.
+    The unit cell is replicated by integer factors along the crystallographic
+    $a$, $b$, and $c$ directions. This is primarily used for visualization or for
+    preparing larger periodic structures for downstream calculations.
     """
 
     def run(
@@ -40,13 +45,13 @@ class Supercell:
         output_folder: str,
         supercell_size: tuple[int, int, int] = (2, 2, 2),
     ) -> None:
-        """Expand all CIF structures in a folder into supercell CIF files.
+        """Generate supercell CIF files for all structures in one folder.
 
         Args:
-            input_folder: Folder containing input `.cif` files.
-            output_folder: Destination folder for expanded `.cif` files.
-            supercell_size: Supercell replication `(a, b, c)`.
-                Defaults to `(2, 2, 2)`.
+            input_folder: Folder containing input CIF structures.
+            output_folder: Destination folder for generated supercell CIF files.
+            supercell_size: Integer replication factors ``(a, b, c)``.
+                Defaults to ``(2, 2, 2)``.
         """
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         for input_file in list_cifs(input_folder):
@@ -59,6 +64,24 @@ class Supercell:
 
 
 class AnalyzeStacking:
+    """Calculate final ILD/ILS descriptors for optimized COF structures.
+
+    ``AnalyzeStacking`` evaluates the stacking geometry of serrated and inclined
+    COF structures after geometry optimization. For each structure, the interlayer
+    distance (ILD) and interlayer slipping (ILS) are calculated using the
+    mode-specific geometrical definitions used throughout COF-Landscaper.
+
+    For ``source="opt"``, structures are read from the normal optimization stage
+    and results are written under ``{cof_name}/5_{cof_name}_analysis``.
+
+    For ``source="postopt"``, structures are read from the PXRD-guided fixed-cell
+    postoptimization stage and results are written under
+    ``{cof_name}/7_{cof_name}_postanalysis``.
+
+    When matching optimization-energy data are available, absolute and relative
+    per-layer energies are included in the generated ``final_structures.csv``.
+    """
+
     _FINAL_STRUCT_FIELDS: ClassVar[list[str]] = [
         "Stacking",
         "filename",
@@ -302,28 +325,44 @@ class AnalyzeStacking:
         print_values: bool = True,
         source: str = "opt",
     ) -> None:
-        """Compute ILD/ILS metrics and write an analysis CSV.
+        """Analyze ILD/ILS values for selected optimized COF structures.
+
+        The method calculates mode-specific interlayer distance (ILD) and interlayer
+        slipping (ILS) values for each structure and writes the results to a
+        consolidated ``final_structures.csv`` file. When matching optimization-energy
+        data are available, absolute and relative per-layer energies are included.
+
+        The ``source`` argument selects the workflow stage to analyze:
+
+        - ``source="opt"`` reads normally optimized structures from
+          ``{cof_name}/4_{cof_name}_optimization`` and writes results to
+          ``{cof_name}/5_{cof_name}_analysis``.
+        - ``source="postopt"`` reads PXRD-guided fixed-cell postoptimized structures
+          from ``{cof_name}/6_{cof_name}_scaling/postopt`` and writes results to
+          ``{cof_name}/7_{cof_name}_postanalysis``.
+
+        When only one stacking mode is analyzed, existing rows belonging to the other
+        mode are preserved in the output CSV.
 
         Args:
-            cof_name: COF name used for default folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`. Defaults to `"both"`.
-            input_base: Optional base folder containing per-mode subfolders.
-                Defaults to `None`
-                (uses `{cof_name}/4_{cof_name}_optimization`).
-            output_base: Optional folder for the output CSV.
-                Defaults to `None` (uses `{cof_name}/5_{cof_name}_analysis`).
-            dft: If True, analyze dft_{mode} subfolders and write
-                final_structures_dft.csv. Defaults to `False`.
-            print_values: If `True`, print ILD/ILS values to stdout.
-                Defaults to `True`.
-            source: Structure stage, either ``"opt"`` or ``"postopt"``.
+            cof_name: COF name used for default workflow folder naming.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+                Defaults to ``"both"``.
+            input_base: Optional input base-folder override. Defaults to the folder
+                determined by ``source``.
+            output_base: Optional analysis output-folder override. Defaults to the
+                folder determined by ``source``.
+            dft: If ``True``, analyze ``dft_{mode}`` subfolders and write
+                ``final_structures_dft.csv``. Defaults to ``False``.
+            print_values: Whether to print calculated ILD/ILS values to standard
+                output. Defaults to ``True``.
+            source: Structure stage to analyze: ``"opt"`` or ``"postopt"``.
+                Defaults to ``"opt"``.
 
-        Notes:
-                        - dft=False reads from `{input_base}/{serr|incl}` and writes
-                            `final_structures.csv`.
-                        - dft=True reads from `{input_base}/dft_{serr|incl}` and writes
-                            `final_structures_dft.csv`.
+        Raises:
+            ValueError: If ``mode`` or ``source`` is invalid.
+            FileNotFoundError: If a required structure folder is missing or contains
+                no CIF structures.
         """
         if source not in {"opt", "postopt"}:
             raise ValueError("source must be 'opt' or 'postopt'.")
@@ -414,16 +453,16 @@ class AnalyzeStacking:
         """Backward-compatible alias for :meth:`analyze`.
 
         Args:
-            cof_name: COF name used for default folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`. Defaults to `"both"`.
-            input_base: Optional base folder containing per-mode subfolders.
-                Defaults to `None`.
-            output_base: Optional output folder for analysis CSV files.
-                Defaults to `None`.
-            dft: If `True`, analyze DFT-mode folders. Defaults to `False`.
-            print_values: If `True`, print ILD/ILS values. Defaults to `True`.
-            source: Structure stage, either ``"opt"`` or ``"postopt"``.
+            cof_name: COF name used for default workflow folder naming.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+                Defaults to ``"both"``.
+            input_base: Optional input base-folder override.
+            output_base: Optional analysis output-folder override.
+            dft: If ``True``, analyze DFT-mode structures. Defaults to ``False``.
+            print_values: Whether to print calculated ILD/ILS values. Defaults to
+                ``True``.
+            source: Structure stage to analyze: ``"opt"`` or ``"postopt"``.
+                Defaults to ``"opt"``.
         """
         return self.analyze(
             cof_name=cof_name,
@@ -438,10 +477,14 @@ class AnalyzeStacking:
 
 @dataclass
 class VisualizeCOF:
-    """Visualize optimized COF structures with py3Dmol.
+    """Visualize COF structures interactively with py3Dmol.
 
-    The viewer can render single files, folders, or selected mode outputs and
-    supports optional supercell expansion before display.
+    The viewer supports normal optimized structures, PXRD-guided postoptimized
+    structures, and single-layer structures. Structures can be expanded into
+    supercells before visualization to make the stacking arrangement easier to
+    inspect.
+
+    The default viewer uses a stick representation on a white background.
     """
 
     width: int = 1200
@@ -506,22 +549,23 @@ class VisualizeCOF:
         style: str | dict[str, Any] | None = None,
         print_names: bool = True,
     ):
-        """Visualize every CIF in one folder and return py3Dmol views.
+        """Visualize every CIF structure in one folder.
 
         Args:
-            folder: Folder containing CIF files.
-            add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
-            style: Optional style override. Defaults to `None`
-                (uses instance default style).
-            print_names: If `True`, print filenames during rendering.
-                Defaults to `True`.
+            folder: Folder containing CIF structures.
+            add_unit_cell: Whether to display the crystallographic unit cell.
+                Defaults to ``True``.
+            style: Optional py3Dmol style override. Defaults to the style configured
+                on the ``VisualizeCOF`` instance.
+            print_names: Whether to print each structure filename before rendering.
+                Defaults to ``True``.
 
         Returns:
-            List of py3Dmol view objects.
+            List of generated py3Dmol view objects.
 
         Raises:
-            FileNotFoundError: If folder is missing or has no CIF files.
-            ValueError: If `folder` is not a directory.
+            FileNotFoundError: If the folder is missing or contains no CIF structures.
+            ValueError: If ``folder`` is not a directory.
         """
         path = Path(folder)
         if not path.exists():
@@ -600,30 +644,37 @@ class VisualizeCOF:
         supercell_size_serr: tuple[int, int, int] = (2, 2, 1),
         supercell_size_incl: tuple[int, int, int] = (2, 2, 2),
     ):
-        """Visualize optimized COF structures for the selected stacking mode(s).
+        """Visualize optimized COF structures for selected stacking mode(s).
+
+        The ``source`` argument selects whether normally optimized or PXRD-guided
+        postoptimized structures are displayed. Each structure is expanded into a
+        mode-specific supercell before visualization, and its calculated ILD and ILS
+        values are printed.
 
         Args:
-            cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`. Defaults to `"both"`.
-            input_base: Optional base folder containing per-mode subfolders.
-                Defaults to `None`
-                (uses `{cof_name}/4_{cof_name}_optimization`).
-            source: Structure stage, either ``"opt"`` or ``"postopt"``.
-            dft: If `True`, read structures from `dft_{mode}` subfolders.
-                Defaults to `False`.
-            add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
-            supercell_size_serr: Supercell size for serrated structures.
-                Defaults to `(2, 2, 1)`.
-            supercell_size_incl: Supercell size for inclined structures.
-                Defaults to `(2, 2, 2)`.
+            cof_name: COF name used for default workflow folder naming.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+                Defaults to ``"both"``.
+            input_base: Optional input base-folder override. Defaults to the folder
+                determined by ``source``.
+            dft: If ``True``, read structures from ``dft_{mode}`` subfolders.
+                Defaults to ``False``.
+            source: Structure stage to visualize: ``"opt"`` or ``"postopt"``.
+                Defaults to ``"opt"``.
+            add_unit_cell: Whether to display the crystallographic unit cell.
+                Defaults to ``True``.
+            supercell_size_serr: Supercell replication used for serrated structures.
+                Defaults to ``(2, 2, 1)``.
+            supercell_size_incl: Supercell replication used for inclined structures.
+                Defaults to ``(2, 2, 2)``.
 
         Returns:
-            List of py3Dmol views.
+            List of generated py3Dmol view objects.
 
-        Notes:
-            Viewer appearance is fixed to defaults
-            (width=1200, height=800, background="white", style="stick").
+        Raises:
+            ValueError: If ``mode`` or ``source`` is invalid.
+            FileNotFoundError: If the required structure folders or CIF files are
+                missing.
         """
         analyzer = AnalyzeStacking()
 
@@ -677,23 +728,25 @@ class VisualizeCOF:
         add_unit_cell: bool = True,
         supercell_size: tuple[int, int, int] = (2, 2, 1),
     ):
-        """Visualize all single-layer CIFs in one folder.
+        """Visualize all single-layer CIF structures in one folder.
+
+        Each structure is expanded into the requested supercell before being displayed
+        with py3Dmol.
 
         Args:
-            input_folder: Folder containing single-layer .cif files.
-                Defaults to `"1_ILCOF-1_single_layer"`.
-            add_unit_cell: If `True`, draw the unit cell. Defaults to `True`.
-            supercell_size: Supercell size applied before visualization.
-                Defaults to `(2, 2, 1)`.
+            input_folder: Folder containing single-layer CIF structures. Defaults to
+                ``"1_ILCOF-1_single_layer"``.
+            add_unit_cell: Whether to display the crystallographic unit cell.
+                Defaults to ``True``.
+            supercell_size: Supercell replication applied before visualization.
+                Defaults to ``(2, 2, 1)``.
 
         Returns:
-            List of py3Dmol views.
+            List of generated py3Dmol view objects.
 
-        Notes:
-            - No mode argument is used.
-            - All .cif files are read directly from input_folder
-              (no subfolder traversal).
-            - ILS is computed with inclined logic for reporting.
+        Raises:
+            FileNotFoundError: If the folder is missing or contains no CIF structures.
+            ValueError: If ``input_folder`` is not a directory.
         """
         folder = Path(input_folder)
         if not folder.exists():

@@ -1,8 +1,12 @@
-"""Simulate PXRD patterns and generate publication-style comparison plots.
+"""Simulate, compare, and refine COF structures using PXRD data.
 
-This module provides end-to-end utilities to convert optimized CIF structures
-into simulated PXRD `.xy` files and to render stacked simulated or
-simulated-vs-experimental visualizations for selected stacking modes.
+This module provides utilities to simulate PXRD patterns from optimized COF
+structures, compare simulated and experimental diffraction data, extract
+user-defined peak regions, derive PXRD-guided in-plane lattice scaling factors,
+generate scaled CIF structures, and analyse postoptimized structures.
+
+The workflow supports both normally optimized structures and structures obtained
+after PXRD-guided scaling and fixed-cell postoptimization.
 """
 
 from __future__ import annotations
@@ -25,17 +29,43 @@ if TYPE_CHECKING:
 
 
 class PXRD:
-    """Simulate PXRD patterns from optimized CIFs and create stacked plots.
+    """Simulate PXRD patterns and perform PXRD-guided structure refinement.
 
-    Default workflow:
+    The class provides the PXRD workflow used after COF structure optimization:
 
-    * Read CIFs from ``{cof_name}/4_{cof_name}_optimization/{serr|incl}``
-        (or ``dft_{serr|incl}`` when ``dft=True``).
-    * Write ``.xy`` files under
+    - simulate PXRD patterns from optimized CIF structures;
+    - extract simulated peak tables;
+    - compare simulated and experimental PXRD patterns;
+    - fit experimental features within user-defined 2-theta regions;
+    - extract corresponding simulated reflections;
+    - derive an in-plane lattice scaling factor from selected regions;
+    - generate scaled CIF structures;
+    - repeat PXRD analysis after fixed-cell postoptimization.
+
+    The ``source`` argument distinguishes between the normal optimized structure
+    workflow (``"opt"``) and the postoptimization workflow (``"postopt"``).
+
+    Default optimized-structure workflow:
+
+    - input CIFs:
+        ``{cof_name}/4_{cof_name}_optimization/{serr|incl}``
+    - simulated XY files:
         ``{cof_name}/5_{cof_name}_analysis/pxrd_xy/{serr|incl}``
-        (or ``pxrd_xy_dft/{serr|incl}`` when ``dft=True``).
-    * Write plots under
-        ``{cof_name}/5_{cof_name}_analysis/{serr|incl}``.
+    - extracted peak tables:
+        ``{cof_name}/5_{cof_name}_analysis/pxrd_peaks/{serr|incl}``
+    - comparison plots:
+        ``{cof_name}/5_{cof_name}_analysis/pxrd_plots/{serr|incl}``
+
+    Default postoptimization workflow:
+
+    - input CIFs:
+        ``{cof_name}/6_{cof_name}_scaling/postopt/{serr|incl}``
+    - simulated XY files:
+        ``{cof_name}/7_{cof_name}_postanalysis/pxrd_xy/{serr|incl}``
+    - extracted peak tables:
+        ``{cof_name}/7_{cof_name}_postanalysis/pxrd_peaks/{serr|incl}``
+    - comparison plots:
+        ``{cof_name}/7_{cof_name}_postanalysis/pxrd_plots/{serr|incl}``
     """
 
     def __init__(
@@ -242,28 +272,40 @@ class PXRD:
         input_folder: str | Path | None = None,
         output_folder: str | Path | None = None,
     ) -> dict[str, str]:
-        """Generate simulated .xy files for one or both stacking modes.
+        """Simulate PXRD patterns for selected stacking mode(s).
+
+        The method converts CIF structures into simulated ``.xy`` diffraction patterns
+        using ``pymatgen.analysis.diffraction.xrd.XRDCalculator``.
+
+        By default, ``source="opt"`` reads normally optimized structures from
+        ``{cof_name}/4_{cof_name}_optimization`` and writes simulated patterns under
+        ``{cof_name}/5_{cof_name}_analysis/pxrd_xy``.
+
+        With ``source="postopt"``, structures are read from the fixed-cell
+        postoptimization stage and simulated patterns are written under
+        ``{cof_name}/7_{cof_name}_postanalysis/pxrd_xy``.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`. Defaults to `"both"`.
-            dft: If `True`, default input folders use `dft_{mode}`.
-                Defaults to `False`.
-            input_folder: Optional explicit input folder. For mode="both",
-                this is treated as a parent folder and per-mode subfolders are used.
-                Defaults to `None`.
-            output_folder: Optional root folder for generated XY files.
-                The selected ``serr`` or ``incl`` subfolder is always used.
-                Defaults to {cof_name}/5_{cof_name}_analysis/pxrd_xy or
-                pxrd_xy_dft.
-                Defaults to `None`.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+                Defaults to ``"both"``.
+            dft: If ``True``, use the DFT-specific default input and PXRD output
+                folders. Defaults to ``False``.
+            source: Structure source: ``"opt"`` for normally optimized structures or
+                ``"postopt"`` for fixed-cell postoptimized structures. Defaults to
+                ``"opt"``.
+            input_folder: Optional explicit input folder. For ``mode="both"``, this is
+                treated as a parent folder containing the mode-specific subfolders.
+                Defaults to ``None``.
+            output_folder: Optional output root for generated XY files. A mode-specific
+                ``serr`` or ``incl`` subfolder is always appended. Defaults to the
+                source-specific analysis folder.
 
         Returns:
-            Mapping of mode to generated XY folder path.
+            Mapping from stacking mode to generated XY-folder path.
 
-        Notes:
-            Every generated XY path is ``{output_root}/{mode}``.
+        Raises:
+            ValueError: If ``mode`` or ``source`` is invalid.
         """
         modes = self._resolve_modes(mode)
         input_root_template, analysis_root_template = self._resolve_source(
@@ -307,16 +349,22 @@ class PXRD:
         input_folder: str | Path,
         output_folder: str | Path | None = None,
     ) -> str:
-        """Simulate PXRD from all CIF files in a folder and save .xy files.
+        """Simulate PXRD patterns for all CIF structures in one folder.
+
+        Each CIF is converted into one two-column ``.xy`` file containing simulated
+        2-theta positions and relative intensities over the range configured when
+        constructing ``PXRD``.
 
         Args:
-            input_folder: Folder containing .cif files.
-            output_folder: Folder for generated .xy files. If None, uses
-                "simulated_xy" inside input_folder.
-                Defaults to `None`.
+            input_folder: Folder containing CIF files.
+            output_folder: Optional folder for generated ``.xy`` files. Defaults to
+                ``simulated_xy`` inside ``input_folder``.
 
         Returns:
-            Path to the output folder containing generated .xy files.
+            Path to the folder containing the generated ``.xy`` files.
+
+        Raises:
+            FileNotFoundError: If the input folder is missing or contains no CIF files.
         """
         cif_dir = Path(input_folder)
         if not cif_dir.exists() or not cif_dir.is_dir():
@@ -452,32 +500,41 @@ class PXRD:
         print_peaks: bool = False,
         save_csv: bool = True,
     ) -> dict[str, pd.DataFrame]:
-        """Extract simulated peak tables from PXRD .xy files.
+        """Extract simulated PXRD peak tables for selected stacking mode(s).
+
+        For each simulated structure, intensities are normalized relative to the
+        strongest reflection in the complete simulated pattern. Reflections below
+        ``min_relative_intensity`` are discarded, the remaining reflections are ranked
+        by relative intensity, and up to ``max_peaks`` entries are retained.
+
+        When ``save_csv=True``, one structure-specific ``<structure>_all.csv`` file is
+        written to the mode-specific peak folder.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Mode selector. Allowed values are "incl", "serr",
-                or "both". Defaults to "both".
-            dft: If True, use pxrd_xy_dft and pxrd_peaks_dft folders.
-                Defaults to False.
-            xy_folder: Optional root folder for XY files. The selected
-                ``serr`` or ``incl`` subfolder is always used. Defaults to None.
-            output_folder: Optional root folder for peak CSV files. The
-                selected ``serr`` or ``incl`` subfolder is always used.
-                Defaults to None.
-            max_peaks: Maximum number of peaks to retain per structure.
-            min_relative_intensity: Minimum relative intensity threshold.
-            print_peaks: If True, print a grouped summary per structure.
-                Defaults to False.
-            save_csv: If True, write one ``<structure>_all.csv`` file per
-                simulated structure to the selected mode folder.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+                Defaults to ``"both"``.
+            dft: If ``True``, use the DFT-specific PXRD folders. Defaults to ``False``.
+            source: PXRD source: ``"opt"`` or ``"postopt"``. Defaults to ``"opt"``.
+            xy_folder: Optional root folder containing simulated XY mode folders.
+                Defaults to the source-specific PXRD XY root.
+            output_folder: Optional root folder for peak CSV files. Defaults to the
+                source-specific PXRD peak root.
+            max_peaks: Maximum number of simulated reflections retained per structure.
+                Defaults to ``100``.
+            min_relative_intensity: Minimum relative intensity threshold in percent.
+                Defaults to ``1.0``.
+            print_peaks: Whether to print the extracted peak tables. Defaults to
+                ``False``.
+            save_csv: Whether to write structure-specific ``_all.csv`` files. Defaults
+                to ``True``.
 
         Returns:
-            Mapping of mode to DataFrame with columns: structure, rank,
-                two_theta_deg, relative_intensity.
+            Mapping from stacking mode to a DataFrame containing ``structure``,
+            ``rank``, ``two_theta_deg``, and ``relative_intensity``.
 
         Raises:
-            FileNotFoundError: If a required XY folder is missing or empty.
+            FileNotFoundError: If a required simulated XY folder is missing or empty.
         """
         modes = self._resolve_modes(mode)
         _, analysis_root_template = self._resolve_source(source)
@@ -570,21 +627,27 @@ class PXRD:
         peak_range: tuple[float, float],
         exp_xy_file: str | Path | None = None,
     ) -> dict[str, float]:
-        """Fit one experimental PXRD feature in a manually selected range.
+        """Fit one experimental PXRD feature within a selected 2-theta range.
+
+        The experimental data inside ``peak_range`` are fitted with a pseudo-Voigt
+        profile and linear baseline. The fitted peak centre is used as the experimental
+        reference position during PXRD-guided refinement.
 
         Args:
-            cof_name: COF name retained for a consistent PXRD API.
-            peak_range: 2-theta bounds enclosing one experimental feature.
-            exp_xy_file: Optional experimental .xy file. If None, uses the
-                standard experimental file discovery.
+            cof_name: COF name retained for API consistency.
+            peak_range: Lower and upper 2-theta limits enclosing the experimental
+                diffraction feature.
+            exp_xy_file: Optional experimental ``.xy`` file. Defaults to automatic
+                discovery of the single ``.xy`` file in ``experimental_pxrd/``.
 
         Returns:
-            Dictionary containing the fitted ``two_theta``, ``intensity``,
-            and ``sigma`` values.
+            Dictionary containing the fitted ``two_theta`` centre, fitted peak
+            ``intensity``, and Gaussian-equivalent ``sigma``.
 
         Raises:
-            ValueError: If the range is invalid or contains too little data.
-            RuntimeError: If the pseudo-Voigt fit cannot be performed.
+            ValueError: If the selected range is invalid or contains insufficient or
+                non-varying experimental data.
+            RuntimeError: If the pseudo-Voigt fit cannot be completed.
         """
         del cof_name
         lower, upper = self._validate_peak_range(peak_range)
@@ -670,19 +733,21 @@ class PXRD:
         source: str = "opt",
         xy_folder: str | Path | None = None,
     ) -> pd.DataFrame:
-        """Return all simulated reflections in a manually selected range.
+        """Extract simulated reflections within one selected 2-theta region.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Mode selector. Allowed values are ``"incl"``, ``"serr"``,
-                or ``"both"``.
-            peak_range: 2-theta bounds used to select reflections.
-            dft: If True, use the default ``pxrd_xy_dft`` folder.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            peak_range: Lower and upper 2-theta limits defining the region.
+            dft: If ``True``, use DFT-specific simulated PXRD folders. Defaults to
+                ``False``.
+            source: PXRD source: ``"opt"`` or ``"postopt"``. Defaults to ``"opt"``.
             xy_folder: Optional root folder for simulated XY files.
 
         Returns:
-            DataFrame containing structure, two_theta_deg, intensity relative
-            to the complete simulated pattern, and relative_intensity.
+            DataFrame containing the simulated structure identifier, 2-theta position,
+            raw simulated intensity, and intensity relative to the strongest reflection
+            in the complete simulated pattern.
         """
         lower, upper = self._validate_peak_range(peak_range)
         modes = self._resolve_modes(mode)
@@ -737,16 +802,19 @@ class PXRD:
 
     @staticmethod
     def _sim_peak_centroid(sim_peaks: pd.DataFrame) -> float:
-        """Calculate the relative-intensity-weighted simulated peak centre.
+        """Return the representative simulated peak position for one region.
+
+        If several simulated reflections remain within the region, their representative
+        position is calculated as the relative-intensity-weighted centroid.
 
         Args:
             sim_peaks: Retained simulated reflections for one peak region.
 
         Returns:
-            Representative simulated 2-theta position.
+            Relative-intensity-weighted simulated 2-theta position.
 
         Raises:
-            ValueError: If no retained simulated reflections are available.
+            ValueError: If no usable simulated reflections are available.
         """
         if sim_peaks.empty:
             raise ValueError(
@@ -763,7 +831,22 @@ class PXRD:
 
     @classmethod
     def _median_scale_factor(cls, peak_data: pd.DataFrame) -> float:
-        """Calculate the median Bragg-law scale factor from peak data."""
+        """Calculate the recommended in-plane scale factor from selected peak regions.
+
+        For each region containing both an experimental fitted peak and simulated
+        reflection data, a lattice scale factor is obtained from the corresponding
+        Bragg-law peak positions. The final scale factor is the median of the valid
+        regional factors.
+
+        Args:
+            peak_data: Region-specific experimental and simulated peak data.
+
+        Returns:
+            Median in-plane lattice scale factor.
+
+        Raises:
+            ValueError: If no valid regional scale factors can be calculated.
+        """
         scale_factors: list[float] = []
         for _, region_data in peak_data.groupby("region", sort=True):
             exp_peaks = region_data[region_data["source"] == "exp"]
@@ -792,31 +875,41 @@ class PXRD:
         exp_xy_file: str | Path | None = None,
         xy_folder: str | Path | None = None,
     ) -> dict[str, pd.DataFrame]:
-        """Extract experimental and simulated peaks from selected regions.
+        """Fit experimental PXRD features and extract corresponding simulated peaks.
+
+        The user defines one or more physically meaningful 2-theta regions after
+        inspecting the simulated-versus-experimental PXRD comparison. Each region should
+        contain an experimental diffraction feature and the corresponding simulated
+        reflection or reflections.
+
+        Within each region, the experimental feature is fitted with a pseudo-Voigt
+        profile and the simulated reflections are extracted from the same interval.
+        Simulated reflections are then renormalized within that region and reflections
+        below 10% of the region maximum are discarded.
+
+        The extracted data are retained internally for subsequent plotting and
+        PXRD-guided scaling and are also written as structure-specific
+        ``<structure>_regions.csv`` files.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Mode selector. Allowed values are ``"incl"``, ``"serr"``,
-                or ``"both"``.
-            peak_regions: One or more 2-theta intervals containing one
-                experimental feature each.
-            dft: If True, use the default ``pxrd_xy_dft`` folder.
-            source: PXRD source for simulated data: ``"opt"`` or
-                ``"postopt"``.
-            exp_xy_file: Optional experimental .xy file. If None, uses the
-                standard experimental file discovery.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            peak_regions: User-defined list of ``(lower, upper)`` 2-theta intervals.
+            dft: If ``True``, use DFT-specific simulated PXRD folders. Defaults to
+                ``False``.
+            source: PXRD source: ``"opt"`` or ``"postopt"``. Defaults to ``"opt"``.
+            exp_xy_file: Optional experimental ``.xy`` file. Defaults to automatic
+                discovery from ``experimental_pxrd/``.
             xy_folder: Optional root folder for simulated XY files.
 
         Returns:
-            Mapping from simulated structure identifier to a DataFrame with
-            selected region metadata and experimental fitted centres or
-            simulated reflections. Simulated intensity is relative to the
-            complete simulated pattern, while relative_intensity is
-            normalized to the strongest simulated reflection in each region.
-            Each structure is also saved as ``<structure>_regions.csv``.
+            Mapping from simulated structure identifier to a DataFrame containing
+            region limits, source (experimental or simulated), 2-theta position, raw
+            simulated intensity where applicable, and region-normalized simulated
+            relative intensity.
 
         Raises:
-            ValueError: If no regions are supplied or a region is invalid.
+            ValueError: If no peak regions are provided or a region is invalid.
         """
         if not peak_regions:
             raise ValueError("peak_regions must contain at least one region.")
@@ -939,24 +1032,39 @@ class PXRD:
         source_cif: str | None = None,
         scale_regions: list[int] | None = None,
     ) -> dict[str, str]:
-        """Generate scaled CIFs with structure-specific PXRD scale factors.
+        """Generate PXRD-guided in-plane scaled CIF structures.
+
+        This method uses peak-region data previously generated by
+        ``extract_peak_regions()``. A Bragg-law scale factor is calculated for each
+        selected region and the median factor is applied uniformly to the first two
+        unit-cell vectors. The third cell vector is left unchanged, and atomic
+        coordinates are scaled consistently with the modified in-plane cell.
+
+        By default, all extracted regions are used. ``scale_regions`` can be supplied
+        to restrict the scaling to selected region IDs when some experimental features
+        are broad, overlapping, or otherwise unsuitable for reliable comparison.
+
+        The resulting structure is written to the mode-specific scaling folder and is
+        intended to undergo subsequent fixed-cell relaxation with ``MaceOpt.run_fixed``.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Optimization mode, either ``"serr"``, ``"incl"``, or
-                ``"both"``.
-            source_cif: Optional CIF filename in the optimization mode folder.
-                If None, the mode folder must contain exactly one CIF.
-            scale_regions: Optional region identifiers used for scaling.
-                ``None`` uses all extracted regions for each structure.
+            mode: Stacking mode selector: ``"serr"``, ``"incl"``, or ``"both"``.
+            source_cif: Optional source CIF filename in the normal optimization mode
+                folder. If omitted, the available CIF must be matched unambiguously to
+                the stored peak-region data.
+            scale_regions: Optional list of region IDs to use for determining the final
+                scale factor. ``None`` uses all extracted regions. Defaults to ``None``.
 
         Returns:
             Mapping from structure identifier to generated scaled CIF path.
 
         Raises:
-            FileNotFoundError: If the source folder or CIF cannot be found.
-            ValueError: If mode or source-CIF selection is invalid, or no
-                scale factor can be calculated.
+            FileNotFoundError: If the optimization folder or requested source CIF is
+                missing.
+            ValueError: If peak-region data are unavailable, cannot be matched
+                unambiguously to a source CIF, requested regions are unavailable, or no
+                valid scale factor can be calculated.
         """
         modes = self._resolve_modes(mode)
         if not self._peak_data_by_structure:
@@ -1067,32 +1175,29 @@ class PXRD:
         save: bool = True,
         show_stacking_values: bool = True,
     ) -> list[str]:
-        """Plot one simulation-only PXRD pattern per structure.
+        """Plot simulated PXRD patterns without experimental data.
+
+        This simulation-only plotting utility generates one PDF per simulated structure
+        and is useful when experimental PXRD data are unavailable. The normal
+        simulated-versus-experimental workflow should use ``plot_sim_vs_exp()``.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Mode selector. Allowed values are ``"incl"``, ``"serr"``,
-                or ``"both"``. Defaults to ``"both"``.
-            dft: If ``True``, default XY folders use ``pxrd_xy_dft``.
-                Defaults to ``False``.
-            source: PXRD source for default simulated data and annotations:
-                ``"opt"`` or ``"postopt"``.
-            xy_folder: Optional root folder for XY files. The selected mode
-                subfolder is used, preserving the existing override behavior.
-                Defaults to ``None``.
-            output_folder: Optional root folder for output PDFs. The selected
-                mode subfolder is used. Defaults to a ``simulated`` folder
-                below the source-specific ``pxrd_plots`` directory.
-            xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
-                Defaults to ``(1.5, 30.0)``.
-            show_stacking_values: If ``True``, show matching analyzed ILD and
-                ILS values when available. Defaults to ``True``.
-            show: If ``True``, display generated plots in the notebook/session.
-                Defaults to `True`.
-            save: If ``True``, write PDF figures to disk. Defaults to ``True``.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+                Defaults to ``"both"``.
+            dft: If ``True``, use DFT-specific simulated PXRD folders. Defaults to
+                ``False``.
+            source: PXRD source: ``"opt"`` or ``"postopt"``. Defaults to ``"opt"``.
+            xy_folder: Optional root folder containing simulated XY files.
+            output_folder: Optional root folder for generated PDFs.
+            xlim: Optional plotted 2-theta interval. Defaults to ``(1.5, 30.0)``.
+            show: Whether to display generated figures. Defaults to ``True``.
+            save: Whether to save PDF figures. Defaults to ``True``.
+            show_stacking_values: Whether to display analyzed ILD and ILS values when
+                available. Defaults to ``True``.
 
         Returns:
-            List of output PDF paths, one for each simulated structure.
+            List of generated PDF paths.
         """
         modes = self._resolve_modes(mode)
         _, analysis_root_template = self._resolve_source(source)
@@ -1264,42 +1369,46 @@ class PXRD:
         show: bool = True,
         save: bool = True,
     ) -> list[str]:
-        """Plot one experimental PXRD pattern against each simulated pattern.
+        """Compare experimental PXRD data with each simulated structure.
+
+        The experimental pattern is plotted as a continuous profile and the simulated
+        pattern as vertical diffraction reflections. Simulated intensities are rescaled
+        within the displayed 2-theta window for visual comparison.
+
+        If peak-region data have previously been generated with
+        ``extract_peak_regions()``, fitted experimental peak positions can be displayed
+        as dashed indicators. ``xlim="region[N]"`` can also be used to focus the plot
+        on one stored peak region.
+
+        This method is the main visual comparison step used before selecting peak
+        regions for PXRD-guided lattice refinement.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`; selects simulated folder(s).
-            dft: If `True`, default simulated folder uses `pxrd_xy_dft`.
-                Defaults to `False`.
-            source: PXRD source for default simulated data and annotations:
-                ``"opt"`` or ``"postopt"``.
-            show_color_legend: If True, show Experimental and Simulated legend
-                entries. Defaults to True.
-            show_stacking_values: If True, show matching analyzed ILD and ILS
-                values when available. Defaults to True.
-            exp_xy_file: Path to experimental .xy file. If None, searches the
-                'experimental_pxrd' folder for exactly one .xy file.
-                If multiple files exist, you must specify the path explicitly.
-                To customize the label displayed in the plot, rename the .xy file.
-                Defaults to `None`.
-            simulated_xy_folder: Folder containing simulated .xy files. If None,
-                defaults to the source-specific analysis `pxrd_xy/{mode}`
-                folder, or `pxrd_xy_dft/{mode}` when dft=True.
-                Defaults to `None`.
-            output_folder: Optional folder for output images. Defaults to
-                `None` (uses the source-specific `pxrd_plots/{mode}` folder).
-            xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
-                Alternatively, use ``"region[N]"`` to select region N from
-                the internally stored peak-region data with 5% padding.
-                Defaults to `(1.5, 30.0)`.
-            show: If `True`, display the figure. Defaults to `True`.
-            save: If `True`, write the figure to disk. Defaults to `True`.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            dft: If ``True``, use DFT-specific simulated PXRD folders. Defaults to
+                ``False``.
+            exp_xy_file: Optional experimental ``.xy`` file. If omitted, exactly one
+                ``.xy`` file must exist in ``experimental_pxrd/``.
+            simulated_xy_folder: Optional simulated XY folder override.
+            output_folder: Optional output folder for generated PDFs.
+            xlim: Plotted 2-theta interval, or ``"region[N]"`` to display a previously
+                extracted peak region with 5% padding. Defaults to ``(1.5, 30.0)``.
+            source: PXRD source: ``"opt"`` or ``"postopt"``. Defaults to ``"opt"``.
+            show_color_legend: Whether to display experimental/simulated legend entries.
+                Defaults to ``True``.
+            show_stacking_values: Whether to display analyzed ILD and ILS values when
+                available. Defaults to ``True``.
+            show: Whether to display generated figures. Defaults to ``True``.
+            save: Whether to save PDF figures. Defaults to ``True``.
 
         Returns:
-            List of output PDF paths, one for each simulated structure. Figures
-            contain graphical peak indicators but no numerical peak-position
-            annotations.
+            List of generated PDF paths, one for each simulated structure.
+
+        Raises:
+            FileNotFoundError: If required experimental or simulated data are missing.
+            ValueError: If ``mode``, ``source``, a region selector, or stored
+                peak-region state is invalid.
         """
         mode_lower = mode.lower()
         if mode_lower not in {"incl", "serr", "both"}:

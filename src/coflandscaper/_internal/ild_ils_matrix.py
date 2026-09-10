@@ -1,8 +1,14 @@
-"""Generate ILD and ILS structure matrices from a preoptimized COF layer.
+"""Generate ILD/ILS structure matrices from a preoptimized COF layer.
 
-This module provides classes to scan interlayer distance (ILD), apply lateral
-interlayer slipping (ILS) in serrated or inclined form, and combine both
-dimensions into a matrix of output CIF structures for downstream screening.
+This module provides the structure-generation step used to construct the
+reduced-dimensional stacking matrix of COF-Landscaper. Interlayer distance
+(ILD) is scanned over a user-defined range, while interlayer slipping (ILS) is
+introduced either as a serrated bilayer displacement or as an inclined lattice
+tilt.
+
+The generated CIF structures are used for subsequent single-point energy
+evaluation and construction of the simplified stacking potential energy
+landscape.
 """
 
 from __future__ import annotations
@@ -30,12 +36,14 @@ from .ild_ils_utils import (
 
 
 class ChangeIld:
-    """Generate ILD variations by rescaling the layer separation along $z$.
+    """Generate structures with systematically varied interlayer distance.
 
-    This class scans the interlayer distance (ILD) by rescaling the lattice
-    vector along $z$ while keeping the in‑plane lattice vectors and atomic
-    positions consistent in fractional coordinates. The layer thickness is
-    preserved and the slab is re‑centered in the new unit cell.
+    The interlayer distance (ILD) is varied by rescaling the lattice vector
+    associated with the layer separation while preserving the in-plane lattice
+    vectors. Atomic positions are transformed consistently and the layer is
+    recentered in the modified unit cell.
+
+    This class is used internally during construction of the ILD/ILS matrix.
     """
 
     def run(
@@ -46,17 +54,21 @@ class ChangeIld:
         ild_end: float = 4.5,
         ild_step: float = 0.1,
     ) -> None:
-        """Scan interlayer distances and write updated CIFs.
+        """Generate a scan over interlayer distance values.
+
+        For every CIF structure in ``input_folder``, structures are generated from
+        ``ild_start`` to ``ild_end`` using ``ild_step``.
 
         Args:
-            input_folder: Folder containing input CIF files.
-            output_folder: Destination folder for ILD‑modified CIFs.
-            ild_start: Minimum ILD in Å. Defaults to `3.0`.
-            ild_end: Maximum ILD in Å. Defaults to `4.5`.
-            ild_step: Step size in Å. Defaults to `0.1`.
+            input_folder: Folder containing input CIF structures.
+            output_folder: Destination folder for ILD-modified CIF structures.
+            ild_start: Minimum interlayer distance in Å. Defaults to ``3.0``.
+            ild_end: Maximum interlayer distance in Å. Defaults to ``4.5``.
+            ild_step: Interlayer-distance step size in Å. Defaults to ``0.1``.
 
         Raises:
-            ValueError: If a requested ILD is smaller than the slab thickness.
+            ValueError: If a requested interlayer distance is smaller than the layer
+                thickness and therefore cannot contain the structure.
         """
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         z_values = _generate_values(ild_start, ild_end, ild_step)
@@ -125,11 +137,16 @@ class ChangeIld:
 
 
 class IlsSerr:
-    r"""Generate serrated ILS structures by shifting the top layer in a bilayer.
+    r"""Generate serrated interlayer-slipping structures.
 
-    A $2\times$ supercell is built along $z$ and the upper layer is shifted in
-    the $ab$ plane. The shift length and angle can be scanned; the default
-    shift corresponds to the AB stacking derived from the parent cell.
+    For serrated stacking, a $2\times$ supercell is generated along the stacking
+    direction and one layer is displaced laterally relative to the other. This
+    preserves a bilayer representation while scanning the interlayer slipping
+    (ILS) magnitude along a fixed in-plane direction.
+
+    If the maximum ILS value or slip direction is not supplied explicitly, the
+    default values are derived automatically from the corresponding AB-stacking
+    shift of the parent unit cell.
     """
 
     def run(
@@ -144,26 +161,33 @@ class IlsSerr:
         ils_angle: float | None = None,
         print_shift: bool = False,
     ) -> None:
-        """Generate serrated ILS variants for each input CIF.
+        """Generate serrated ILS variants for all input structures.
+
+        The lateral displacement is scanned from ``ils_length_start`` to
+        ``ils_length_end`` using ``ils_length_step``. The shift direction is defined by
+        ``ils_angle``.
+
+        When ``ils_length_end`` or ``ils_angle`` is omitted, the corresponding
+        AB-stacking shift is derived automatically from the first input structure.
 
         Args:
-            input_folder: Folder containing ILD‑modified CIFs.
+            input_folder: Folder containing ILD-modified CIF structures.
             output_folder: Destination folder for serrated structures.
-            topo: Topology string used for defaults. Allowed values are
-                `"hcb"`, `"sql"`, `"hcb_ab"`, and `"kgm"`.
-            cof_name: Optional name used for output file naming. Defaults to
-                `None`.
-            ils_length_step: Step size for slip length in Å. Defaults to `1.0`.
-            ils_length_start: Minimum slip length in Å. Defaults to `0.0`.
-            ils_length_end: Maximum slip length in Å. Defaults to `None`
-                (auto-computed from AB shift).
-            ils_angle: Slip direction angle in degrees. Defaults to `None`
-                (auto-computed from AB shift).
-            print_shift: If `True`, print auto-computed default shift values.
-                Defaults to `False`.
+            topo: Topology selector used to determine the default AB shift. Allowed
+                values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
+            cof_name: Optional COF name used for standardized output filenames.
+                Defaults to ``None``.
+            ils_length_step: Interlayer-slipping step size in Å. Defaults to ``1.0``.
+            ils_length_start: Minimum interlayer slipping in Å. Defaults to ``0.0``.
+            ils_length_end: Maximum interlayer slipping in Å. Defaults to ``None``,
+                which uses the automatically determined AB-stacking shift.
+            ils_angle: In-plane slip direction in degrees. Defaults to ``None``, which
+                uses the automatically determined AB-stacking direction.
+            print_shift: Whether to print automatically determined shift parameters.
+                Defaults to ``False``.
 
         Raises:
-            ValueError: If `topo` is not "hcb", "sql", "hcb_ab", or "kgm".
+            ValueError: If ``topo`` is unsupported.
         """
         if topo not in {"hcb", "sql", "hcb_ab", "kgm"}:
             raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'.")
@@ -246,12 +270,16 @@ class IlsSerr:
 
 
 class IlsIncl:
-    """Generate inclined ILS structures by tilting the $c$ vector.
+    """Generate inclined interlayer-slipping structures.
 
-    The in‑plane shift is encoded in the $c$ lattice vector, producing a
-    continuous lateral offset between layers along a fixed direction. The
-    default shift length and angle correspond to the AB stacking derived from
-    the parent cell.
+    For inclined stacking, interlayer slipping (ILS) is encoded directly in the
+    lattice geometry by adding in-plane components to the stacking lattice vector.
+    This produces a continuous lateral offset between periodically repeated layers
+    without explicitly constructing a bilayer supercell.
+
+    If the maximum ILS value or slip direction is not supplied explicitly, the
+    default values are derived automatically from the corresponding AB-stacking
+    shift of the parent unit cell.
     """
 
     def run(
@@ -266,26 +294,33 @@ class IlsIncl:
         ils_angle: float | None = None,
         print_shift: bool = False,
     ) -> None:
-        """Generate inclined ILS variants for each input CIF.
+        """Generate inclined ILS variants for all input structures.
+
+        The lateral displacement is scanned from ``ils_length_start`` to
+        ``ils_length_end`` using ``ils_length_step``. The shift direction is defined by
+        ``ils_angle``.
+
+        When ``ils_length_end`` or ``ils_angle`` is omitted, the corresponding
+        AB-stacking shift is derived automatically from the first input structure.
 
         Args:
-            input_folder: Folder containing ILD‑modified CIFs.
+            input_folder: Folder containing ILD-modified CIF structures.
             output_folder: Destination folder for inclined structures.
-            topo: Topology string used for defaults. Allowed values are
-                `"hcb"`, `"sql"`, `"hcb_ab"`, and `"kgm"`.
-            cof_name: Optional name used for output file naming. Defaults to
-                `None`.
-            ils_length_start: Minimum slip length in Å. Defaults to `0.0`.
-            ils_length_end: Maximum slip length in Å. Defaults to `None`
-                (auto-computed from AB shift).
-            ils_length_step: Step size for slip length in Å. Defaults to `1.0`.
-            ils_angle: Slip direction angle in degrees. Defaults to `None`
-                (auto-computed from AB shift).
-            print_shift: If `True`, print auto-computed default shift values.
-                Defaults to `False`.
+            topo: Topology selector used to determine the default AB shift. Allowed
+                values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
+            cof_name: Optional COF name used for standardized output filenames.
+                Defaults to ``None``.
+            ils_length_start: Minimum interlayer slipping in Å. Defaults to ``0.0``.
+            ils_length_end: Maximum interlayer slipping in Å. Defaults to ``None``,
+                which uses the automatically determined AB-stacking shift.
+            ils_length_step: Interlayer-slipping step size in Å. Defaults to ``1.0``.
+            ils_angle: In-plane slip direction in degrees. Defaults to ``None``, which
+                uses the automatically determined AB-stacking direction.
+            print_shift: Whether to print automatically determined shift parameters.
+                Defaults to ``False``.
 
         Raises:
-            ValueError: If `topo` is not "hcb", "sql", "hcb_ab", or "kgm".
+            ValueError: If ``topo`` is unsupported.
         """
         if topo not in {"hcb", "sql", "hcb_ab", "kgm"}:
             raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'.")
@@ -361,20 +396,27 @@ class IlsIncl:
 
 
 class CreateMatrix:
-    """Create an ILD×ILS matrix of stacking variants for a fixed COF layer.
+    """Generate the ILD/ILS stacking matrix used for energy-landscape screening.
 
-    The layer itself is kept unchanged while (1) the interlayer distance (ILD)
-    is varied by rescaling the $z$ lattice vector and (2) interlayer slipping
-    (ILS) is applied either as a serrated bilayer shift or as an inclined
-    lattice tilt. Both serrated and inclined modes converge to the AB stacking
-    limit; the corresponding default shift length and angle are computed
-    automatically when unset and can be printed via `print_shift`. The default
-    ILD range is 3.0–4.0 Å in 0.1 Å steps.
+    ``CreateMatrix`` combines a systematic interlayer-distance (ILD) scan with an
+    interlayer-slipping (ILS) scan to generate the reduced-dimensional structure
+    matrix used by COF-Landscaper.
 
-    Users may override the slip angle, minimum/maximum slip length, and step
-    size to scan a specific region or alternative slip pathway. Outputs are
-    written to COF_NAME/2_{COF_NAME}_matrix/{serr|incl} by default and are
-    intended for subsequent single‑point energy evaluations (e.g., MACE or DFT).
+    Two stacking representations are supported:
+
+    - ``"serr"``: a serrated bilayer in which one layer is displaced laterally;
+    - ``"incl"``: an inclined unit cell in which the lateral offset is encoded in
+        the stacking lattice vector.
+
+    ``mode="both"`` generates both representations.
+
+    The default ILD scan spans 3.0–4.0 Å in 0.1 Å steps. The ILS scan begins at
+    0 Å and, unless overridden, extends to the automatically determined AB-stacking
+    shift for the selected topology.
+
+    Generated structures are written to
+    ``{cof_name}/2_{cof_name}_matrix/{serr|incl}`` and are intended for subsequent
+    single-point energy evaluation.
     """
 
     def __init__(
@@ -388,20 +430,20 @@ class CreateMatrix:
         ils_angle: float | None = None,
         print_shift: bool = False,
     ) -> None:
-        """Configure the ILD×ILS scan parameters.
+        """Configure the ILD/ILS stacking scan.
 
         Args:
-            ild_start: Minimum ILD in Å. Defaults to `3.0`.
-            ild_end: Maximum ILD in Å. Defaults to `4.0`.
-            ild_step: ILD step size in Å. Defaults to `0.1`.
-            ils_length_start: Minimum slip length in Å. Defaults to `0.0`.
-            ils_length_end: Maximum slip length in Å. Defaults to `None`
-                (auto-computed from AB shift).
-            ils_length_step: Slip length step size in Å. Defaults to `1.0`.
-            ils_angle: Slip direction angle in degrees. Defaults to `None`
-                (auto-computed from AB shift).
-            print_shift: If `True`, print auto-computed default shift values.
-                Defaults to `False`.
+            ild_start: Minimum interlayer distance in Å. Defaults to ``3.0``.
+            ild_end: Maximum interlayer distance in Å. Defaults to ``4.0``.
+            ild_step: Interlayer-distance step size in Å. Defaults to ``0.1``.
+            ils_length_start: Minimum interlayer slipping in Å. Defaults to ``0.0``.
+            ils_length_end: Maximum interlayer slipping in Å. Defaults to ``None``,
+                which uses the automatically determined AB-stacking shift.
+            ils_length_step: Interlayer-slipping step size in Å. Defaults to ``1.0``.
+            ils_angle: In-plane slip direction in degrees. Defaults to ``None``, which
+                uses the automatically determined AB-stacking direction.
+            print_shift: Whether to print automatically determined AB-shift parameters.
+                Defaults to ``False``.
         """
         self._ild_start = ild_start
         self._ild_end = ild_end
@@ -420,23 +462,30 @@ class CreateMatrix:
         input_cif: str | None = None,
         output_base_folder: str | None = None,
     ) -> None:
-        """Create the ILD×ILS matrix for a given COF.
+        """Generate the ILD/ILS matrix for a COF.
+
+        The method starts from the preoptimized single-layer structure, generates the
+        requested interlayer-distance scan, and then applies serrated and/or inclined
+        interlayer slipping according to ``mode``.
+
+        By default, the input structure is read from
+        ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif`` and generated
+        structures are written under
+        ``{cof_name}/2_{cof_name}_matrix/{serr|incl}``.
 
         Args:
-            cof_name: COF name used for input/output folder naming.
-            topo: Topology string used for defaults. Allowed values are
-                `"hcb"`, `"sql"`, `"hcb_ab"`, and `"kgm"`.
-            mode: ILS mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            input_cif: Optional path to a pre-optimized CIF file.
-                Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
-            output_base_folder: Optional base folder for outputs (relative to cof_name).
-                Defaults to 2_{cof_name}_matrix, which yields
-                {cof_name}/2_{cof_name}_matrix/{serr|incl}.
+            cof_name: COF name used for default workflow folder and file naming.
+            topo: Topology selector used to determine the default AB-stacking shift.
+                Allowed values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
+            mode: Stacking-mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            input_cif: Optional preoptimized input CIF path. Defaults to
+                ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif``.
+            output_base_folder: Optional matrix output-base override. Defaults to
+                ``{cof_name}/2_{cof_name}_matrix``.
 
         Raises:
-            ValueError: If `mode` is not one of "incl", "serr", or "both".
-            FileNotFoundError: If the resolved input CIF does not exist.
+            ValueError: If ``mode`` is invalid.
+            FileNotFoundError: If the resolved preoptimized input CIF is missing.
         """
         mode = mode.lower()
         if mode not in {"incl", "serr", "both"}:

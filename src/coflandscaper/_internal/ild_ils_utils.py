@@ -1,8 +1,9 @@
-"""Utility helpers for ILD/ILS value generation, parsing, and mode routing.
+"""Shared geometry and routing utilities for ILD/ILS workflows.
 
-This module contains shared low-level functions used by ILD/ILS matrix
-generation and related workflows, including CIF file discovery, default shift
-derivation, and small geometry/value conversion helpers.
+This module contains low-level helpers used throughout COF-Landscaper for
+interlayer distance (ILD) and interlayer slipping (ILS) calculations, CIF-file
+discovery, stacking-mode routing, periodic-coordinate handling, filename
+encoding, and determination of topology-specific default AB-stacking shifts.
 """
 
 from __future__ import annotations
@@ -19,16 +20,16 @@ if TYPE_CHECKING:
 
 
 def list_cifs(input_folder: str) -> list[str]:
-    """List CIF files in a folder.
+    """Return all CIF files in a folder in deterministic order.
 
     Args:
-        input_folder: Folder containing CIF files.
+        input_folder: Folder containing CIF structures.
 
     Returns:
         Sorted list of CIF file paths.
 
     Raises:
-        FileNotFoundError: If no CIF files are found.
+        FileNotFoundError: If no CIF files are found in ``input_folder``.
     """
     files = sorted(
         f
@@ -156,25 +157,28 @@ def _generate_values(start: float, end: float, step: float) -> list[float]:
 
 
 def wrap01(u: float) -> float:
-    """Wrap a value into [0, 1).
+    """Wrap a fractional coordinate into the interval ``[0, 1)``.
 
     Args:
-        u: Input value.
+        u: Fractional coordinate or other periodic scalar value.
 
     Returns:
-        Wrapped value.
+        Wrapped value in the interval ``[0, 1)``.
     """
     return u % 1.0
 
 
 def parse_xyz_from_atom_line(line: str) -> tuple[float, float, float] | None:
-    """Parse XYZ coordinates from a CIF atom line.
+    """Parse fractional coordinates from a CIF atom-site line.
+
+    The helper expects the x, y, and z coordinates in columns four through six of
+    the whitespace-separated atom-site row.
 
     Args:
-        line: CIF atom line with x, y, z in columns 4‑6.
+        line: CIF atom-site line.
 
     Returns:
-        (x, y, z) tuple if parsing succeeds, otherwise None.
+        ``(x, y, z)`` tuple when parsing succeeds, otherwise ``None``.
     """
     parts = line.split()
     if len(parts) < 6:
@@ -193,19 +197,26 @@ def pick_lower_left_pair_from_lines(
 ) -> tuple[
     int, tuple[str, str], tuple[float, float, float], tuple[float, float]
 ]:
-    """Pick the lower‑left atom pair from consecutive atom lines.
+    """Select a deterministic lower-layer reference atom pair from CIF atom lines.
 
-    Each pair is assumed to be consecutive lines representing a lower and
-    upper atom. The "best" pair is chosen by the smallest wrapped (x, y).
+    Atom-site lines are interpreted as consecutive lower/upper-layer pairs. For
+    each pair, the atom with the smaller fractional z coordinate is treated as the
+    lower-layer atom. The reference pair is then selected using the smallest wrapped
+    fractional ``(x, y)`` coordinates.
+
+    This helper is used for registry-based interlayer-slipping analysis of serrated
+    structures.
 
     Args:
-        atom_lines: Iterable of atom lines in consecutive pairs.
+        atom_lines: CIF atom-site lines arranged as consecutive atom pairs.
 
     Returns:
-        Tuple of (pair_index, (lower_line, upper_line), (x, y, z), (xw, yw)).
+        Tuple containing the selected pair index, the lower/upper atom lines, the
+        lower-atom coordinates, and its wrapped ``(x, y)`` coordinates.
 
     Raises:
-        ValueError: If the line count is odd or coordinates cannot be parsed.
+        ValueError: If the number of atom lines is odd, coordinates cannot be
+            parsed, or no valid pair can be identified.
     """
     atom_lines = list(atom_lines)
     if len(atom_lines) % 2 != 0:
@@ -255,18 +266,22 @@ def pick_lower_left_pair_from_lines(
 
 
 def get_mode_folders(cof_name: str, mode: str) -> list[str]:
-    """Return output folders for the selected stacking mode(s).
+    """Return matrix folders for selected stacking mode(s).
+
+    The helper resolves ``"serr"``, ``"incl"``, or ``"both"`` into the
+    corresponding mode-specific folders below
+    ``{cof_name}/2_{cof_name}_matrix``.
 
     Args:
-        cof_name: COF name used for folder naming.
-        mode: Mode selector. Allowed values are `"incl"`, `"serr"`, or
-            `"both"`.
+        cof_name: COF name used for workflow folder naming.
+        mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
 
     Returns:
-        List of folder paths to process.
+        List of matrix-folder paths. ``mode="both"`` returns serrated first,
+        followed by inclined.
 
     Raises:
-        ValueError: If `mode` is not one of "incl", "serr", or "both".
+        ValueError: If ``mode`` is unsupported.
     """
     mode = mode.lower()
     if mode not in {"incl", "serr", "both"}:
@@ -283,13 +298,14 @@ def get_mode_folders(cof_name: str, mode: str) -> list[str]:
 
 
 def ab_half_diagonal_from_cif(input_file: str) -> tuple[float, float]:
-    """Compute half the $a+b$ diagonal length and angle from a CIF.
+    """Calculate half of the in-plane ``a + b`` lattice diagonal.
 
     Args:
-        input_file: Path to the CIF file.
+        input_file: CIF structure path.
 
     Returns:
-        (length, angle_deg) tuple.
+        Tuple ``(length, angle_deg)`` containing the in-plane half-diagonal length
+        in Å and its angle in degrees.
     """
     struct = Structure.from_file(input_file)
     a_vec, b_vec, _ = struct.lattice.matrix
@@ -305,22 +321,31 @@ def default_shift_from_cif(
     topo: str,
     print_shift: bool = False,
 ) -> tuple[float, float]:
-    """Compute the default slip length and angle for AB stacking.
+    """Determine the default AB-stacking interlayer-slipping vector.
 
-    For both ``hcb`` and ``kgm``, the default AB shift length uses
-    ``(2/sqrt(3)) * ||0.5*(a+b)||`` and the angle is fixed to ``90°``.
+        The default interlayer slipping (ILS) magnitude and direction are derived from
+        the in-plane lattice vectors of the supplied structure.
+
+        For ``sql``, the shift corresponds to half of the ``a + b`` diagonal.
+
+        For ``hcb`` and ``kgm``, the shift magnitude is calculated as
+        ``(2 / sqrt(3)) * ||0.5 * (a + b)||`` and the direction is fixed at 90 degrees.
+
+        The returned values are used as the default upper limit and direction of the
+        ILS scan when explicit values are not supplied.
 
     Args:
-        input_file: Path to the CIF file.
-        topo: Topology string. Allowed values are `"sql"`, `"hcb"`, or `"kgm"`.
-        print_shift: If `True`, print computed default shift values.
-            Defaults to `False`.
+        input_file: CIF structure path.
+        topo: Topology selector: ``"sql"`, ``"hcb"`, or ``"kgm"``.
+        print_shift: Whether to print the calculated default shift.
+            Defaults to ``False``.
 
     Returns:
-        (length, angle_deg) tuple.
+        Tuple ``(length, angle_deg)`` containing the default ILS magnitude in Å
+        and direction in degrees.
 
     Raises:
-        ValueError: If `topo` is not "sql", "hcb", or "kgm".
+        ValueError: If ``topo`` is unsupported.
     """
     if topo not in ("sql", "hcb", "kgm"):
         raise ValueError("topo must be 'sql', 'hcb', or 'kgm'")

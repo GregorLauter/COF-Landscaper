@@ -1,8 +1,13 @@
 """Construct single-layer 2D COF structures from node and linker XYZ inputs.
 
-This module prepares pormake-compatible building blocks, assembles a framework
-for supported topologies, and writes an unoptimized CIF intended for downstream
-energy and optimization workflows.
+This module prepares PORMAKE-compatible molecular building blocks, assembles
+single-layer covalent organic frameworks for the supported topologies, and
+writes unoptimized CIF structures for subsequent MACE preoptimization and
+stacking-landscape generation.
+
+Connection points in the input XYZ fragments are marked with helium atoms
+(``He``), which are converted internally into PORMAKE-compatible connection
+sites during preprocessing.
 """
 
 import glob
@@ -97,12 +102,16 @@ def _sync_topology_cache(cache_dir: Path, source_dir: Path) -> None:
 
 
 class PackageDatabase(pm.Database):
-    """Initialize a pormake database that defaults to packaged topologies.
+    """PORMAKE database wrapper using the topology files bundled with COF-Landscaper.
+
+    Bundled topology files are copied to a writable cache directory before being
+    used by PORMAKE. A custom topology or building-block directory can be supplied
+    when required.
 
     Args:
-        topo_dir: Optional topology directory override. Defaults to `None`
-            (uses bundled package topologies).
-        bb_dir: Optional building-block directory override. Defaults to `None`.
+        topo_dir: Optional topology-directory override. Defaults to ``None``,
+            which uses the topology files bundled with COF-Landscaper.
+        bb_dir: Optional PORMAKE building-block directory. Defaults to ``None``.
 
     Returns:
         None.
@@ -123,7 +132,12 @@ class PackageDatabase(pm.Database):
 
 
 class CofLandscaperBuilder(pm.Builder):
-    """Build frameworks and apply a post-step linker plane alignment."""
+    """PORMAKE builder with post-build alignment of linker planes.
+
+    After normal framework assembly, linker building blocks are rotated about their
+    connection axes so that their molecular planes are aligned consistently with
+    the plane of the 2D topology.
+    """
 
     def build(
         self,
@@ -132,17 +146,20 @@ class CofLandscaperBuilder(pm.Builder):
         permutations: Mapping[int, Sequence[int]] | None = None,
         **kwargs: Any,
     ) -> Framework:
-        """Build a framework and align linker planes after assembly.
+        """Build a PORMAKE framework and apply linker-plane alignment.
+
+        The framework is first assembled with the standard PORMAKE builder. A
+        COF-Landscaper postprocessing step then aligns linker planes relative to
+        the 2D topology before the framework is returned.
 
         Args:
-            topology: pormake topology instance used for construction.
-            bbs: Mapping of topology types to building blocks.
-            permutations: Optional permutation data for connection matching.
-                Defaults to `None`.
-            **kwargs: Additional keyword arguments passed to `pm.Builder.build`.
+            topology: PORMAKE topology used for framework construction.
+            bbs: Building blocks assigned to topology slots.
+            permutations: Optional connection-point permutations. Defaults to ``None``.
+            **kwargs: Additional keyword arguments passed to ``pm.Builder.build``.
 
         Returns:
-            Built framework with post-aligned linker geometry.
+            Constructed framework after linker-plane alignment.
         """
         framework = super().build(
             topology=topology,
@@ -766,23 +783,27 @@ def _build_cof(
 
 
 class BuildCOF2D:
-    """Construct a single-layer 2D COF from node/linker inputs.
+    """Construct a single-layer 2D COF from node and linker fragments.
 
-    This class wraps preprocessing needed for pormake-based assembly of 2D COFs.
-    It supports topology-driven construction for ``hcb``, ``sql``, ``kgm``,
-    and ``hcb_ab``. Dummy-atom preprocessing expects ``He`` connection markers.
+    ``BuildCOF2D`` is the public structure-generation interface of COF-Landscaper.
+    Input molecular fragments are supplied as XYZ files with helium atoms (``He``)
+    marking the intended connection points. During preprocessing, these markers are
+    converted into PORMAKE-compatible connection sites and connectivity information
+    is generated automatically.
 
-    The main workflow resolves topology-dependent node/linker inputs,
-    optionally preprocesses input XYZ files into pormake-compatible format,
-    builds one framework, writes an unoptimized CIF into the single-layer
-    output directory, and adjusts the interlayer distance to 15 Å.
+    Supported topologies are ``"hcb"``, ``"sql"``, ``"kgm"``, and ``"hcb_ab"``.
 
-    Topology requirements: ``hcb``, ``sql``, and ``kgm`` require one node and
-    one linker. ``hcb_ab`` requires two nodes and no linker. Inputs default to
-    ``0_node/`` and ``0_linker/`` unless explicit paths are provided.
+    Topology input requirements are:
 
-    Default output location is ``{cof_name}/1_{cof_name}_single_layer``, and the
-    default output CIF name is ``{cof_name}_unopt.cif``.
+    - ``hcb``: one 3-connected node and one 2-connected linker;
+    - ``sql``: one 4-connected node and one 2-connected linker;
+    - ``kgm``: one 4-connected node and one 2-connected linker;
+    - ``hcb_ab``: two 3-connected node types and no separate linker.
+
+    Unless explicit paths are supplied, node and linker inputs are read from
+    ``0_node/`` and ``0_linker/``. The assembled framework is written to
+    ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif`` and its
+    interlayer distance is set to 15 Å for subsequent single-layer preoptimization.
     """
 
     def _list_xyz(self, folder: str) -> list[tuple[str, str]]:
@@ -805,42 +826,40 @@ class BuildCOF2D:
         input_linkers: Sequence[str | os.PathLike[str]] | None = None,
         output_folder: str | None = None,
     ) -> list[str]:
-        """Build one unoptimized single-layer COF CIF from node/linker inputs.
+        """Build one unoptimized single-layer COF structure.
 
-        The method expects node/linker counts defined by the topology after
-        input resolution. Input files are preprocessed to map dummy atoms and
-        inject bond annotations required by pormake. If explicit input files are
-        not provided, default source folders are used.
+        The method resolves topology-specific node and linker inputs, preprocesses
+        helium-marked XYZ fragments into PORMAKE-compatible building blocks, assembles
+        the framework, and writes the resulting CIF to the single-layer workflow
+        directory.
 
-        Default input behavior:
-        - Nodes are read from `0_node/*.xyz`.
-        - Linkers are read from `0_linker/*.xyz` only when required by topology.
-        - Pass `input_linkers=[]` to explicitly provide no linkers.
+        When explicit input paths are not provided, files are read from ``0_node/`` and
+        ``0_linker/``. Only the exact number of node and linker files required by the
+        selected topology is accepted.
 
-        Default output behavior:
-            The output CIF is written to
-            `{cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif` and
-            adjusted to an interlayer distance of 15 Å.
+        After construction, the interlayer distance is set to 15 Å before the structure
+        is passed to the subsequent MACE preoptimization stage.
 
         Args:
-            topo: Topology key used for construction. Allowed values are
-                `"hcb"`, `"sql"`, `"hcb_ab"`, and `"kgm"`.
-            cof_name: COF identifier used in output folder and filename patterns.
-            input_nodes: Optional explicit node `.xyz` paths. Defaults to `None`
-                (reads from `0_node/*.xyz`).
-            input_linkers: Optional explicit linker `.xyz` paths. Defaults to
-                `None` (reads from `0_linker/*.xyz` when required). Use an empty
-                list to explicitly pass no linkers.
-            output_folder: Optional output folder override. Defaults to `None`
-                (uses `{cof_name}/1_{cof_name}_single_layer`).
+            topo: Topology selector: ``"hcb"``, ``"sql"``, ``"hcb_ab"``, or
+                ``"kgm"``.
+            cof_name: COF identifier used for workflow folder and file naming.
+            input_nodes: Optional explicit node XYZ paths. Defaults to ``None``, which
+                reads node files from ``0_node/``.
+            input_linkers: Optional explicit linker XYZ paths. Defaults to ``None``,
+                which reads linker files from ``0_linker/`` when the topology requires
+                linkers. Use an empty list for topologies requiring no linker.
+            output_folder: Optional output-directory override. Defaults to
+                ``{cof_name}/1_{cof_name}_single_layer``.
 
         Returns:
-            List containing one output CIF path.
+            List containing the path to the generated
+            ``{cof_name}_unopt.cif`` structure.
 
         Raises:
-            ValueError: If `topo` is not one of `"hcb"`, `"sql"`,
-                `"hcb_ab"`, or `"kgm"`.
-            ValueError: If input resolution does not match topology input counts.
+            ValueError: If ``topo`` is unsupported or the resolved number of node or
+                linker files does not match the topology requirements.
+            FileNotFoundError: If explicitly supplied input XYZ files cannot be read.
         """
         _disable_pormake_file_logging()
         if topo not in TOPOLOGY_INPUT_COUNTS:

@@ -1,8 +1,13 @@
-"""Plot PES landscapes and select candidate CIFs from ILD/ILS grids.
+"""Generate simplified stacking-energy landscapes and select structures for optimization.
 
-This module provides visualization utilities for single-point energy grids and
-selection utilities for copying structures corresponding to global or local
-minima into optimization-ready folders.
+This module provides utilities for visualizing the single-point energy grid
+generated from interlayer distance (ILD) and interlayer slipping (ILS) scans,
+identifying global or local minima, and selecting corresponding CIF structures
+for subsequent full geometry optimization.
+
+The resulting potential energy landscape is a reduced-dimensional screening
+representation because the matrix structures are evaluated without full geometry
+relaxation.
 """
 
 import re
@@ -19,7 +24,17 @@ from .ild_ils_utils import get_mode_folders
 
 
 class Landscape:
-    """Generate potential energy landscape plots from single-point CSV data."""
+    """Generate simplified potential energy landscapes from ILD/ILS energy grids.
+
+    The landscape is constructed from MACE or DFT single-point energies evaluated
+    for the generated stacking matrix. Relative energies are mapped as a function
+    of interlayer distance (ILD) and interlayer slipping (ILS).
+
+    Because the individual matrix structures are not fully relaxed at this stage,
+    the resulting PES should be interpreted as a reduced-dimensional screening
+    landscape used to identify promising stacking configurations for subsequent
+    full geometry optimization.
+    """
 
     def _resolve_input_csv(
         self,
@@ -340,39 +355,47 @@ class Landscape:
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
-        """Generate landscapes for one or both selected stacking modes.
+        """Generate potential energy landscapes for selected stacking mode(s).
+
+        The method reads mode-specific single-point energy CSV files, converts absolute
+        energies to relative energies, and plots the resulting ILD/ILS potential energy
+        landscape. The global minimum can be marked automatically, and additional local
+        minima can be shown when ``minima_mode="local"``.
+
+        By default, energy data are read from
+        ``{cof_name}/3_{cof_name}_landscape`` and the generated PES figures are written
+        to the same directory.
 
         Args:
-            cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            dft: If `True`, read input CSVs with `_dft` suffix.
-                Defaults to `False`.
-            colorscheme: Any valid Matplotlib colormap name.
-                Defaults to `"viridis"`.
-            rel_energy_max: Optional max value for relative energies.
-                Defaults to `None`.
-            show_minima_markers: If `True`, mark minima on plots
-                (global minimum in red; local minima in orange when
-                `minima_mode="local"`).
-                Defaults to `True`.
-            minima_mode: "global" (default) marks only one global minimum;
-                "local" includes local minima markers too. Defaults to `"global"`.
-            show_header: If `True`, draw title and header text. Defaults to `True`.
-            show_title_block: If `True`, draw title plus two header lines.
-                Defaults to `False`.
-            show: If `True`, display plots interactively. Defaults to `False`
-                for cluster/batch runs.
-            input_folder: Optional base folder containing mode folders and
-                {cof_name}_sp_energies_{mode}.csv files, or
-                {cof_name}_sp_energies_{mode}_dft.csv when dft=True.
-                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
-            output_folder: Optional output folder for plots.
-                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
+            cof_name: COF name used for default path construction.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            dft: If ``True``, read DFT single-point CSV files with the ``_dft`` suffix.
+                Defaults to ``False``.
+            colorscheme: Matplotlib colormap used for the PES. Defaults to ``"viridis"``.
+            rel_energy_max: Optional upper limit for displayed relative energies.
+                Values above the limit are clipped. Defaults to ``None``.
+            show_minima_markers: Whether to mark detected minima on the PES. Defaults to
+                ``True``.
+            minima_mode: Minima mode used for plotting: ``"global"`` marks only the
+                global minimum, while ``"local"`` also marks local minima. Defaults to
+                ``"global"``.
+            show_header: Whether plot header information is enabled. Defaults to
+                ``True``.
+            show_title_block: Whether to display the title, stacking mode, and level
+                of theory above the plot. Defaults to ``False``.
+            show: Whether to display generated figures interactively. Defaults to
+                ``False`` for batch/HPC-compatible execution.
+            input_folder: Optional base folder containing the mode-specific energy CSV
+                files and ``serr``/``incl`` subfolders. Defaults to
+                ``{cof_name}/3_{cof_name}_landscape``.
+            output_folder: Optional output folder for PES figures. Defaults to
+                ``{cof_name}/3_{cof_name}_landscape``.
 
         Raises:
-            ValueError: If `mode` is invalid.
-            FileNotFoundError: If base input folder or expected CSVs are missing.
+            ValueError: If ``mode`` or ``minima_mode`` is invalid, or the energy grid
+                does not contain sufficient valid data.
+            FileNotFoundError: If the input folder or required energy CSV files are
+                missing.
         """
         mode_norm = (mode or "").strip().lower()
         mode_tags = (
@@ -475,7 +498,13 @@ class Landscape:
 
 
 class SelectCofs:
-    """Select CIFs for downstream optimization based on ILD/ILS pairs."""
+    """Select stacking structures for subsequent full geometry optimization.
+
+    Structures can be selected automatically from global or local minima of the
+    simplified ILD/ILS energy landscape and supplemented with user-defined sampling
+    points. Selected CIF files are copied from the matrix folders into the
+    optimization-selection folders.
+    """
 
     def _dedupe_selections(
         self, selections: list[tuple[float, float]]
@@ -671,36 +700,51 @@ class SelectCofs:
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
-        """Select CIFs for selected mode(s) and copy them into selection folders.
+        """Select candidate CIF structures for full geometry optimization.
+
+        By default, the global minimum of each requested stacking mode is selected
+        automatically from the corresponding single-point energy CSV. Setting
+        ``autoselect_minima="local"`` selects local minima instead.
+
+        Additional ILD/ILS sampling points can be supplied independently for serrated
+        and inclined stacking using ``selections_serr`` and ``selections_incl``. These
+        manual selections are combined with the automatically selected minima when
+        ``include_autoselect=True``.
+
+        Default folder behavior:
+
+        - matrix structures:
+          ``{cof_name}/2_{cof_name}_matrix/{mode}``
+        - selected structures:
+          ``{cof_name}/3_{cof_name}_landscape/selection/{mode}``
 
         Args:
-            cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            selections_serr: Extra selections for serrated only.
-                Defaults to `None`.
-            selections_incl: Extra selections for inclined only.
-                Defaults to `None`.
-            include_autoselect: If `True`, include automatically selected minima.
-                Defaults to `True`.
-            autoselect_minima: Minima mode for auto-selection:
-                "global" (default) selects one global minimum,
-                "local" selects all local minima. Defaults to `"global"`.
-            input_base: Optional base folder containing mode subfolders.
-                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
-            output_base: Optional base folder for selected CIFs.
-                Defaults to `None`
-                (uses `{cof_name}/3_{cof_name}_landscape/selection`).
-            input_folder: Optional explicit folder for one mode (serr or incl).
-                If set, this folder is used directly and `input_base`/`mode`
-                folder expansion is not used. Defaults to `None`.
-            output_folder: Optional explicit output folder for selected CIFs.
-                Used with `input_folder` for single-folder selection.
-                Defaults to `None`.
+            cof_name: COF name used for default path construction.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            selections_serr: Optional additional ``(ILD, ILS)`` pairs for serrated
+                stacking. Defaults to ``None``.
+            selections_incl: Optional additional ``(ILD, ILS)`` pairs for inclined
+                stacking. Defaults to ``None``.
+            include_autoselect: Whether automatically detected minima are included in
+                addition to any manual selections. Defaults to ``True``.
+            autoselect_minima: Automatic selection mode: ``"global"`` selects the
+                global minimum, while ``"local"`` selects detected local minima.
+                Defaults to ``"global"``.
+            input_base: Optional matrix input base folder. Defaults to
+                ``{cof_name}/2_{cof_name}_matrix``.
+            output_base: Optional selection output base folder. Defaults to
+                ``{cof_name}/3_{cof_name}_landscape/selection``.
+            input_folder: Optional explicit single-mode input folder. When provided,
+                mode-folder expansion from ``input_base`` is bypassed.
+            output_folder: Optional explicit output folder used together with
+                ``input_folder``.
 
         Raises:
-            ValueError: If minima mode is invalid or no selections are available.
-            ValueError: If explicit `input_folder` is not a mode folder.
+            ValueError: If the minima mode is invalid, an explicit input folder does
+                not correspond to ``serr`` or ``incl``, or no automatic/manual
+                selections are available.
+            FileNotFoundError: If required energy CSV files or requested matrix CIF
+                structures are missing.
         """
         autoselect_mode = (autoselect_minima or "global").strip().lower()
         if autoselect_mode not in {"global", "local"}:

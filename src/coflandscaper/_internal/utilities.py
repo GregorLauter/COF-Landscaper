@@ -43,7 +43,19 @@ def get_optional_path_list(
     params: dict[str, object],
     key: str,
 ) -> list[str] | None:
-    """Return an optional list of paths from JSON parameters."""
+    """Read an optional list of file paths from JSON workflow parameters.
+
+    Args:
+        params: Parsed JSON parameter dictionary.
+        key: Parameter key to retrieve.
+
+    Returns:
+        List of paths converted to strings, or ``None`` when the parameter value
+        is ``null``.
+
+    Raises:
+        TypeError: If the parameter is neither a list nor ``null``.
+    """
     value = params.get(key)
     if value is None:
         return None
@@ -57,7 +69,23 @@ def get_float_param(
     key: str,
     default: float,
 ) -> float:
-    """Read a float-like parameter from a JSON payload."""
+    """Read a floating-point workflow parameter with a default value.
+
+    Integer, floating-point, and numeric-string values are accepted and converted
+    to ``float``.
+
+    Args:
+        params: Parsed JSON parameter dictionary.
+        key: Parameter key to retrieve.
+        default: Value used when ``key`` is not present.
+
+    Returns:
+        Floating-point value for the requested parameter.
+
+    Raises:
+        TypeError: If the parameter cannot be interpreted as an integer, float, or
+            numeric string.
+    """
     value = params.get(key, default)
     if isinstance(value, (int, float, str)):
         return float(value)
@@ -111,7 +139,22 @@ def read_cif_atom_lines(input_file: str | Path) -> list[str]:
 
 
 def _parse_extra_points(raw: object) -> list[tuple[float, float]] | None:
-    """Normalize optional extra (ILD, ILS) points into list-of-tuples."""
+    """Normalize optional additional ILD/ILS sampling points.
+
+    This helper converts JSON-style ``[[ILD, ILS], ...]`` entries into tuples used
+    by the structure-selection workflow.
+
+    Args:
+        raw: Raw JSON value for ``EXTRA_SERR`` or ``EXTRA_INCL``.
+
+    Returns:
+        List of ``(ILD, ILS)`` tuples, or ``None`` when no additional points are
+        supplied.
+
+    Raises:
+        TypeError: If the input is not a list.
+        ValueError: If any entry does not contain exactly one ILD/ILS pair.
+    """
     if raw is None:
         return None
     if not isinstance(raw, list):

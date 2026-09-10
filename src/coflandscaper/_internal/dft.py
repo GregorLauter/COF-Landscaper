@@ -1,8 +1,13 @@
-"""Generate and parse CRYSTAL23 inputs/outputs for COF workflows.
+"""Generate and parse optional CRYSTAL23 inputs and outputs.
 
-This module provides helpers for converting CIF files to CRYSTAL `.d12`
-inputs, extracting converged energies from CRYSTAL `.out` files, and
-recovering optimized structures for downstream analysis.
+This module provides the optional CRYSTAL23 workflow used for DFT-based
+single-point calculations and geometry optimizations. It contains utilities for
+converting COF CIF structures into CRYSTAL ``.d12`` inputs, extracting converged
+energies from CRYSTAL ``.out`` files, reconstructing optimized structures, and
+writing workflow-compatible CSV outputs.
+
+The CRYSTAL workflow is retained as an alternative to the primary MACE-based
+workflow for benchmarking or calculations requiring an explicit DFT treatment.
 """
 
 from __future__ import annotations
@@ -340,7 +345,11 @@ def parse_z_L_from_stem(stem: str) -> tuple[float, float]:
 
 
 class Crystal:
-    """Base class for converting CIF structures into CRYSTAL `.d12` inputs.
+    """Base CRYSTAL23 input-generation interface.
+
+    The class converts CIF structures into CRYSTAL ``.d12`` files using P1
+    symmetry and appends a user-defined CRYSTAL input block containing the chosen
+    electronic-structure or optimization settings.
 
     Returns:
         None.
@@ -350,8 +359,9 @@ class Crystal:
         """Initialize a CRYSTAL input generator.
 
         Args:
-            post_block: Text appended to each generated .d12 file.
-                This is where BASISSET/DFT/SHRINK or OPTGEOM blocks are injected.
+            post_block: CRYSTAL input text appended after the generated structural
+                section. This typically contains basis-set, DFT, SHRINK, or geometry-
+                optimization settings.
         """
         self._post_block = post_block
 
@@ -402,12 +412,18 @@ class Crystal:
         input_folder: str,
         output_folder: str | None = None,
     ) -> None:
-        """Convert all CIF files in a folder to .d12.
+        """Convert all CIF structures in one folder into CRYSTAL input files.
+
+        Each CIF is written to a structure-specific subfolder containing one ``.d12``
+        input file.
 
         Args:
-            input_folder: Folder containing .cif files.
-            output_folder: Optional output folder for `.d12` files.
-                Defaults to `None` (writes under `input_folder`).
+            input_folder: Folder containing CIF structures.
+            output_folder: Optional destination folder for generated CRYSTAL inputs.
+                Defaults to ``input_folder``.
+
+        Raises:
+            FileNotFoundError: If ``input_folder`` does not exist.
         """
         in_path = Path(input_folder)
         if not in_path.exists():
@@ -432,19 +448,22 @@ class Crystal:
         input_base_folder: str | None = None,
         output_base_folder: str | None = None,
     ) -> None:
-        """Convert CIFs for selected stacking modes into CRYSTAL .d12 inputs.
+        """Generate CRYSTAL single-point inputs for selected stacking mode(s).
+
+        By default, structures are read from the generated ILD/ILS matrix and CRYSTAL
+        input directories are created alongside the matrix using ``dft_serr`` and/or
+        ``dft_incl`` subfolders.
 
         Args:
-            cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            input_base_folder: Optional base folder containing mode subfolders.
-                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
-            output_base_folder: Optional base folder for outputs.
-                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
+            cof_name: COF name used for workflow folder naming.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            input_base_folder: Optional input base-folder override. Defaults to
+                ``{cof_name}/2_{cof_name}_matrix``.
+            output_base_folder: Optional output base-folder override. Defaults to
+                ``{cof_name}/2_{cof_name}_matrix``.
 
-        Notes:
-            Outputs are written to dft_{serr|incl} subfolders.
+        Raises:
+            ValueError: If ``mode`` is invalid.
         """
         mode_lower = mode.lower()
         if mode_lower not in {"incl", "serr", "both"}:
@@ -466,7 +485,12 @@ class Crystal:
 
 
 class CrystalSP(Crystal):
-    """CRYSTAL single-point input and output parser utilities.
+    """Generate and parse CRYSTAL single-point calculations.
+
+    ``CrystalSP`` prepares CRYSTAL single-point input files and extracts converged
+    total energies from completed CRYSTAL output files. Energies are converted from
+    Hartree to electronvolts and written in the same CSV format used by the
+    stacking-landscape workflow.
 
     Returns:
         None.
@@ -511,14 +535,16 @@ class CrystalSP(Crystal):
         shrink: str = "2 2 8",
         post_block: str | None = None,
     ) -> None:
-        """Initialize a CRYSTAL single-point input generator.
+        """Configure CRYSTAL single-point calculation settings.
 
         Args:
-            basisset: CRYSTAL basis set name. Defaults to `"SOLDEF2MSVP"`.
-            functional: CRYSTAL functional name. Defaults to `"HSESOL3C"`.
-            shrink: SHRINK line values. Defaults to `"2 2 8"`.
-            post_block: Optional override for the full CRYSTAL input tail.
-                Defaults to `None` (auto-generates BASISSET/DFT/SHRINK block).
+            basisset: CRYSTAL basis-set keyword. Defaults to ``"SOLDEF2MSVP"``.
+            functional: CRYSTAL density-functional keyword. Defaults to
+                ``"HSESOL3C"``.
+            shrink: CRYSTAL SHRINK-grid specification. Defaults to ``"2 2 8"``.
+            post_block: Optional complete CRYSTAL input-tail override. Defaults to
+                ``None``, which generates the basis-set, DFT, and SHRINK sections from
+                the supplied settings.
         """
         if post_block is None:
             post_block = f"""BASISSET
@@ -538,18 +564,24 @@ END"""
         output_csv_dir: str | None = None,
         output_filename_suffix: str = "",
     ) -> Path:
-        """Extract converged energies from CRYSTAL .out files.
+        """Extract converged CRYSTAL single-point energies from one folder.
+
+        Valid CRYSTAL output files are parsed, total energies are converted from
+        Hartree to electronvolts, and relative energies are calculated with respect to
+        the lowest successfully parsed structure.
 
         Args:
             input_folder: Folder containing CRYSTAL output files.
-            output_csv_dir: Optional output folder for the CSV.
-                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
-            output_filename_suffix: Optional suffix appended to the default
-                CSV filename stem (before `.csv`), e.g. `"_dft"`.
-                Defaults to `""`.
+            output_csv_dir: Optional output directory for the generated energy CSV.
+                Defaults to ``{cof_name}/3_{cof_name}_landscape``.
+            output_filename_suffix: Optional suffix appended to the generated CSV
+                filename before ``.csv``. Defaults to an empty string.
 
         Returns:
-            Path to the energies CSV.
+            Path to the generated single-point energy CSV.
+
+        Raises:
+            FileNotFoundError: If no valid CRYSTAL output files are found.
         """
         input_path = Path(input_folder)
         folder_tag = input_path.name
@@ -631,20 +663,22 @@ END"""
         output_base_folder: str | None = None,
         input_base_folder: str | None = None,
     ) -> list[Path]:
-        """Extract CRYSTAL single-point energies for selected mode(s).
+        """Extract CRYSTAL single-point energies for selected stacking mode(s).
+
+        The method processes ``dft_serr`` and/or ``dft_incl`` output folders and writes
+        mode-specific energy CSV files with the ``_dft`` suffix for subsequent
+        landscape generation.
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            output_base_folder: Optional output folder for CSVs.
-                Defaults to `None` (uses `{cof_name}/3_{cof_name}_landscape`).
-                Default filenames include a `_dft` suffix.
-            input_base_folder: Optional base folder containing dft_{mode} subfolders.
-                Defaults to `None` (uses `{cof_name}/2_{cof_name}_matrix`).
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            output_base_folder: Optional output directory for generated CSV files.
+                Defaults to ``{cof_name}/3_{cof_name}_landscape``.
+            input_base_folder: Optional base folder containing ``dft_{mode}``
+                subfolders. Defaults to ``{cof_name}/2_{cof_name}_matrix``.
 
         Returns:
-            List of CSV paths written.
+            List of generated energy-CSV paths.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -665,7 +699,15 @@ END"""
 
 
 class CrystalOpt(Crystal):
-    """CRYSTAL geometry-optimization input/output utilities.
+    """Generate and parse CRYSTAL geometry optimizations.
+
+    ``CrystalOpt`` prepares CRYSTAL geometry-optimization input files, extracts
+    converged optimized energies, and reconstructs optimized CIF structures from
+    completed CRYSTAL outputs.
+
+    Serrated structures are represented as bilayers in the COF-Landscaper
+    workflow, so their reported optimization energies are divided by two when
+    stored as per-layer energies.
 
     Returns:
         None.
@@ -711,15 +753,18 @@ class CrystalOpt(Crystal):
         maxtradius: str = "0.5",
         post_block: str | None = None,
     ) -> None:
-        """Initialize a CRYSTAL geometry-optimization input generator.
+        """Configure CRYSTAL geometry-optimization settings.
 
         Args:
-            basisset: CRYSTAL basis set name. Defaults to `"SOLDEF2MSVP"`.
-            functional: CRYSTAL functional name. Defaults to `"HSESOL3C"`.
-            shrink: SHRINK line values. Defaults to `"2 2 8"`.
-            maxtradius: MAXTRADIUS value for OPTGEOM. Defaults to `"0.5"`.
-            post_block: Optional override for the full CRYSTAL input tail.
-                Defaults to `None` (auto-generates OPTGEOM and DFT blocks).
+            basisset: CRYSTAL basis-set keyword. Defaults to ``"SOLDEF2MSVP"``.
+            functional: CRYSTAL density-functional keyword. Defaults to
+                ``"HSESOL3C"``.
+            shrink: CRYSTAL SHRINK-grid specification. Defaults to ``"2 2 8"``.
+            maxtradius: ``MAXTRADIUS`` value used in the ``OPTGEOM`` block.
+                Defaults to ``"0.5"``.
+            post_block: Optional complete CRYSTAL input-tail override. Defaults to
+                ``None``, which generates the optimization, basis-set, DFT, and SHRINK
+                sections from the supplied settings.
         """
         if post_block is None:
             post_block = f"""OPTGEOM
@@ -744,18 +789,19 @@ END"""
         input_base_folder: str | None = None,
         output_base_folder: str | None = None,
     ) -> None:
-        """Generate CRYSTAL geometry-optimization inputs for selected mode(s).
+        """Generate CRYSTAL geometry-optimization inputs for selected structures.
+
+        By default, selected structures are read from the landscape-selection folders
+        and CRYSTAL optimization inputs are written to ``dft_serr`` and/or
+        ``dft_incl`` subfolders of the normal optimization stage.
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            input_base_folder: Optional base folder containing per-mode input subfolders.
-                Defaults to `None`
-                (uses `{cof_name}/3_{cof_name}_landscape/selection`).
-            output_base_folder: Optional base folder for outputs (relative to cof_name).
-                Outputs are written to dft_{mode} subfolders under this base.
-                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            input_base_folder: Optional input base-folder override. Defaults to
+                ``{cof_name}/3_{cof_name}_landscape/selection``.
+            output_base_folder: Optional output base-folder override. Defaults to
+                ``{cof_name}/4_{cof_name}_optimization``.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -776,15 +822,21 @@ END"""
         input_folder: str,
         output_csv_dir: str | None = None,
     ) -> Path:
-        """Extract converged energies from CRYSTAL .out files.
+        """Extract optimized CRYSTAL energies from one output folder.
+
+        Converged total energies are converted from Hartree to electronvolts and
+        reported on a per-layer basis. Serrated bilayer energies are divided by two.
 
         Args:
-            input_folder: Folder containing CRYSTAL output files.
-            output_csv_dir: Optional output folder for the CSV.
-                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
+            input_folder: Folder containing CRYSTAL optimization output files.
+            output_csv_dir: Optional destination directory for the optimization-energy
+                CSV. Defaults to ``{cof_name}/4_{cof_name}_optimization``.
 
         Returns:
-            Path to the energies CSV.
+            Path to ``{cof_name}_opt_energies_per_layer_dft.csv``.
+
+        Raises:
+            FileNotFoundError: If no valid CRYSTAL output files are found.
         """
         input_path = Path(input_folder)
         folder_tag = input_path.name
@@ -883,23 +935,26 @@ END"""
         output_base_folder: str | None = None,
         input_base_folder: str | None = None,
     ) -> list[Path]:
-        """Extract optimization energies for selected mode(s) into one CSV.
+        """Extract CRYSTAL optimization energies for selected stacking mode(s).
+
+        The method reads completed ``dft_serr`` and/or ``dft_incl`` calculations,
+        combines their per-layer energies into one CSV, and preserves rows belonging to
+        an unprocessed stacking mode when only one mode is rerun.
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            output_base_folder: Optional output folder for the CSVs.
-                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
-            input_base_folder: Optional base folder containing dft_{mode} subfolders.
-                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            output_base_folder: Optional destination directory for the combined energy
+                CSV. Defaults to ``{cof_name}/4_{cof_name}_optimization``.
+            input_base_folder: Optional base folder containing ``dft_{mode}``
+                subfolders. Defaults to ``{cof_name}/4_{cof_name}_optimization``.
 
         Returns:
-            List containing the combined CSV path.
+            One-element list containing the path to
+            ``{cof_name}_opt_energies_per_layer_dft.csv``.
 
-        Notes:
-            Output file name is {cof_name}_opt_energies_per_layer_dft.csv.
-            Serrated energies are reported per layer (E/2).
+        Raises:
+            FileNotFoundError: If no valid CRYSTAL output files are found.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -1007,15 +1062,25 @@ END"""
         input_folder: str,
         output_folder: str | None = None,
     ) -> list[Path]:
-        """Extract the final optimized structures to CIF files.
+        """Extract optimized structures from CRYSTAL output files.
+
+        The final structure is reconstructed from the last available CRYSTAL geometry
+        information and written as a CIF file. A secondary parser is used when the
+        primary ``DIRECT LATTICE`` / ``PRIMITIVE CELL`` representation is unavailable.
 
         Args:
-            input_folder: Folder containing CRYSTAL output files.
-            output_folder: Optional output folder for CIFs. Defaults to `None`
-                (writes next to parsed output files).
+            input_folder: Folder containing CRYSTAL optimization output files.
+            output_folder: Optional destination folder for generated CIF structures.
+                Defaults to the corresponding CRYSTAL output directory.
 
         Returns:
-            List of CIF paths written.
+            List of generated CIF paths.
+
+        Raises:
+            FileNotFoundError: If the input folder is missing or contains no valid
+                CRYSTAL output files.
+            RuntimeError: If the final optimized structure cannot be reconstructed from
+                a CRYSTAL output.
         """
         input_path = Path(input_folder)
         if not input_path.exists():
@@ -1071,24 +1136,22 @@ END"""
         output_base_folder: str | None = None,
         input_base_folder: str | None = None,
     ) -> list[Path]:
-        """Extract optimized CIFs from CRYSTAL outputs for selected mode(s).
+        """Extract optimized CIF structures for selected stacking mode(s).
+
+        The method processes the ``dft_serr`` and/or ``dft_incl`` optimization output
+        folders and reconstructs the final optimized CIF structures in the
+        corresponding DFT optimization folders.
 
         Args:
             cof_name: COF name used for folder naming.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`.
-            output_base_folder: Optional base folder for CIF outputs.
-                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
-                CIFs are written to `dft_{mode}` subfolders under this base.
-            input_base_folder: Optional base folder containing dft_{mode} subfolders.
-                Defaults to `None` (uses `{cof_name}/4_{cof_name}_optimization`).
-
-        Notes:
-            Defaults for both input and output bases are
-            {cof_name}/4_{cof_name}_optimization.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            output_base_folder: Optional output base-folder override. Defaults to
+                ``{cof_name}/4_{cof_name}_optimization``.
+            input_base_folder: Optional base folder containing ``dft_{mode}``
+                subfolders. Defaults to ``{cof_name}/4_{cof_name}_optimization``.
 
         Returns:
-            List of CIF paths written.
+            List of reconstructed optimized CIF paths.
         """
         from .ild_ils_utils import get_mode_folders
 

@@ -359,19 +359,22 @@ class MaceSP(Mace):
         input_folder: str | None = None,
         output_csv_dir: str | None = None,
     ) -> None:
-        """Run single-point energies for one mode or all mode folders.
+        """Run MACE single-point calculations for selected stacking mode(s).
 
-        Default behavior resolves mode folders from `cof_name` and `mode` using
-        the package mode-routing helper. When `input_folder` is provided,
-        evaluation is restricted to that folder.
+        By default, CIF structures are read from the mode-specific matrix folders
+        under ``{cof_name}/2_{cof_name}_matrix``. The method supports ``"serr"``,
+        ``"incl"``, and ``"both"`` and writes mode-specific single-point energy CSV
+        files for subsequent landscape analysis.
+
+        When ``input_folder`` is provided, only that explicit folder is processed.
 
         Args:
             cof_name: COF identifier used for default folder resolution.
-            mode: Mode selector (`"serr"`, `"incl"`, or `"both"`).
-            input_folder: Optional explicit folder containing CIF files.
-                Defaults to `None` (uses routed mode folders).
-            output_csv_dir: Optional CSV output directory. Defaults to `None`
-                (uses `{cof_name}/3_{cof_name}_landscape`).
+            mode: Stacking mode selector: ``"serr"``, ``"incl"``, or ``"both"``.
+            input_folder: Optional explicit folder containing CIF files. Defaults to
+                ``None``, which uses the mode-specific matrix folders.
+            output_csv_dir: Optional CSV output directory. Defaults to ``None``,
+                which uses ``{cof_name}/3_{cof_name}_landscape``.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -388,10 +391,15 @@ class MaceSP(Mace):
 
 
 class MaceOpt(Mace):
-    """Optimize CIF structures with MACE.
+    """Optimize COF structures with MACE.
 
-    This class wraps ASE optimization with a MACE calculator and supports
-    per-mode batch optimization plus optional energy-summary CSV generation.
+    The class provides the normal full-cell optimization workflow used for
+    selected stacking structures, single-layer preoptimization, and fixed-cell
+    relaxation of PXRD-scaled structures.
+
+    Normal optimization relaxes atomic coordinates and the unit cell using
+    ``FrechetCellFilter``. Fixed-cell optimization relaxes atomic coordinates
+    while preserving the complete unit cell.
 
     Returns:
         None.
@@ -457,14 +465,19 @@ class MaceOpt(Mace):
         output_path: str,
         fixed_cell: bool = False,
     ) -> bool:
-        """Optimize one CIF structure and write the optimized CIF.
+        """Optimize one CIF structure and write the resulting structure.
 
         Args:
             input_path: Input CIF file path.
             output_path: Output CIF file path.
+            fixed_cell: If ``False``, relax atomic coordinates and the unit cell using
+                ``FrechetCellFilter``. If ``True``, keep the complete unit cell fixed
+                and optimize atomic coordinates directly with ``LBFGS``. Defaults to
+                ``False``.
 
         Returns:
-            `True` if optimization converged within `max_steps`, else `False`.
+            ``True`` if the optimization converged within ``max_steps``; otherwise
+            ``False``. The current structure is written in either case.
         """
         warnings.filterwarnings(
             "ignore",
@@ -495,7 +508,20 @@ class MaceOpt(Mace):
         return bool(converged)
 
     def optimize_cof(self, input_path: str, output_path: str) -> bool:
-        """Optimize one CIF with full atomic and unit-cell relaxation."""
+        """Optimize one CIF with full atomic and unit-cell relaxation.
+
+        This is the low-level public interface for optimizing a single explicitly
+        specified structure. Atomic coordinates and the complete unit cell are
+        relaxed using MACE with ``FrechetCellFilter``.
+
+        Args:
+            input_path: Input CIF file path.
+            output_path: Output CIF file path.
+
+        Returns:
+            ``True`` if the optimization converged within ``max_steps``; otherwise
+            ``False``.
+        """
         return self._optimize_cof(input_path, output_path)
 
     def run_preopt(
@@ -505,19 +531,23 @@ class MaceOpt(Mace):
         output_path: str | None = None,
         fix_z: bool = True,
     ) -> bool:
-        """Run one-file pre-optimization with COF-specific default paths.
+        """Pre-optimize the assembled single-layer COF structure.
+
+        By default, atomic motion along the Cartesian z direction is constrained
+        during this step. This preserves the approximately planar single-layer
+        geometry before generation of the stacked structure matrix.
 
         Args:
             cof_name: COF name used for default path construction.
-            input_path: Optional input CIF path.
-                Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif.
-            output_path: Optional output CIF path.
-                Defaults to {cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif.
-            fix_z: Whether to fix atomic z coordinates during this preopt run.
-                Defaults to `True`.
+            input_path: Optional input CIF path. Defaults to
+                ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif``.
+            output_path: Optional output CIF path. Defaults to
+                ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif``.
+            fix_z: Whether to constrain atomic motion along the Cartesian z direction
+                during this preoptimization. Defaults to ``True``.
 
         Returns:
-            True if the optimization converged, else False.
+            ``True`` if the optimization converged; otherwise ``False``.
         """
         default_dir = Path(cof_name) / f"1_{cof_name}_single_layer"
         resolved_input = Path(
@@ -570,24 +600,35 @@ class MaceOpt(Mace):
         output_folder: str | None = None,
         source_cif: str | None = None,
     ) -> dict[str, bool]:
-        """Optimize scaled CIFs while keeping the complete cell fixed.
+        """Relax PXRD-scaled structures while keeping the complete unit cell fixed.
 
-        Atomic coordinates are optimized directly with ``LBFGS(atoms)``.
-        This method does not freeze atomic z coordinates; use the constructor's
-        ``fix_z`` option separately when that constraint is required.
+        This method is intended for the post-scaling refinement stage. Atomic
+        coordinates are optimized directly with ``LBFGS(atoms)`` while the lattice
+        vectors and cell parameters remain unchanged.
+
+        Atomic z coordinates are not constrained by this method itself. They remain
+        free unless ``fix_z=True`` was explicitly set when constructing ``MaceOpt``.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Stacking mode, either ``"serr"``, ``"incl"``, or
-                ``"both"``.
-            input_folder: Optional explicit scaling-stage input folder.
-            output_folder: Optional explicit postopt output folder.
-            source_cif: Optional input CIF filename when the input folder
-                contains multiple CIF files.
+            mode: Stacking mode selector: ``"serr"``, ``"incl"``, or ``"both"``.
+            input_folder: Optional explicit scaling-stage input folder. Defaults to
+                the mode-specific folder under
+                ``{cof_name}/6_{cof_name}_scaling/scaling``.
+            output_folder: Optional explicit postoptimization output folder. Defaults
+                to the mode-specific folder under
+                ``{cof_name}/6_{cof_name}_scaling/postopt``.
+            source_cif: Optional input CIF filename. If omitted, the input folder must
+                contain exactly one CIF file.
 
         Returns:
-            Mapping from ``"mode/structure"`` to the optimization convergence
-            status for each processed CIF.
+            Mapping from ``"mode/structure"`` to convergence status for each
+            processed CIF.
+
+        Raises:
+            FileNotFoundError: If the requested input folder or CIF is missing.
+            ValueError: If explicit folders are used with ``mode="both"`` or the input
+                folder contains multiple CIF files without ``source_cif``.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -801,25 +842,28 @@ class MaceOpt(Mace):
         input_base: str | None = None,
         save_opt_energies_csv: bool = True,
     ) -> None:
-        """Optimize selected structures for requested mode(s).
+        """Run the normal full-cell optimization workflow for selected structure(s).
+
+        The method processes the selected serrated and/or inclined structures,
+        relaxing both atomic coordinates and the complete unit cell using MACE and
+        ``FrechetCellFilter``. Optimized structures are written to the standard
+        optimization folders and, by default, a consolidated per-layer energy CSV
+        is generated.
 
         Default folder behavior:
-        - `input_base`: `{cof_name}/3_{cof_name}_landscape/selection`
-        - `output_base`: `{cof_name}/4_{cof_name}_optimization`
 
-        The method routes mode folders (`serr`, `incl`, or both), optimizes all
-        CIF files in each folder, and optionally writes a consolidated
-        `{cof_name}_opt_energies_per_layer.csv` file.
+        - input: ``{cof_name}/3_{cof_name}_landscape/selection/{mode}``
+        - output: ``{cof_name}/4_{cof_name}_optimization/{mode}``
 
         Args:
             cof_name: COF identifier used for default path construction.
-            mode: Mode selector (`"serr"`, `"incl"`, or `"both"`).
+            mode: Stacking mode selector: ``"serr"``, ``"incl"``, or ``"both"``.
             output_base: Optional optimization output base folder. Defaults to
-                `None` (uses `{cof_name}/4_{cof_name}_optimization`).
-            input_base: Optional selection input base folder. Defaults to `None`
-                (uses `{cof_name}/3_{cof_name}_landscape/selection`).
-            save_opt_energies_csv: Whether to write merged per-layer energy CSV.
-                Defaults to `True`.
+                ``{cof_name}/4_{cof_name}_optimization``.
+            input_base: Optional selection input base folder. Defaults to
+                ``{cof_name}/3_{cof_name}_landscape/selection``.
+            save_opt_energies_csv: Whether to write the consolidated per-layer
+                optimized-energy CSV. Defaults to ``True``.
         """
         from .ild_ils_utils import get_mode_folders
 
