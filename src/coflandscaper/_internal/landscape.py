@@ -59,7 +59,7 @@ class Landscape:
 
         return csv_dir, csv_path, folder_tag, cof_name
 
-    def run(
+    def _plot_single_mode(
         self,
         input_folder: str,
         cof_name: str | None = None,
@@ -73,7 +73,7 @@ class Landscape:
         show_title_block: bool = False,
         show: bool = False,
     ) -> None:
-        """Build one fixed-style hybrid PES plot for a stacking mode.
+        """Build one fixed-style hybrid PES plot for a single stacking mode.
 
         Args:
             input_folder: Mode folder path (serr or incl) used to infer mode;
@@ -325,7 +325,7 @@ class Landscape:
             plt.close(fig)
         print(f"Saved: {figure_path}")
 
-    def run_mode(
+    def run(
         self,
         cof_name: str,
         mode: str,
@@ -340,7 +340,7 @@ class Landscape:
         input_folder: str | None = None,
         output_folder: str | None = None,
     ) -> None:
-        """Generate landscapes for selected stacking mode(s).
+        """Generate landscapes for one or both selected stacking modes.
 
         Args:
             cof_name: COF name used for folder naming.
@@ -400,7 +400,7 @@ class Landscape:
                 missing_csvs.append(str(expected_csv))
                 continue
 
-            self.run(
+            self._plot_single_mode(
                 input_folder=str(base_path / mode_tag),
                 cof_name=cof_name,
                 dft=dft,
@@ -589,14 +589,14 @@ class SelectCofs:
         L = float(mL.group(1)) / 10.0
         return z, L
 
-    def run(
+    def _copy_selected_cifs(
         self,
         input_folder: str,
         output_folder: str,
         selections: list[tuple[float, float]] | None = None,
         mode_label: str | None = None,
     ) -> None:
-        """Copy CIFs that match requested `(ILD, ILS)` tuples.
+        """Copy CIFs matching explicit `(ILD, ILS)` selections.
 
         Args:
             input_folder: Source folder containing CIF files.
@@ -658,7 +658,7 @@ class SelectCofs:
                 print("\nSelected ILD/ILS pairs:")
             print(df.to_string(index=False))
 
-    def run_mode(
+    def run(
         self,
         cof_name: str,
         mode: str,
@@ -756,7 +756,7 @@ class SelectCofs:
 
             selections = _build_mode_selections(mode_tag)
             label = "Serrated" if mode_tag == "serr" else "Inclined"
-            self.run(
+            self._copy_selected_cifs(
                 input_folder=input_folder,
                 output_folder=target_output,
                 selections=selections,
@@ -780,7 +780,7 @@ class SelectCofs:
                 if mode_tag == "incl"
                 else None
             )
-            self.run(
+            self._copy_selected_cifs(
                 input_folder=f"{input_base}/{mode_tag}",
                 output_folder=out_folder,
                 selections=mode_selections,

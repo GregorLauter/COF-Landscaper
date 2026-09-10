@@ -6,11 +6,11 @@ import coflandscaper as cl
 
 
 @pytest.mark.unit
-def test_landscape_run_mode_uses_standard_csv_by_default(
+def test_landscape_run_uses_standard_csv_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures run_mode checks standard CSV names when dft is disabled."""
+    """This test ensures run checks standard CSV names when dft is disabled."""
     base = tmp_path / "cof-1" / "3_cof-1_landscape"
     (base / "serr").mkdir(parents=True)
     (base / "incl").mkdir(parents=True)
@@ -52,9 +52,9 @@ def test_landscape_run_mode_uses_standard_csv_by_default(
         )
         calls.append((input_folder, dft))
 
-    monkeypatch.setattr(cl.Landscape, "run", fake_run)
+    monkeypatch.setattr(cl.Landscape, "_plot_single_mode", fake_run)
 
-    cl.Landscape().run_mode(
+    cl.Landscape().run(
         cof_name="cof-1",
         mode="both",
         input_folder=str(base),
@@ -67,11 +67,11 @@ def test_landscape_run_mode_uses_standard_csv_by_default(
 
 
 @pytest.mark.unit
-def test_landscape_run_mode_uses_dft_csv_when_enabled(
+def test_landscape_run_uses_dft_csv_when_enabled(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures run_mode checks _dft CSV names and forwards dft=True."""
+    """This test ensures run checks _dft CSV names and forwards dft=True."""
     base = tmp_path / "cof-1" / "3_cof-1_landscape"
     (base / "serr").mkdir(parents=True)
     (base / "incl").mkdir(parents=True)
@@ -113,9 +113,9 @@ def test_landscape_run_mode_uses_dft_csv_when_enabled(
         )
         calls.append((input_folder, dft))
 
-    monkeypatch.setattr(cl.Landscape, "run", fake_run)
+    monkeypatch.setattr(cl.Landscape, "_plot_single_mode", fake_run)
 
-    cl.Landscape().run_mode(
+    cl.Landscape().run(
         cof_name="cof-1",
         mode="both",
         input_folder=str(base),

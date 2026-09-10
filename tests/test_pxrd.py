@@ -144,75 +144,53 @@ def test_run_single_mode_uses_mode_output_subfolder(
 
 
 @pytest.mark.unit
-def test_plot_sim_default_routing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """This test ensures PXRD plot_sim routing writes mode-specific output image paths."""
+def test_plot_sim_default_routing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This test ensures PXRD plot_sim routes each mode to structure PDFs."""
+    monkeypatch.chdir(tmp_path)
     pxrd = cl.PXRD()
-    calls: list[tuple[Path, Path, tuple[float, float], bool]] = []
-
-    def fake_plot_xy(
-        _self: cl.PXRD,
-        xy_folder: str | Path,
-        output_path: str | Path,
-        xlim: tuple[float, float] = (1.5, 30.0),
-        show: bool = True,
-        save: bool = True,
-    ) -> str:
-        xy_path = Path(xy_folder)
-        out_path = Path(output_path)
-        calls.append((xy_path, out_path, xlim, show))
-        _ = save
-        return str(out_path)
-
-    monkeypatch.setattr(cl.PXRD, "plot_xy", fake_plot_xy)
+    for selected_mode in ("serr", "incl"):
+        xy_dir = (
+            Path("cof-b") / "5_cof-b_analysis" / "pxrd_xy_dft" / selected_mode
+        )
+        xy_dir.mkdir(parents=True)
+        np.savetxt(xy_dir / "structure-a.xy", [[5.0, 1.0], [10.0, 3.0]])
 
     outputs = pxrd.plot_sim(
-        cof_name="cof-b", mode="both", dft=True, show=False
+        cof_name="cof-b",
+        mode="both",
+        dft=True,
+        show_stacking_values=False,
+        show=False,
     )
 
-    assert outputs == {
-        "serr": "cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf",
-        "incl": "cof-b/5_cof-b_analysis/pxrd_plots/incl/cof-b_sim_incl.pdf",
-    }
-    assert calls == [
-        (
-            Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/serr"),
-            Path("cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf"),
-            (1.5, 30.0),
-            False,
-        ),
-        (
-            Path("cof-b/5_cof-b_analysis/pxrd_xy_dft/incl"),
-            Path("cof-b/5_cof-b_analysis/pxrd_plots/incl/cof-b_sim_incl.pdf"),
-            (1.5, 30.0),
-            False,
-        ),
+    assert outputs == [
+        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/serr/structure-a.pdf",
+        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/incl/structure-a.pdf",
     ]
 
 
 @pytest.mark.unit
 def test_plot_sim_single_mode_uses_mode_subfolders(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures plot_sim treats custom folders as mode-independent roots."""
+    """This test ensures plot_sim treats custom folders as mode roots."""
+    monkeypatch.chdir(tmp_path)
     pxrd = cl.PXRD()
-    calls: list[tuple[Path, Path]] = []
-
-    def fake_plot_xy(
-        _self: cl.PXRD,
-        xy_folder: str | Path,
-        output_path: str | Path,
-        **_kwargs: object,
-    ) -> str:
-        xy_path = Path(xy_folder)
-        out_path = Path(output_path)
-        calls.append((xy_path, out_path))
-        return str(out_path)
-
-    monkeypatch.setattr(cl.PXRD, "plot_xy", fake_plot_xy)
+    default_xy = Path("cof-b/5_cof-b_analysis/pxrd_xy/serr")
+    default_xy.mkdir(parents=True)
+    np.savetxt(default_xy / "default.xy", [[5.0, 1.0], [10.0, 3.0]])
+    custom_xy = Path("my_xy/serr")
+    custom_xy.mkdir(parents=True)
+    np.savetxt(custom_xy / "custom.xy", [[5.0, 1.0], [10.0, 3.0]])
 
     default_outputs = pxrd.plot_sim(
         cof_name="cof-b",
         mode="serr",
+        show_stacking_values=False,
         show=False,
     )
     custom_outputs = pxrd.plot_sim(
@@ -220,20 +198,14 @@ def test_plot_sim_single_mode_uses_mode_subfolders(
         mode="serr",
         xy_folder="my_xy",
         output_folder="my_plots",
+        show_stacking_values=False,
         show=False,
     )
 
-    assert default_outputs == {
-        "serr": "cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf"
-    }
-    assert custom_outputs == {"serr": "my_plots/serr/cof-b_sim_serr.pdf"}
-    assert calls == [
-        (
-            Path("cof-b/5_cof-b_analysis/pxrd_xy/serr"),
-            Path("cof-b/5_cof-b_analysis/pxrd_plots/serr/cof-b_sim_serr.pdf"),
-        ),
-        (Path("my_xy/serr"), Path("my_plots/serr/cof-b_sim_serr.pdf")),
+    assert default_outputs == [
+        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/serr/default.pdf"
     ]
+    assert custom_outputs == ["my_plots/serr/custom.pdf"]
 
 
 @pytest.mark.unit
@@ -273,8 +245,8 @@ def test_plot_sim_vs_exp_default_routing(
     )
 
     assert output == [
-        "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_1_serr.pdf",
-        "cof-c/5_cof-c_analysis/pxrd_plots/incl/sim_2_incl.pdf",
+        "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_1.pdf",
+        "cof-c/5_cof-c_analysis/pxrd_plots/incl/sim_2.pdf",
     ]
 
 

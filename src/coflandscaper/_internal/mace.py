@@ -352,7 +352,7 @@ class MaceSP(Mace):
 
         return energies_csv_path
 
-    def run_mode(
+    def run(
         self,
         cof_name: str,
         mode: str,
@@ -388,7 +388,7 @@ class MaceSP(Mace):
 
 
 class MaceOpt(Mace):
-    """Optimize CIF structures with MACE and optional cell constraints.
+    """Optimize CIF structures with MACE.
 
     This class wraps ASE optimization with a MACE calculator and supports
     per-mode batch optimization plus optional energy-summary CSV generation.
@@ -405,7 +405,6 @@ class MaceOpt(Mace):
         model: str | None = None,
         device: str = "cpu",
         fix_z: bool = False,
-        cell_mode: str = "full",
         max_steps: int = 2000,
         verbose: bool = True,
     ) -> None:
@@ -419,10 +418,6 @@ class MaceOpt(Mace):
                 (resolved to `"mh-1"`).
             device: Torch device string. Defaults to `"cpu"`.
             fix_z: Whether to constrain atomic z motion. Defaults to `False`.
-            cell_mode: Cell relaxation mode. ``"full"`` allows full cell
-                relaxation; ``"out_of_plane"`` fixes in-plane strain and
-                allows only the Cartesian zz cell-strain component to relax.
-                Defaults to ``"full"``.
             max_steps: Maximum optimizer steps. Defaults to `2000`.
             verbose: Whether to emit calculator initialization logs.
                 Defaults to `True`.
@@ -436,9 +431,6 @@ class MaceOpt(Mace):
         )
         self._fmax = fmax
         self._fix_z = fix_z
-        if cell_mode not in {"full", "out_of_plane"}:
-            raise ValueError("cell_mode must be 'full' or 'out_of_plane'.")
-        self._cell_mode = cell_mode
         self._max_steps = max_steps
         _, _, model_used, calc_settings = self._resolve_params()
         self.calc = self._make_calc(
@@ -459,7 +451,12 @@ class MaceOpt(Mace):
             con = FixCartesian(indices, mask=[False, False, True])
             atoms.set_constraint(con)
 
-    def optimize_cof(self, input_path: str, output_path: str) -> bool:
+    def _optimize_cof(
+        self,
+        input_path: str,
+        output_path: str,
+        fixed_cell: bool = False,
+    ) -> bool:
         """Optimize one CIF structure and write the optimized CIF.
 
         Args:
@@ -478,14 +475,11 @@ class MaceOpt(Mace):
         self._apply_constraints(atoms)
         atoms.calc = self.calc
 
-        if self._cell_mode == "full":
-            fcf = FrechetCellFilter(atoms)
+        if fixed_cell:
+            dyn = LBFGS(atoms)
         else:
-            fcf = FrechetCellFilter(
-                atoms,
-                mask=[False, False, True, False, False, False],
-            )
-        dyn = LBFGS(cast("Any", fcf))
+            fcf = FrechetCellFilter(atoms)
+            dyn = LBFGS(cast("Any", fcf))
         converged = dyn.run(fmax=self._fmax, steps=self._max_steps)
         if not converged:
             warnings.warn(
@@ -499,6 +493,10 @@ class MaceOpt(Mace):
             )
         atoms.write(output_path)
         return bool(converged)
+
+    def optimize_cof(self, input_path: str, output_path: str) -> bool:
+        """Optimize one CIF with full atomic and unit-cell relaxation."""
+        return self._optimize_cof(input_path, output_path)
 
     def run_preopt(
         self,
@@ -564,7 +562,7 @@ class MaceOpt(Mace):
                 convergence_by_structure[Path(file_name).stem] = converged
         return convergence_by_structure
 
-    def run(
+    def run_fixed(
         self,
         cof_name: str,
         mode: str,
@@ -572,7 +570,11 @@ class MaceOpt(Mace):
         output_folder: str | None = None,
         source_cif: str | None = None,
     ) -> dict[str, bool]:
-        """Optimize scaled CIFs with out-of-plane cell relaxation.
+        """Optimize scaled CIFs while keeping the complete cell fixed.
+
+        Atomic coordinates are optimized directly with ``LBFGS(atoms)``.
+        This method does not freeze atomic z coordinates; use the constructor's
+        ``fix_z`` option separately when that constraint is required.
 
         Args:
             cof_name: COF name used for default path construction.
@@ -631,8 +633,10 @@ class MaceOpt(Mace):
 
             output_dir.mkdir(parents=True, exist_ok=True)
             convergence_by_structure[f"{selected_mode}/{input_path.stem}"] = (
-                self.optimize_cof(
-                    str(input_path), str(output_dir / input_path.name)
+                self._optimize_cof(
+                    str(input_path),
+                    str(output_dir / input_path.name),
+                    fixed_cell=True,
                 )
             )
 
@@ -789,7 +793,7 @@ class MaceOpt(Mace):
 
         return csv_path
 
-    def run_mode(
+    def run(
         self,
         cof_name: str,
         mode: str,

@@ -1062,69 +1062,149 @@ class PXRD:
         source: str = "opt",
         xy_folder: str | Path | None = None,
         output_folder: str | Path | None = None,
-        xlim: tuple[float, float] = (1.5, 30.0),
+        xlim: tuple[float, float] | None = None,
         show: bool = True,
         save: bool = True,
-    ) -> dict[str, str]:
-        """Plot stacked simulated PXRD patterns for one or both modes.
+        show_stacking_values: bool = True,
+    ) -> list[str]:
+        """Plot one simulation-only PXRD pattern per structure.
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Mode selector. Allowed values are `"incl"`, `"serr"`,
-                or `"both"`. Defaults to `"both"`.
-            dft: If `True`, default XY folders are read from `dft_{mode}`.
-                Defaults to `False`.
-            xy_folder: Optional root folder for XY files. The selected
-                ``serr`` or ``incl`` subfolder is always used. Defaults to
-                `None`.
-            output_folder: Optional root folder for plot image(s). The
-                selected ``serr`` or ``incl`` subfolder is always used.
-                Defaults to `None` (uses the source-specific `pxrd_plots`
-                folder).
+            mode: Mode selector. Allowed values are ``"incl"``, ``"serr"``,
+                or ``"both"``. Defaults to ``"both"``.
+            dft: If ``True``, default XY folders use ``pxrd_xy_dft``.
+                Defaults to ``False``.
+            source: PXRD source for default simulated data and annotations:
+                ``"opt"`` or ``"postopt"``.
+            xy_folder: Optional root folder for XY files. The selected mode
+                subfolder is used, preserving the existing override behavior.
+                Defaults to ``None``.
+            output_folder: Optional root folder for output PDFs. The selected
+                mode subfolder is used. Defaults to a ``simulated`` folder
+                below the source-specific ``pxrd_plots`` directory.
             xlim: X-axis bounds as (min_2theta, max_2theta) in degrees.
-                Defaults to `(1.5, 30.0)`.
-            show: If `True`, display generated plot(s) in the notebook/session.
+                Defaults to ``(1.5, 30.0)``.
+            show_stacking_values: If ``True``, show matching analyzed ILD and
+                ILS values when available. Defaults to ``True``.
+            show: If ``True``, display generated plots in the notebook/session.
                 Defaults to `True`.
-            save: If `True`, write figure(s) to disk. Defaults to `True`.
+            save: If ``True``, write PDF figures to disk. Defaults to ``True``.
 
         Returns:
-            Mapping of mode to output plot path.
-
-        Notes:
-            Output files are named {cof_name}_sim_{mode}.pdf.
+            List of output PDF paths, one for each simulated structure.
         """
         modes = self._resolve_modes(mode)
         _, analysis_root_template = self._resolve_source(source)
-
-        outputs: dict[str, str] = {}
         default_xy_root = Path(
             f"{cof_name}/{analysis_root_template.format(cof_name=cof_name)}/"
             f"{'pxrd_xy_dft' if dft else 'pxrd_xy'}"
         )
-        output_root = (
-            Path(output_folder)
-            if output_folder is not None
-            else Path(
+        if output_folder is None:
+            output_root = Path(
                 f"{cof_name}/{analysis_root_template.format(cof_name=cof_name)}"
-                "/pxrd_plots"
+                "/pxrd_plots/simulated"
             )
-        )
+        else:
+            output_root = Path(output_folder)
+
+        plot_xlim = (1.5, 30.0) if xlim is None else xlim
+        sim_files: list[tuple[str, Path]] = []
         for selected_mode in modes:
             xy_root = default_xy_root if xy_folder is None else Path(xy_folder)
             xy_dir = xy_root / selected_mode
-            target_output = (
-                output_root
-                / selected_mode
-                / f"{cof_name}_sim_{selected_mode}.pdf"
+            if not xy_dir.exists() or not xy_dir.is_dir():
+                raise FileNotFoundError(f"XY folder not found: {xy_dir}")
+            mode_files = sorted(xy_dir.glob("*.xy"))
+            if not mode_files:
+                raise FileNotFoundError(
+                    f"No simulated .xy files found in: {xy_dir}"
+                )
+            sim_files.extend((selected_mode, path) for path in mode_files)
+
+        figure_width = 15.0
+        figure_height = 5.0
+        dpi = 500
+        outputs: list[str] = []
+
+        for selected_mode, sim_file in sim_files:
+            x_sim, y_sim = self._read_xy(sim_file)
+            x_sim = np.asarray(x_sim, dtype=float)
+            y_sim = np.asarray(y_sim, dtype=float)
+            order = np.argsort(x_sim)
+            x_sim = x_sim[order]
+            y_sim = y_sim[order]
+            sim_shifted = y_sim - np.nanmin(y_sim)
+            y_max = self._visible_y_max(x_sim, sim_shifted, plot_xlim)
+
+            fig, ax = plt.subplots(figsize=(figure_width, figure_height))
+            ax.vlines(
+                x_sim,
+                0.0,
+                sim_shifted,
+                color="black",
+                linewidth=1.5,
+                alpha=0.9,
             )
 
-            outputs[selected_mode] = self.plot_xy(
-                xy_folder=xy_dir,
-                output_path=target_output,
-                xlim=xlim,
-                show=show,
-                save=save,
-            )
+            handles: list[Line2D] = []
+            if show_stacking_values:
+                stacking_values = self._load_stacking_values(
+                    cof_name=cof_name,
+                    source=source,
+                    mode=selected_mode,
+                    structure_filename=f"{sim_file.stem}.cif",
+                    dft=dft,
+                )
+                if stacking_values is not None:
+                    ild, ils = stacking_values
+                    handles.extend(
+                        [
+                            Line2D(
+                                [],
+                                [],
+                                color="none",
+                                label=f"ILD = {ild:.2f} Å",
+                            ),
+                            Line2D(
+                                [],
+                                [],
+                                color="none",
+                                label=f"ILS = {ils:.2f} Å",
+                            ),
+                        ]
+                    )
+            if handles:
+                ax.legend(
+                    handles=handles,
+                    loc="upper right",
+                    fontsize=11,
+                    frameon=False,
+                    handletextpad=0.4,
+                    borderaxespad=0.2,
+                )
+
+            ax.set_ylim(0.0, y_max * 1.15 if y_max > 0 else 1.0)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.tick_params(axis="x", labelbottom=True)
+            ax.set_yticks([])
+            ax.tick_params(axis="y", length=0)
+            ax.set_xlim(*plot_xlim)
+            ax.set_xlabel(r"2$\theta$ (°)", fontsize=14)
+            ax.set_ylabel("Intensity (a.u.)", fontsize=14)
+            ax.tick_params(axis="both", labelsize=11)
+            fig.tight_layout()
+
+            output_path = output_root / selected_mode / f"{sim_file.stem}.pdf"
+            if save:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                fig.savefig(str(output_path), dpi=dpi, bbox_inches="tight")
+            if show:
+                plt.show()
+            plt.close(fig)
+            outputs.append(str(output_path))
+            print(f"Plotted simulated PXRD pattern for {sim_file.stem}.cif")
 
         return outputs
 
@@ -1448,14 +1528,10 @@ class PXRD:
 
             if default_output:
                 output_path = (
-                    output_root
-                    / sim_file.parent.name
-                    / f"{sim_file.stem}_{sim_file.parent.name}.pdf"
+                    output_root / sim_file.parent.name / f"{sim_file.stem}.pdf"
                 )
             else:
-                output_path = (
-                    output_root / f"{sim_file.stem}_{sim_file.parent.name}.pdf"
-                )
+                output_path = output_root / f"{sim_file.stem}.pdf"
             if save:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 fig.savefig(str(output_path), dpi=dpi, bbox_inches="tight")

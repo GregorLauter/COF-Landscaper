@@ -50,7 +50,9 @@ def test_global_minima_returns_lowest_energy_pair_independent_of_row_order(
 
 
 @pytest.mark.unit
-def test_run_copies_matching_cif_for_selected_pair(tmp_path: Path) -> None:
+def test_copy_selected_cifs_copies_matching_cif_for_selected_pair(
+    tmp_path: Path,
+) -> None:
     input_folder = tmp_path / "input"
     output_folder = tmp_path / "output"
     input_folder.mkdir()
@@ -68,7 +70,7 @@ def test_run_copies_matching_cif_for_selected_pair(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    cl.SelectCofs().run(
+    cl.SelectCofs()._copy_selected_cifs(
         input_folder=str(input_folder),
         output_folder=str(output_folder),
         selections=[(3.4, 2.0)],
@@ -80,7 +82,7 @@ def test_run_copies_matching_cif_for_selected_pair(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_run_raises_when_selected_pair_has_no_matching_cif(
+def test_copy_selected_cifs_raises_when_selected_pair_has_no_matching_cif(
     tmp_path: Path,
 ) -> None:
     input_folder = tmp_path / "input"
@@ -93,7 +95,7 @@ def test_run_raises_when_selected_pair_has_no_matching_cif(
     )
 
     with pytest.raises(FileNotFoundError, match="No matching CIFs found"):
-        cl.SelectCofs().run(
+        cl.SelectCofs()._copy_selected_cifs(
             input_folder=str(input_folder),
             output_folder=str(output_folder),
             selections=[(3.4, 2.0)],
@@ -101,14 +103,13 @@ def test_run_raises_when_selected_pair_has_no_matching_cif(
 
 
 @pytest.mark.unit
-def test_run_mode_global_autoselect_copies_global_minimum_cif(
+def test_run_global_autoselect_copies_global_minimum_cif(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.chdir(tmp_path)
 
     cof_name = "cof-1"
-
     csv_dir = tmp_path / cof_name / f"3_{cof_name}_landscape"
     csv_dir.mkdir(parents=True)
     pd.DataFrame(
@@ -133,10 +134,9 @@ def test_run_mode_global_autoselect_copies_global_minimum_cif(
         "data_040_040\n",
         encoding="utf-8",
     )
-
     output_folder = tmp_path / "selected"
 
-    cl.SelectCofs().run_mode(
+    cl.SelectCofs().run(
         cof_name=cof_name,
         mode="serr",
         include_autoselect=True,
@@ -151,7 +151,7 @@ def test_run_mode_global_autoselect_copies_global_minimum_cif(
 
 
 @pytest.mark.unit
-def test_run_mode_manual_selection_works_without_autoselect(
+def test_run_manual_selection_works_without_autoselect(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -164,10 +164,9 @@ def test_run_mode_manual_selection_works_without_autoselect(
         "data_034_020\n",
         encoding="utf-8",
     )
-
     output_folder = tmp_path / "selected"
 
-    cl.SelectCofs().run_mode(
+    cl.SelectCofs().run(
         cof_name=cof_name,
         mode="serr",
         include_autoselect=False,
@@ -182,7 +181,7 @@ def test_run_mode_manual_selection_works_without_autoselect(
 
 
 @pytest.mark.unit
-def test_run_mode_without_autoselect_or_manual_selections_raises(
+def test_run_without_autoselect_or_manual_selections_raises(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -193,7 +192,7 @@ def test_run_mode_without_autoselect_or_manual_selections_raises(
     input_folder.mkdir(parents=True)
 
     with pytest.raises(ValueError, match="No selections provided"):
-        cl.SelectCofs().run_mode(
+        cl.SelectCofs().run(
             cof_name=cof_name,
             mode="serr",
             include_autoselect=False,
@@ -203,7 +202,7 @@ def test_run_mode_without_autoselect_or_manual_selections_raises(
 
 
 @pytest.mark.unit
-def test_run_mode_both_routes_serr_and_incl_selections(
+def test_run_both_routes_serr_and_incl_selections(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -222,9 +221,9 @@ def test_run_mode_both_routes_serr_and_incl_selections(
     ) -> None:
         calls.append((input_folder, output_folder, selections, mode_label))
 
-    monkeypatch.setattr(cl.SelectCofs, "run", fake_run)
+    monkeypatch.setattr(cl.SelectCofs, "_copy_selected_cifs", fake_run)
 
-    cl.SelectCofs().run_mode(
+    cl.SelectCofs().run(
         cof_name="cof-1",
         mode="both",
         include_autoselect=False,
