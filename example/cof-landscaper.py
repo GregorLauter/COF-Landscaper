@@ -31,7 +31,6 @@ def run_workflow(params: dict[str, object]) -> None:
     ild_step = cl.utilities.get_float_param(params, "ILD_STEP", 0.1)
 
     minima_mode = str(params.get("MINIMA_MODE", "global"))
-    show_landscape = bool(params.get("SHOW_LANDSCAPE", False))
     show_title_block = bool(params.get("SHOW_TITLE_BLOCK", False))
     show_minima_markers = bool(params.get("SHOW_MINIMA_MARKERS", True))
     fix_z = params.get("FIX_Z", True)
@@ -70,7 +69,7 @@ def run_workflow(params: dict[str, object]) -> None:
         cof_name=cof_name,
         mode=mode,
         minima_mode=minima_mode,
-        show=show_landscape,
+        show=False,
         show_title_block=show_title_block,
         show_minima_markers=show_minima_markers,
     )

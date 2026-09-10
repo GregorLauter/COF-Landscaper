@@ -5,12 +5,12 @@
 <h1 align="center">COF-Landscaper</h1>
 
 <p align="center">
-  Automated structure generation, stacking-landscape screening, and PXRD simulation for two-dimensional covalent organic frameworks.
+  Automated structure generation, stacking-landscape screening, structure optimization, and PXRD-guided refinement for two-dimensional covalent organic frameworks.
 </p>
 
 ---
 
-COF-Landscaper is a Python package for building and analysing 2D covalent organic frameworks (COFs). It provides workflows for generating COF structures from molecular building blocks, exploring stacking configurations, and comparing simulated PXRD patterns with experimental data.
+COF-Landscaper is a Python package for building and analysing 2D covalent organic frameworks (COFs). It provides workflows for generating COF structures from molecular building blocks, exploring stacking configurations, optimizing candidate structures, simulating and comparing PXRD patterns with experimental data, and performing PXRD-guided in-plane lattice refinement.
 
 Researchers interested in applying COF-Landscaper to their own systems are welcome to contact me at [gjl342@student.bham.ac.uk](mailto:gjl342@student.bham.ac.uk). Depending on availability and project scope, I may be able to provide support, discuss collaboration, or offer a short one- to two-day online introduction for users with limited software or terminal experience. This can cover installation, setup, input preparation, and running the workflow on example or user-provided systems.
 
@@ -27,6 +27,7 @@ Create and activate a new environment:
 ```bash
 conda create -n coflandscaper python=3.12
 ```
+
 ```bash
 conda activate coflandscaper
 ```
@@ -84,30 +85,33 @@ Then install COF-Landscaper:
 ```bash
 python -m pip install --upgrade pip
 ```
+
 ```bash
 python -m pip install cof-landscaper
 ```
 
 ## Example Files
 
-The canonical example workflow is included directly in the repository under
-`example/`.
-
-This folder contains the workflow script and a separate `cof-landscaper.params.json` file where the workflow settings can be configured. It also includes a minimal notebook for plotting simulated PXRD data together with experimental PXRD data after the workflow has finished.
-
-The copied examples also include three notebook versions under:
+A complete example workflow is included directly in the repository under:
 
 ```text
-examples/notebook/
+example/
 ```
 
-The notebook versions are:
+The example uses a single COF system and provides two complementary ways of running the COF-Landscaper workflow:
 
-- `cof-landscaper_configurable.ipynb`: full notebook with Markdown explanations for all configurable options.
-- `cof-landscaper_default.ipynb`: default workflow notebook with explanations for the default settings.
-- `cof-landscaper_minimal.ipynb`: minimal code-only workflow for running the notebook without extended explanations.
+- `cof-landscaper_local.ipynb`: complete interactive workflow for running COF-Landscaper locally in a Jupyter notebook, including the individual workflow steps, visualization, analysis, and PXRD-guided refinement.
 
-You can then edit the copied Python script, JSON parameter file, notebook, and input `.xyz` files for your own system.
+- `cof-landscaper_hybrid.ipynb`: companion notebook for the hybrid/HPC workflow. The main computational workflow is first executed using the Python script, typically on an HPC system, while the notebook is used afterwards to inspect the generated results, visualize the potential energy landscapes, compare simulated and experimental PXRD data, and perform PXRD-guided refinement.
+
+The hybrid workflow is controlled by:
+
+- `cof-landscaper.py`: executable Python workflow containing the main computational pipeline.
+- `cof-landscaper.params.json`: configuration file containing the system and workflow parameters used by the Python script.
+
+The Python workflow script is intended to remain unchanged; calculations are configured through `cof-landscaper.params.json`, where workflow parameters can be adjusted and optional settings added or removed as required. The `example/` directory also contains the required example building-block files and experimental PXRD data. Both workflows use the same example system and input data.
+
+Users can copy the `example/` directory from the repository and modify the input structures, parameters, and workflow settings for their own systems.
 
 ## Running the Notebooks
 
@@ -144,6 +148,7 @@ Clone the repository and enter the source directory.
 ```bash
 git clone https://github.com/GregorLauter/COF-Landscaper.git
 ```
+
 ```bash
 cd COF-Landscaper
 ```
@@ -198,16 +203,16 @@ Supported topologies:
 
 | Topology | Keyword | Description | Node amount | Node connectivity | Linker amount | Linker connectivity |
 |---|---|---|---:|---|---:|---|
-| Honeycomb | `hcb` | standard honeycomb. | 1 | 3 | 1 | 2 |
-| Square lattice | `sql` |  | 1 | 4 | 1 | 2 |
-| Binary honeycomb | `hcb_ab` | two different nodes nodes with no linker inbetween them linker. | 2 | 3 each | 0 | — |
-| Kagome | `kgm` |  | 1 | 4 | 1 | 2 |
+| Honeycomb | `hcb` | Standard honeycomb lattice. | 1 | 3 | 1 | 2 |
+| Square lattice | `sql` | Square lattice. | 1 | 4 | 1 | 2 |
+| Binary honeycomb | `hcb_ab` | Honeycomb lattice constructed from two different node types without a separate linker. | 2 | 3 each | 0 | — |
+| Kagome | `kgm` | Kagome lattice. | 1 | 4 | 1 | 2 |
 
 ### Connection Points
 
 Connection points must be marked with helium atoms (`He`) in the input `.xyz` files.
 
-During preprocessing, COF-Landscaper converts these `He` atoms into pormake-compatible connection points. The number and geometry of the `He` atoms must match the selected topology and the intended connectivity shown in the table above.
+During preprocessing, COF-Landscaper converts these `He` atoms into PORMAKE-compatible connection points. The number and geometry of the `He` atoms must match the selected topology and the intended connectivity shown in the table above.
 
 Input requirements:
 
