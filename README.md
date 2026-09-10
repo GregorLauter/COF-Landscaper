@@ -90,25 +90,8 @@ python -m pip install cof-landscaper
 
 ## Example Files
 
-After installation, COF-Landscaper can be imported and used directly in your own Python scripts or notebooks.
-
-If you want to start from the provided example workflows, run:
-
-```bash
-cof-landscaper-copy-examples
-```
-
-This copies the example files into the current directory under:
-
-```text
-examples/
-```
-
-The copied examples include an executable Python workflow under:
-
-```text
-examples/python/
-```
+The canonical example workflow is included directly in the repository under
+`example/`.
 
 This folder contains the workflow script and a separate `cof-landscaper.params.json` file where the workflow settings can be configured. It also includes a minimal notebook for plotting simulated PXRD data together with experimental PXRD data after the workflow has finished.
 

@@ -28,11 +28,8 @@ Install PORMAKE, which is required for COF construction:
 
    pip install "pormake @ git+https://github.com/Sangwon91/PORMAKE.git"
 
-To copy the example workflows into the current directory, run:
-
-.. code-block:: bash
-
-   cof-landscaper-copy-examples
+The canonical example workflow is included directly in the repository under
+``example/``.
 
 Developer Setup
 ---------------
@@ -99,30 +96,14 @@ PXRD data with experimental PXRD data.
 Example Workflows
 -----------------
 
-Example files can be copied after installation with:
-
-.. code-block:: bash
-
-   cof-landscaper-copy-examples
-
-The copied examples include an executable Python workflow with a separate
-``cof-landscaper.params.json`` configuration file, as well as notebook workflows
-with different levels of explanation.
-
-The notebook examples include:
-
-- ``cof-landscaper_configurable.ipynb``: full notebook with Markdown
-  explanations for all configurable options.
-- ``cof-landscaper.ipynb``: default workflow notebook with explanations for the
-  default settings.
-- ``cof-landscaper_minimal.ipynb``: minimal code-only workflow for running the
-  notebook without extended explanations.
+The canonical example workflow is included directly in the repository under
+``example/``.
 
 What Next?
 ----------
 
-New users should start by installing COF-Landscaper, copying the example files,
-and running one of the notebooks or the Python workflow in ``examples/python/``.
+New users should start with the workflow in the repository's ``example/``
+directory.
 
 For API-level details, see the module documentation.
 
