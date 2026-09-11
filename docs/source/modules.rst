@@ -1,8 +1,8 @@
 Modules
 =======
 
-.. autosummary::
-   :toctree: _autosummary
-   :recursive:
+coflandscaper
+-------------
 
-   coflandscaper
+.. automodule:: coflandscaper
+   :no-members:

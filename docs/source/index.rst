@@ -1,5 +1,5 @@
 COF-Landscaper
-===============
+==============
 
 GitHub: https://github.com/GregorLauter/COF-Landscaper
 
@@ -7,6 +7,7 @@ COF-Landscaper is a Python package for building and analysing two-dimensional
 covalent organic frameworks (COFs). It provides workflows for generating COF
 structures from molecular building blocks, exploring stacking configurations,
 and comparing simulated PXRD patterns with experimental data.
+
 
 Installation
 ------------
@@ -92,6 +93,7 @@ Run code checks:
    :maxdepth: 2
    :caption: Contents:
 
+   Classes <classes>
    Modules <modules>
 
 
