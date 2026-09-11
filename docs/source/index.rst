@@ -3,13 +3,10 @@ COF-Landscaper
 
 GitHub: https://github.com/GregorLauter/COF-Landscaper
 
-COF-Landscaper is a Python package for building and analyzing two-dimensional
-covalent organic frameworks (COFs).
-
-It provides tools to construct single-layer COF structures from node and linker
-building blocks, generate interlayer-distance and interlayer-slipping structure
-matrices, run machine-learning interatomic potential workflows, analyze stacking
-minima, and compare simulated and experimental PXRD patterns.
+COF-Landscaper is a Python package for building and analysing two-dimensional
+covalent organic frameworks (COFs). It provides workflows for generating COF
+structures from molecular building blocks, exploring stacking configurations,
+and comparing simulated PXRD patterns with experimental data.
 
 Installation
 ------------
@@ -28,15 +25,47 @@ Install PORMAKE, which is required for COF construction:
 
    pip install "pormake @ git+https://github.com/Sangwon91/PORMAKE.git"
 
-The canonical example workflow is included directly in the repository under
-``example/``.
+
+Example Workflows
+-----------------
+
+A complete example workflow is included directly in the repository under:
+
+.. code-block:: text
+
+   example/
+
+The example uses one COF system and provides two complementary ways of running
+COF-Landscaper.
+
+``cof-landscaper_local.ipynb``
+    Complete interactive workflow for running COF-Landscaper locally in a
+    Jupyter notebook. The individual workflow steps, visualization, analysis,
+    and PXRD-guided refinement can all be run directly from the notebook.
+
+``cof-landscaper_hybrid.ipynb``
+    Companion notebook for the hybrid/HPC workflow. The main computational
+    workflow is executed using ``cof-landscaper.py`` on a local or HPC system,
+    while the notebook is used afterwards to inspect the generated results,
+    visualize the potential energy landscapes, compare simulated and
+    experimental PXRD data, and perform PXRD-guided refinement.
+
+The hybrid workflow is configured through:
+
+``cof-landscaper.params.json``
+    Contains the system and workflow parameters used by
+    ``cof-landscaper.py``. The Python workflow script is intended to remain
+    unchanged; calculations are configured by adjusting the JSON parameters.
+
+Users can copy the ``example/`` directory from the repository and replace the
+example inputs and parameters with their own system.
+
 
 Developer Setup
 ---------------
 
-Install `just <https://github.com/casey/just>`_.
-
-Install `uv <https://docs.astral.sh/uv/>`_.
+Install `just <https://github.com/casey/just>`_ and
+`uv <https://docs.astral.sh/uv/>`_.
 
 Clone the repository and enter the source directory:
 
@@ -57,55 +86,6 @@ Run code checks:
 
    just check
 
-Overview
---------
-
-COF-Landscaper is designed around a complete computational workflow for
-screening 2D COF stacking configurations.
-
-COF Construction
-~~~~~~~~~~~~~~~~
-
-COF-Landscaper builds single-layer COF structures from user-provided node and
-linker fragments in ``.xyz`` format. The currently supported topology keys are
-``hcb``, ``sql``, ``hcb_ab``, and ``kgm``.
-
-The ``hcb``, ``sql``, and ``kgm`` topologies require one node and one linker.
-The ``hcb_ab`` topology requires two nodes and no linker.
-
-ILD/ILS Matrix Generation
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The package generates structure matrices by scanning interlayer distance (ILD)
-and interlayer slipping (ILS). Both serrated and inclined stacking variants can
-be generated. The default slip endpoint corresponds to the AB/default stacking
-shift and can be printed from the workflow settings.
-
-MLIP Workflow
-~~~~~~~~~~~~~
-
-The MLIP workflow can be run locally using MACE-based single-point and
-optimization steps.
-
-PXRD Analysis
-~~~~~~~~~~~~~
-
-COF-Landscaper can simulate PXRD patterns, extract peaks, and compare simulated
-PXRD data with experimental PXRD data.
-
-Example Workflows
------------------
-
-The canonical example workflow is included directly in the repository under
-``example/``.
-
-What Next?
-----------
-
-New users should start with the workflow in the repository's ``example/``
-directory.
-
-For API-level details, see the module documentation.
 
 .. toctree::
    :hidden:
