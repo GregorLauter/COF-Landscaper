@@ -143,7 +143,7 @@ def test_ab_half_diagonal_from_cif(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_default_shift_from_cif_sql_hcb_kgm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures sql uses its own vector while hcb and kgm share one formula."""
+    """This test ensures hcb/kgm use their crystallographic shift vector."""
     matrix = np.array(
         [
             [2.0, 0.0, 0.0],
@@ -164,17 +164,21 @@ def test_default_shift_from_cif_sql_hcb_kgm(
 
     assert sql_length == pytest.approx(np.sqrt(2.0))
     assert sql_angle == pytest.approx(45.0)
-    assert hcb_length == pytest.approx((2.0 / np.sqrt(3.0)) * np.sqrt(2.0))
-    assert hcb_angle == pytest.approx(90.0)
+    hcb_vec_xy = hcb_length * np.array(
+        [np.cos(np.radians(hcb_angle)), np.sin(np.radians(hcb_angle))]
+    )
+    assert 3.0 * hcb_vec_xy == pytest.approx(
+        matrix[0, :2] + 2.0 * matrix[1, :2]
+    )
     assert kgm_length == pytest.approx(hcb_length)
-    assert kgm_angle == pytest.approx(90.0)
+    assert kgm_angle == pytest.approx(hcb_angle)
 
 
 @pytest.mark.unit
 def test_default_shift_from_cif_hcb_and_kgm_match_for_hex_cell(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures hcb and kgm return the same AB shift on hexagonal cells."""
+    """This test ensures hcb and kgm return the same default ILS shift."""
     L = 6.0
     matrix = np.array(
         [

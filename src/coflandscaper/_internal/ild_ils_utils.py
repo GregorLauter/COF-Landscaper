@@ -3,7 +3,7 @@
 This module contains low-level helpers used throughout COF-Landscaper for
 interlayer distance (ILD) and interlayer slipping (ILS) calculations, CIF-file
 discovery, stacking-mode routing, periodic-coordinate handling, filename
-encoding, and determination of topology-specific default AB-stacking shifts.
+encoding, and determination of topology-specific default ILS shifts.
 """
 
 from __future__ import annotations
@@ -321,15 +321,16 @@ def default_shift_from_cif(
     topo: str,
     print_shift: bool = False,
 ) -> tuple[float, float]:
-    """Determine the default AB-stacking interlayer-slipping vector.
+    """Determine the default interlayer-slipping vector.
 
         The default interlayer slipping (ILS) magnitude and direction are derived from
         the in-plane lattice vectors of the supplied structure.
 
         For ``sql``, the shift corresponds to half of the ``a + b`` diagonal.
 
-        For ``hcb`` and ``kgm``, the shift magnitude is calculated as
-        ``(2 / sqrt(3)) * ||0.5 * (a + b)||`` and the direction is fixed at 90 degrees.
+        For ``hcb`` and ``kgm``, the shift corresponds to the symmetry-equivalent
+        fractional lattice vector ``(a + 2b) / 3``. Its length and angle are
+        calculated from its in-plane Cartesian components.
 
         The returned values are used as the default upper limit and direction of the
         ILS scan when explicit values are not supplied.
@@ -357,8 +358,10 @@ def default_shift_from_cif(
     sql_len = float(np.linalg.norm(vec_xy))
 
     if topo in {"hcb", "kgm"}:
-        length = (2.0 / math.sqrt(3.0)) * sql_len
-        angle = 90.0
+        vec = (a_vec + 2.0 * b_vec) / 3.0
+        vec_xy = np.array([vec[0], vec[1]], dtype=float)
+        length = float(np.linalg.norm(vec_xy))
+        angle = float(math.degrees(math.atan2(vec_xy[1], vec_xy[0])))
         if print_shift:
             print(
                 f"[DEFAULT_SHIFT_VALUES] Length={length:.2f}Å Angle={angle:.2f}"

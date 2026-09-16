@@ -145,8 +145,7 @@ class IlsSerr:
     (ILS) magnitude along a fixed in-plane direction.
 
     If the maximum ILS value or slip direction is not supplied explicitly, the
-    default values are derived automatically from the corresponding AB-stacking
-    shift of the parent unit cell.
+    default values are derived automatically from the parent unit cell.
     """
 
     def run(
@@ -168,21 +167,21 @@ class IlsSerr:
         ``ils_angle``.
 
         When ``ils_length_end`` or ``ils_angle`` is omitted, the corresponding
-        AB-stacking shift is derived automatically from the first input structure.
+            default ILS shift is derived automatically from the first input structure.
 
         Args:
             input_folder: Folder containing ILD-modified CIF structures.
             output_folder: Destination folder for serrated structures.
-            topo: Topology selector used to determine the default AB shift. Allowed
+            topo: Topology selector used to determine the default ILS shift. Allowed
                 values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
             cof_name: Optional COF name used for standardized output filenames.
                 Defaults to ``None``.
             ils_length_step: Interlayer-slipping step size in Å. Defaults to ``1.0``.
             ils_length_start: Minimum interlayer slipping in Å. Defaults to ``0.0``.
             ils_length_end: Maximum interlayer slipping in Å. Defaults to ``None``,
-                which uses the automatically determined AB-stacking shift.
+                which uses the automatically determined default ILS shift.
             ils_angle: In-plane slip direction in degrees. Defaults to ``None``, which
-                uses the automatically determined AB-stacking direction.
+                uses the automatically determined default ILS direction.
             print_shift: Whether to print automatically determined shift parameters.
                 Defaults to ``False``.
 
@@ -278,8 +277,7 @@ class IlsIncl:
     without explicitly constructing a bilayer supercell.
 
     If the maximum ILS value or slip direction is not supplied explicitly, the
-    default values are derived automatically from the corresponding AB-stacking
-    shift of the parent unit cell.
+    default values are derived automatically from the parent unit cell.
     """
 
     def run(
@@ -301,21 +299,21 @@ class IlsIncl:
         ``ils_angle``.
 
         When ``ils_length_end`` or ``ils_angle`` is omitted, the corresponding
-        AB-stacking shift is derived automatically from the first input structure.
+            default ILS shift is derived automatically from the first input structure.
 
         Args:
             input_folder: Folder containing ILD-modified CIF structures.
             output_folder: Destination folder for inclined structures.
-            topo: Topology selector used to determine the default AB shift. Allowed
+            topo: Topology selector used to determine the default ILS shift. Allowed
                 values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
             cof_name: Optional COF name used for standardized output filenames.
                 Defaults to ``None``.
             ils_length_start: Minimum interlayer slipping in Å. Defaults to ``0.0``.
             ils_length_end: Maximum interlayer slipping in Å. Defaults to ``None``,
-                which uses the automatically determined AB-stacking shift.
+                which uses the automatically determined default ILS shift.
             ils_length_step: Interlayer-slipping step size in Å. Defaults to ``1.0``.
             ils_angle: In-plane slip direction in degrees. Defaults to ``None``, which
-                uses the automatically determined AB-stacking direction.
+                uses the automatically determined default ILS direction.
             print_shift: Whether to print automatically determined shift parameters.
                 Defaults to ``False``.
 
@@ -411,7 +409,7 @@ class CreateMatrix:
     ``mode="both"`` generates both representations.
 
     The default ILD scan spans 3.0–4.0 Å in 0.1 Å steps. The ILS scan begins at
-    0 Å and, unless overridden, extends to the automatically determined AB-stacking
+    0 Å and, unless overridden, extends to the automatically determined default ILS
     shift for the selected topology.
 
     Generated structures are written to
@@ -438,11 +436,11 @@ class CreateMatrix:
             ild_step: Interlayer-distance step size in Å. Defaults to ``0.1``.
             ils_length_start: Minimum interlayer slipping in Å. Defaults to ``0.0``.
             ils_length_end: Maximum interlayer slipping in Å. Defaults to ``None``,
-                which uses the automatically determined AB-stacking shift.
+                which uses the automatically determined default ILS shift.
             ils_length_step: Interlayer-slipping step size in Å. Defaults to ``1.0``.
             ils_angle: In-plane slip direction in degrees. Defaults to ``None``, which
-                uses the automatically determined AB-stacking direction.
-            print_shift: Whether to print automatically determined AB-shift parameters.
+                uses the automatically determined default ILS direction.
+            print_shift: Whether to print automatically determined ILS-shift parameters.
                 Defaults to ``False``.
         """
         self._ild_start = ild_start
@@ -475,7 +473,7 @@ class CreateMatrix:
 
         Args:
             cof_name: COF name used for default workflow folder and file naming.
-            topo: Topology selector used to determine the default AB-stacking shift.
+            topo: Topology selector used to determine the default ILS shift.
                 Allowed values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
             mode: Stacking-mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
             input_cif: Optional preoptimized input CIF path. Defaults to
@@ -498,7 +496,6 @@ class CreateMatrix:
         )
         if not os.path.exists(input_preopt):
             raise FileNotFoundError(f"Missing input CIF: {input_preopt}")
-
         output_base_folder_used = output_base_folder or f"2_{cof_name}_matrix"
         output_base_path = Path(output_base_folder_used)
         if not output_base_path.is_absolute() and (
