@@ -1031,6 +1031,7 @@ class PXRD:
         mode: str,
         source_cif: str | None = None,
         scale_regions: list[int] | None = None,
+        print_scale_factor: bool = False,
     ) -> dict[str, str]:
         """Generate PXRD-guided in-plane scaled CIF structures.
 
@@ -1055,6 +1056,8 @@ class PXRD:
                 the stored peak-region data.
             scale_regions: Optional list of region IDs to use for determining the final
                 scale factor. ``None`` uses all extracted regions. Defaults to ``None``.
+            print_scale_factor: If ``True``, print the final in-plane scale factor
+                applied to each generated CIF. Defaults to ``False``.
 
         Returns:
             Mapping from structure identifier to generated scaled CIF path.
@@ -1151,6 +1154,14 @@ class PXRD:
                 cell[0] *= final_scale_factor
                 cell[1] *= final_scale_factor
                 atoms.set_cell(cell, scale_atoms=True)
+                if print_scale_factor:
+                    mode_label = (
+                        f" ({selected_mode})" if len(modes) > 1 else ""
+                    )
+                    print(
+                        "Recommended in-plane scale factor"
+                        f"{mode_label}: {final_scale_factor:.4f}"
+                    )
                 output_dir = Path(
                     f"{cof_name}/6_{cof_name}_scaling/scaling/{selected_mode}"
                 )
