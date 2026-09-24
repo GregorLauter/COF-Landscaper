@@ -1,0 +1,1822 @@
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/e3nn/o3/_wigner.py:10: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  _Jd, _W3j_flat, _W3j_indices = torch.load(os.path.join(os.path.dirname(__file__), 'constants.pt'))
+>>> == Min RMSD of (node type: 0, node bb: Benzene-C3): 1.42E-06
+>>> Pre-location at node slot 0, (node type: 0, node bb: Benzene-C3), RMSD: 1.47E-06
+>>> RMSD > MIN_RMSD*1.01, relocate Node 0 with 216 trial orientations, RMSD: 1.47E-06
+>>> RMSD > MIN_RMSD*1.01, relocate Node 0 with 216 trial orientations and chiral building block, RMSD: 1.42E-06
+>>> Pre-location at node slot 1, (node type: 0, node bb: Benzene-C3), RMSD: 1.42E-06
+>>> Topology optimization starts.
+An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+>>> MESSAGE: CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL
+>>> SUCCESS: True
+>>> ITER: 11
+>>> OBJ: 0.000
+>>> Location at node slot 0, (node type: 0, node bb: Benzene-C3), RMSD: 1.07E-06
+>>> Location at node slot 1, (node type: 0, node bb: Benzene-C3), RMSD: 1.07E-06
+>>> Start placing edges.
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/spatial/transform/_rotation.py:2586: UserWarning: Optimal rotation is not uniquely or poorly defined for the given sets of vectors.
+  q, rssd, sensitivity = backend.align_vectors(a, b, weights, return_sensitivity)
+>>> Start finding bonds in generated framework.
+>>> Start finding bonds in building blocks.
+>>> Start finding bonds between building blocks.
+>>> Start making Framework instance.
+>>> Construction of framework done.
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.566203555936713e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.577980550077348e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.551131437286297e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.555437756880829e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.544671957833992e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.557874977602774e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.521665121951315e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.523140359665341e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.473617684098204e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.432707647736236e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.520987199667627e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.555437756452465e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.47361768374527e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.527446678739548e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.538212477612107e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.523140358852511e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.555437755854269e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.492996121452396e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.49730244097614e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.505915080086642e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.486536641758719e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.56405039469506e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.454239244622003e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.548978276015938e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.47361768281985e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.536059317136047e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.449932924901519e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.555437755288096e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.49730244049898e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.5295998375178e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.538212476681551e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.48438348150505e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.510221399119258e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.52529351772739e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.529599837318942e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.475770842175333e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.452086084281075e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.490842960717518e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.486536641057513e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.561897234180098e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.467158202734493e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.508068238987237e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.49299612031723e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.52098719773874e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.564050393782483e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.518834037815948e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.533906156365655e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.462851882725443e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.531752996366563e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.490842959907996e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.533906155658857e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.495149278536803e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.540365633367896e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.536059312405955e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.462851877816256e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.557590908174752e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.525293510264471e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.413329199315883e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.52529350691641e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.566203540062706e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.503761902826496e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.441320266973405e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.540365617262925e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.518834019174149e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.518834019008592e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.508068219622693e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.501608739694234e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.527446656676714e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.574816171778673e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.514527697216786e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.510221377560105e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.48007714026042e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.477923980071201e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.529599814489319e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.510221375611874e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.538212452639703e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.512374534870252e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.529599813019703e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.452086060056948e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.525293493024649e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.55984804886287e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.575482898564218e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.535673141395522e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.580306052412758e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.545995639695311e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.582694988572789e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.572787409121775e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.615060371395823e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.532055600394733e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.6289037356278e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.485068004003541e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.555161859867181e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.546739207578218e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.545405979008508e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.577991566361173e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.605132335634386e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.639470582685831e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.52842524230952e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.563127968955571e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.586842420150874e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.591742896571625e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.541794229188776e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.611995835471234e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.568525662185822e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.592429113479983e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.550896053155521e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.571766705496182e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.621900716059202e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.601990414362217e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.612567324174136e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.550047186968516e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.514409907028566e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.567783140524325e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.600236430403291e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.568006458012368e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.627685933631514e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.51541627519636e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.472055745942368e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.590782337084084e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.534255493327266e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.553003685566455e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.584753511423659e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.5845709415739e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.635373254188569e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.577433701048898e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.513938459066106e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.638164163788109e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.557165786050302e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.546307289173147e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.599754647459684e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.582191178008329e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.503120156019003e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.519333216563387e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.605763814550629e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.635826196211388e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.560062443822462e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.62342237846661e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.589416021293344e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.554580327550793e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.572201616859465e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.507223815212941e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.521067824856402e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.521845604681323e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.571216350237402e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.595214386252863e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.599959143687103e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.578115593928182e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.604966498731886e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.639155765414642e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.589643379804121e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.573870875890158e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.532861960617226e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.562167404755184e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.531667683454795e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.643773795088569e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.60625333642112e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.585596257460105e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.583217275910168e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.582513151102185e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.644384670342418e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.655196236322514e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.612140917889375e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.604095471194745e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.632685271352381e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.701068656173126e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.665706441971274e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.645865155065284e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.721366300442444e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.644252744038353e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.634912199999721e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.630237055449293e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.65857861232075e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.656992693638426e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.690042649068779e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.666725134230174e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.778669614232356e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.722057145493577e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.65149870097762e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.697589626494098e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.673072177316361e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.671092024377904e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.647377067909593e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.690559980723985e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.715420141907027e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.681485963102017e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.703642322383113e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.742841153596327e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.683910797675599e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.664353688410242e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.642076330744704e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.717673703236851e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.694325202027382e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.725826456970853e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.64649590246124e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.679642876909342e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.635377233186875e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.693097549430049e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.76810564631795e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.767093441356742e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.702605873060792e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.665975339807062e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.74399586833761e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.744778368814059e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.673818345294287e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.634177415489041e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.647358795287394e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.70115047087323e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.752889633585646e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.75000819965086e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.781756303262412e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.710384000060213e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.757356194220888e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.819251469055938e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.74205417879131e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.704296209621631e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.773665215475192e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.78449235225896e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.761303212198495e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.756705398529051e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.770056204110551e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.867343675319892e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.760583817706973e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.750409109134389e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.829412622960534e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.738398152909924e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.85979982352742e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.768632882656499e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.834578958530837e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.914786862530357e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.930743830848855e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.887021314604847e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.823757966682888e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.856154834410227e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.771431157466156e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.821727860075067e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.929083873984559e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.890476693305908e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.933838812998354e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.880391378455771e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.822111046190199e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.892754008389795e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.864854668167778e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.848819298657314e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.541575687300776e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.566795079485054e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.517335265230045e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.545106247879004e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.574336262545922e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.567745743443057e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.552213565091755e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.581118496159485e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.59856128689681e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.530246460510175e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.507344565389167e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.608304473558353e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.554571051148527e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.504807061210521e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.586705629149889e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.548049321943328e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.606757825773929e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.532359587853388e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.594113901785239e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.577009793587115e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.592068403045561e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.523834772788753e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.601377212583467e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.495623299056007e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.551714020698614e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.625659909168122e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.553930095206225e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.494354402080591e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.628313046022008e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.575677719748857e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.5275150745152e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.549983481624584e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.50423981907807e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.496730697632315e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.485790454904501e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.453961794232718e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.494969733935087e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.499830123680229e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.504593032892261e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.495228461478754e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.561756927165586e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.496091108886058e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.468804120340521e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.412579348306398e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.518571807142762e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.606367740928667e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.439077191362027e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.409716399504589e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.586647896315443e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.459830290681824e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.516642727353405e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.477615764076081e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.525390262139299e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.532270227627548e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.499441027766735e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.496759575909365e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.501064334798067e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.593503532713734e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.481279306679873e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.568607802698822e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.51562049089276e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.5638348482485e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.614019525158187e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.530574092433584e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.530393455090596e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.615650997957326e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.567969256030269e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.562291613582368e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.538603887027132e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.622854885971878e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.565786967209909e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.569766226467617e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.532524431888665e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.576322059238413e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.579465021643053e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.580060745702307e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.60605988445215e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.616729828493195e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.566107394678688e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.555587254583553e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.587264695994373e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.608499301332275e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.538904945090379e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.633612342933962e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.621250513299996e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.546028209120047e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.573456199041669e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.552213836453002e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.562743498690274e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.581378837738782e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.534028451148893e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.50763748226126e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.597007943990776e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.597275906323467e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.627994329667957e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.596937836363707e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.583762408455481e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.62527424118104e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.582351603605875e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.612837379040066e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.549400218016148e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.571578824877184e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.551346702168514e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.540748661338329e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.625261419070421e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.591748872491488e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.592917683967524e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.592018993339458e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.580444965655063e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.603986485423071e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.640069384576872e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.656292140262923e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.61140723381079e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.593164036976704e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.664305786628698e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.635903112587303e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.584729510275385e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.626990109513685e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.647946929338086e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.589325083307164e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.676582532104176e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.650822373323448e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.586969249143327e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.57591619187743e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.602448333583611e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.609967916304015e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.681905959374064e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.652149708782799e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.589865402820535e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.593267563240801e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.68745224867231e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.610999726560192e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.634605329897398e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.592304408520586e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.633128646428261e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.649043101640719e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.673339481699432e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.648050652171886e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.660193179886769e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.561059455310155e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.72598351166688e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.634305629293091e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.633861711279582e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.644513882495919e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.682567772441436e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.666189452551724e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.672300837564229e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.613946179397206e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.712376382684103e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.626442460843874e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.608075771026696e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.67465783075923e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.709081803887961e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.721728651594083e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.666624945888011e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.760168982445736e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.656442180547556e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.701272541077021e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.709388428159252e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.738998486206061e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.767068813154341e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.605886504960643e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.731389822912957e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.714481717923047e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.805746348304114e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.753018126416576e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.751119820053108e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.780964226761317e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.838691323155284e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.852081128366721e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.87191699627285e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.822943453433318e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.897622007494836e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.794475878940752e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.790936413260801e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.834114298114661e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.817731028240317e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.776709505768473e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.847541480919792e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.882006936036375e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.821277365241099e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.912353288231165e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.873260298569259e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.927157429142483e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.926536767939232e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.909973082428123e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.894691013042078e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.928100656495107e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.885643580065335e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.884269704445258e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.929674170110834e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.957135392850349e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.001023479853482e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.960788118538397e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.919557269205294e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.912237650033193e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.919468716530901e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.960847628165758e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.011728598184653e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.895037384231798e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.939686720461455e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.992343625299155e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.949389730179687e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.967679933562535e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.984984004254473e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.987709093571589e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.029826326330822e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.95547283233989e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.930055710940453e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.028547970340997e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.88297403412652e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.988623766866855e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.942637053755864e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.96878019089806e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.012820622955531e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.973093726299039e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.984152154121932e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.897142655613844e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.061727989769732e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.961952611908544e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.954165127473967e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.008110470805122e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.00452006879974e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.011213498117181e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.949007948339085e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.990085617855191e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.078135609899157e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.036770686707883e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.938476045870225e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.995333797842254e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.89884917989021e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.004747351579999e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.043220232999499e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.016268460548744e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.030841145171912e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.020868825058684e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.978595625472494e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.997452616179715e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.075776698964021e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.030138601576522e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.009049514396784e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.024189737643835e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.989805924038314e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.997373712512751e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 7.976994689633707e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.008937881746263e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.068201373400979e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.09395717943661e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.084290212328123e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.033278236430009e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.08768472667642e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.082723236282754e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.070238070992788e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.039350673645317e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.06607277605589e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.00906634188924e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.13762883633477e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.137322428826316e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.202013095787576e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.085873330690843e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.098674881759373e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.160869018897024e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.057563728697299e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.107509836834968e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.204111287610613e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.222390605105859e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.216048743205763e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.310160308391891e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.310410498709225e-13
+  return f(*arrays, *other_args, **kwargs)
+/home/lauter/venvs/cof-landscaper/lib/python3.12/site-packages/scipy/_lib/_util.py:1181: RuntimeWarning: logm result may be inaccurate, approximate err = 8.408110172059774e-13
+  return f(*arrays, *other_args, **kwargs)
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+       Step     Time          Energy          fmax
+LBFGS:    0 07:13:14   -55544.818981        2.521396
+LBFGS:    1 07:13:15   -55545.342497        1.610499
+LBFGS:    2 07:13:16   -55545.551985        0.568626
+LBFGS:    3 07:13:16   -55545.616614        0.531808
+LBFGS:    4 07:13:16   -55545.675465        0.502312
+LBFGS:    5 07:13:16   -55545.718518        0.483252
+LBFGS:    6 07:13:16   -55545.767990        0.479561
+LBFGS:    7 07:13:17   -55545.815896        0.482832
+LBFGS:    8 07:13:17   -55545.854929        0.486602
+LBFGS:    9 07:13:17   -55545.892258        0.478982
+LBFGS:   10 07:13:17   -55545.937501        0.450332
+LBFGS:   11 07:13:17   -55545.991188        0.397238
+LBFGS:   12 07:13:17   -55546.047569        0.370119
+LBFGS:   13 07:13:17   -55546.106252        0.346408
+LBFGS:   14 07:13:17   -55546.172959        0.323475
+LBFGS:   15 07:13:17   -55546.240962        0.384780
+LBFGS:   16 07:13:17   -55546.291870        0.354297
+LBFGS:   17 07:13:17   -55546.325019        0.341151
+LBFGS:   18 07:13:17   -55546.353965        0.319064
+LBFGS:   19 07:13:18   -55546.389732        0.277165
+LBFGS:   20 07:13:18   -55546.421213        0.338448
+LBFGS:   21 07:13:18   -55546.438159        0.208136
+LBFGS:   22 07:13:18   -55546.445377        0.118709
+LBFGS:   23 07:13:18   -55546.449764        0.089994
+LBFGS:   24 07:13:18   -55546.453286        0.075724
+LBFGS:   25 07:13:18   -55546.455306        0.057819
+LBFGS:   26 07:13:18   -55546.456615        0.049370
+LBFGS:   27 07:13:18   -55546.458135        0.065044
+LBFGS:   28 07:13:18   -55546.459856        0.064194
+LBFGS:   29 07:13:18   -55546.461515        0.069518
+LBFGS:   30 07:13:18   -55546.462938        0.074761
+LBFGS:   31 07:13:18   -55546.464243        0.063507
+LBFGS:   32 07:13:18   -55546.465318        0.046157
+LBFGS:   33 07:13:18   -55546.465934        0.031071
+LBFGS:   34 07:13:18   -55546.466199        0.020854
+LBFGS:   35 07:13:18   -55546.466348        0.020851
+LBFGS:   36 07:13:18   -55546.466499        0.017370
+LBFGS:   37 07:13:18   -55546.466680        0.018109
+LBFGS:   38 07:13:18   -55546.466835        0.016998
+LBFGS:   39 07:13:18   -55546.466962        0.014769
+LBFGS:   40 07:13:18   -55546.467054        0.015510
+LBFGS:   41 07:13:18   -55546.467125        0.016333
+LBFGS:   42 07:13:18   -55546.467181        0.015655
+LBFGS:   43 07:13:18   -55546.467225        0.013939
+LBFGS:   44 07:13:18   -55546.467263        0.014230
+LBFGS:   45 07:13:18   -55546.467303        0.014761
+LBFGS:   46 07:13:18   -55546.467350        0.015172
+LBFGS:   47 07:13:18   -55546.467397        0.015390
+LBFGS:   48 07:13:18   -55546.467444        0.015780
+LBFGS:   49 07:13:18   -55546.467500        0.017846
+LBFGS:   50 07:13:19   -55546.467590        0.018408
+LBFGS:   51 07:13:19   -55546.467761        0.025559
+LBFGS:   52 07:13:19   -55546.468066        0.035512
+LBFGS:   53 07:13:19   -55546.468534        0.036636
+LBFGS:   54 07:13:19   -55546.469103        0.035930
+LBFGS:   55 07:13:19   -55546.469642        0.036487
+LBFGS:   56 07:13:19   -55546.470103        0.039768
+LBFGS:   57 07:13:19   -55546.470581        0.041084
+LBFGS:   58 07:13:19   -55546.471253        0.041359
+LBFGS:   59 07:13:19   -55546.472266        0.047983
+LBFGS:   60 07:13:19   -55546.473517        0.046844
+LBFGS:   61 07:13:19   -55546.474609        0.043880
+LBFGS:   62 07:13:19   -55546.475258        0.033481
+LBFGS:   63 07:13:19   -55546.475587        0.031334
+LBFGS:   64 07:13:19   -55546.475790        0.023695
+LBFGS:   65 07:13:19   -55546.475954        0.016338
+LBFGS:   66 07:13:19   -55546.476094        0.019706
+LBFGS:   67 07:13:19   -55546.476220        0.021350
+LBFGS:   68 07:13:19   -55546.476358        0.015284
+LBFGS:   69 07:13:19   -55546.476491        0.017549
+LBFGS:   70 07:13:19   -55546.476600        0.018445
+LBFGS:   71 07:13:19   -55546.476706        0.017948
+LBFGS:   72 07:13:19   -55546.476860        0.020012
+LBFGS:   73 07:13:19   -55546.477083        0.023051
+LBFGS:   74 07:13:19   -55546.477307        0.019349
+LBFGS:   75 07:13:19   -55546.477433        0.015044
+LBFGS:   76 07:13:19   -55546.477485        0.011997
+LBFGS:   77 07:13:19   -55546.477526        0.010546
+LBFGS:   78 07:13:19   -55546.477590        0.010674
+LBFGS:   79 07:13:19   -55546.477664        0.011892
+LBFGS:   80 07:13:19   -55546.477717        0.010550
+LBFGS:   81 07:13:20   -55546.477748        0.008735
+Converged
+[single-point] 25/154 done | ok=25 | failed=0
+[single-point] 50/154 done | ok=50 | failed=0
+[single-point] 75/154 done | ok=75 | failed=0
+[single-point] 100/154 done | ok=100 | failed=0
+[single-point] 125/154 done | ok=125 | failed=0
+[single-point] 150/154 done | ok=150 | failed=0
+[single-point] 154/154 done | ok=154 | failed=0
+Saved: PBI-COF/3_PBI-COF_landscape/pes_PBI-COF_incl.png
+
+Selected ILD/ILS pairs (Inclined):
+ ILD (Å)  ILS (Å)
+     3.3      2.0
+     3.3     12.1
+       Step     Time          Energy          fmax
+LBFGS:    0 07:13:34   -55547.938642        0.201520
+LBFGS:    1 07:13:34   -55547.944449        0.113627
+LBFGS:    2 07:13:34   -55547.949409        0.100048
+LBFGS:    3 07:13:34   -55547.954844        0.106117
+LBFGS:    4 07:13:34   -55547.957500        0.099305
+LBFGS:    5 07:13:34   -55547.961967        0.095309
+LBFGS:    6 07:13:34   -55547.965130        0.093351
+LBFGS:    7 07:13:34   -55547.967309        0.064421
+LBFGS:    8 07:13:34   -55547.969168        0.066315
+LBFGS:    9 07:13:34   -55547.971441        0.081321
+LBFGS:   10 07:13:34   -55547.973689        0.069779
+LBFGS:   11 07:13:34   -55547.975730        0.057598
+LBFGS:   12 07:13:34   -55547.977661        0.062621
+LBFGS:   13 07:13:34   -55547.979669        0.077155
+LBFGS:   14 07:13:34   -55547.981877        0.088722
+LBFGS:   15 07:13:34   -55547.984147        0.059553
+LBFGS:   16 07:13:35   -55547.985999        0.054867
+LBFGS:   17 07:13:35   -55547.987127        0.043488
+LBFGS:   18 07:13:35   -55547.987741        0.042149
+LBFGS:   19 07:13:35   -55547.988155        0.033548
+LBFGS:   20 07:13:35   -55547.988517        0.032679
+LBFGS:   21 07:13:35   -55547.988888        0.025188
+LBFGS:   22 07:13:35   -55547.989238        0.023217
+LBFGS:   23 07:13:35   -55547.989486        0.024649
+LBFGS:   24 07:13:35   -55547.989731        0.023661
+LBFGS:   25 07:13:35   -55547.989971        0.032088
+LBFGS:   26 07:13:35   -55547.990234        0.029914
+LBFGS:   27 07:13:35   -55547.990554        0.025515
+LBFGS:   28 07:13:35   -55547.990980        0.028208
+LBFGS:   29 07:13:35   -55547.991470        0.029219
+LBFGS:   30 07:13:35   -55547.991858        0.027021
+LBFGS:   31 07:13:35   -55547.992091        0.030083
+LBFGS:   32 07:13:35   -55547.992279        0.023231
+LBFGS:   33 07:13:35   -55547.992540        0.026194
+LBFGS:   34 07:13:35   -55547.992936        0.032441
+LBFGS:   35 07:13:35   -55547.993457        0.031629
+LBFGS:   36 07:13:35   -55547.994064        0.042342
+LBFGS:   37 07:13:35   -55547.994739        0.046641
+LBFGS:   38 07:13:35   -55547.995467        0.048380
+LBFGS:   39 07:13:35   -55547.996162        0.037143
+LBFGS:   40 07:13:35   -55547.996659        0.039039
+LBFGS:   41 07:13:35   -55547.996939        0.033702
+LBFGS:   42 07:13:35   -55547.997110        0.017716
+LBFGS:   43 07:13:35   -55547.997252        0.021023
+LBFGS:   44 07:13:35   -55547.997409        0.018744
+LBFGS:   45 07:13:35   -55547.997521        0.014811
+LBFGS:   46 07:13:36   -55547.997638        0.013510
+LBFGS:   47 07:13:36   -55547.997761        0.014502
+LBFGS:   48 07:13:36   -55547.997896        0.017193
+LBFGS:   49 07:13:36   -55547.998016        0.016219
+LBFGS:   50 07:13:36   -55547.998106        0.013734
+LBFGS:   51 07:13:36   -55547.998170        0.011859
+LBFGS:   52 07:13:36   -55547.998226        0.011655
+LBFGS:   53 07:13:36   -55547.998290        0.010826
+LBFGS:   54 07:13:36   -55547.998366        0.012253
+LBFGS:   55 07:13:36   -55547.998453        0.013469
+LBFGS:   56 07:13:36   -55547.998552        0.015183
+LBFGS:   57 07:13:36   -55547.998669        0.016339
+LBFGS:   58 07:13:36   -55547.998806        0.020562
+LBFGS:   59 07:13:36   -55547.998952        0.019323
+LBFGS:   60 07:13:36   -55547.999082        0.016241
+LBFGS:   61 07:13:36   -55547.999195        0.016060
+LBFGS:   62 07:13:36   -55547.999299        0.020395
+LBFGS:   63 07:13:36   -55547.999399        0.017030
+LBFGS:   64 07:13:36   -55547.999494        0.013580
+LBFGS:   65 07:13:36   -55547.999594        0.014172
+LBFGS:   66 07:13:36   -55547.999719        0.023583
+LBFGS:   67 07:13:36   -55547.999882        0.029993
+LBFGS:   68 07:13:36   -55548.000068        0.024406
+LBFGS:   69 07:13:36   -55548.000250        0.018184
+LBFGS:   70 07:13:36   -55548.000439        0.021227
+LBFGS:   71 07:13:36   -55548.000689        0.034845
+LBFGS:   72 07:13:36   -55548.001062        0.042431
+LBFGS:   73 07:13:36   -55548.001562        0.035883
+LBFGS:   74 07:13:36   -55548.002080        0.031688
+LBFGS:   75 07:13:36   -55548.002538        0.037730
+LBFGS:   76 07:13:37   -55548.002996        0.039043
+LBFGS:   77 07:13:37   -55548.003594        0.061992
+LBFGS:   78 07:13:37   -55548.004314        0.059189
+LBFGS:   79 07:13:37   -55548.005357        0.044687
+LBFGS:   80 07:13:37   -55548.006421        0.041380
+LBFGS:   81 07:13:37   -55548.006921        0.035078
+LBFGS:   82 07:13:37   -55548.007366        0.035863
+LBFGS:   83 07:13:37   -55548.007841        0.036217
+LBFGS:   84 07:13:37   -55548.008400        0.061607
+LBFGS:   85 07:13:37   -55548.009234        0.064456
+LBFGS:   86 07:13:37   -55548.010529        0.055017
+LBFGS:   87 07:13:37   -55548.011999        0.064898
+LBFGS:   88 07:13:37   -55548.013524        0.066633
+LBFGS:   89 07:13:37   -55548.014792        0.068162
+LBFGS:   90 07:13:37   -55548.015101        0.057091
+LBFGS:   91 07:13:37   -55548.016107        0.062633
+LBFGS:   92 07:13:37   -55548.016473        0.030359
+LBFGS:   93 07:13:37   -55548.016971        0.030967
+LBFGS:   94 07:13:37   -55548.017507        0.036183
+LBFGS:   95 07:13:37   -55548.017940        0.030368
+LBFGS:   96 07:13:37   -55548.018336        0.025540
+LBFGS:   97 07:13:37   -55548.018679        0.025983
+LBFGS:   98 07:13:37   -55548.019036        0.033026
+LBFGS:   99 07:13:37   -55548.019446        0.034622
+LBFGS:  100 07:13:37   -55548.019823        0.025537
+LBFGS:  101 07:13:37   -55548.020092        0.027261
+LBFGS:  102 07:13:37   -55548.020320        0.026801
+LBFGS:  103 07:13:37   -55548.020609        0.028110
+LBFGS:  104 07:13:37   -55548.021017        0.041166
+LBFGS:  105 07:13:38   -55548.021495        0.026918
+LBFGS:  106 07:13:38   -55548.021926        0.028165
+LBFGS:  107 07:13:38   -55548.022264        0.027569
+LBFGS:  108 07:13:38   -55548.022549        0.028953
+LBFGS:  109 07:13:38   -55548.022832        0.024275
+LBFGS:  110 07:13:38   -55548.023117        0.021480
+LBFGS:  111 07:13:38   -55548.023381        0.026722
+LBFGS:  112 07:13:38   -55548.023592        0.018717
+LBFGS:  113 07:13:38   -55548.023742        0.018982
+LBFGS:  114 07:13:38   -55548.023842        0.011247
+LBFGS:  115 07:13:38   -55548.023917        0.014708
+LBFGS:  116 07:13:38   -55548.023988        0.014411
+LBFGS:  117 07:13:38   -55548.024064        0.012440
+LBFGS:  118 07:13:38   -55548.024152        0.014610
+LBFGS:  119 07:13:38   -55548.024259        0.021053
+LBFGS:  120 07:13:38   -55548.024400        0.029127
+LBFGS:  121 07:13:38   -55548.024582        0.030606
+LBFGS:  122 07:13:38   -55548.024794        0.030931
+LBFGS:  123 07:13:38   -55548.025020        0.024244
+LBFGS:  124 07:13:38   -55548.025264        0.021682
+LBFGS:  125 07:13:38   -55548.025538        0.026993
+LBFGS:  126 07:13:38   -55548.025834        0.032330
+LBFGS:  127 07:13:38   -55548.026122        0.029757
+LBFGS:  128 07:13:38   -55548.026362        0.023680
+LBFGS:  129 07:13:38   -55548.026557        0.019885
+LBFGS:  130 07:13:38   -55548.026724        0.017015
+LBFGS:  131 07:13:38   -55548.026884        0.018346
+LBFGS:  132 07:13:38   -55548.027035        0.018333
+LBFGS:  133 07:13:38   -55548.027184        0.020978
+LBFGS:  134 07:13:38   -55548.027342        0.020201
+LBFGS:  135 07:13:39   -55548.027521        0.018376
+LBFGS:  136 07:13:39   -55548.027722        0.018830
+LBFGS:  137 07:13:39   -55548.027942        0.023140
+LBFGS:  138 07:13:39   -55548.028178        0.020307
+LBFGS:  139 07:13:39   -55548.028416        0.023224
+LBFGS:  140 07:13:39   -55548.028613        0.021415
+LBFGS:  141 07:13:39   -55548.028756        0.016603
+LBFGS:  142 07:13:39   -55548.028869        0.014292
+LBFGS:  143 07:13:39   -55548.028981        0.015303
+LBFGS:  144 07:13:39   -55548.029109        0.015856
+LBFGS:  145 07:13:39   -55548.029252        0.022008
+LBFGS:  146 07:13:39   -55548.029396        0.016346
+LBFGS:  147 07:13:39   -55548.029522        0.014094
+LBFGS:  148 07:13:39   -55548.029622        0.014756
+LBFGS:  149 07:13:39   -55548.029708        0.012137
+LBFGS:  150 07:13:39   -55548.029796        0.015390
+LBFGS:  151 07:13:39   -55548.029912        0.018127
+LBFGS:  152 07:13:39   -55548.030075        0.019220
+LBFGS:  153 07:13:39   -55548.030283        0.018563
+LBFGS:  154 07:13:39   -55548.030513        0.019610
+LBFGS:  155 07:13:39   -55548.030741        0.019623
+LBFGS:  156 07:13:39   -55548.030957        0.022336
+LBFGS:  157 07:13:39   -55548.031167        0.022450
+LBFGS:  158 07:13:39   -55548.031359        0.015744
+LBFGS:  159 07:13:39   -55548.031514        0.015789
+LBFGS:  160 07:13:39   -55548.031638        0.016355
+LBFGS:  161 07:13:39   -55548.031751        0.013969
+LBFGS:  162 07:13:39   -55548.031857        0.013533
+LBFGS:  163 07:13:39   -55548.031940        0.012004
+LBFGS:  164 07:13:40   -55548.032001        0.009250
+       Step     Time          Energy          fmax
+LBFGS:    0 07:13:40   -55547.267814        0.204368
+LBFGS:    1 07:13:40   -55547.271004        0.109958
+LBFGS:    2 07:13:40   -55547.273798        0.113008
+LBFGS:    3 07:13:40   -55547.279019        0.109301
+LBFGS:    4 07:13:40   -55547.281686        0.106114
+LBFGS:    5 07:13:40   -55547.286610        0.103621
+LBFGS:    6 07:13:40   -55547.290461        0.101269
+LBFGS:    7 07:13:40   -55547.293295        0.077802
+LBFGS:    8 07:13:40   -55547.295145        0.072688
+LBFGS:    9 07:13:40   -55547.296904        0.068139
+LBFGS:   10 07:13:40   -55547.299049        0.071976
+LBFGS:   11 07:13:40   -55547.301706        0.101224
+LBFGS:   12 07:13:40   -55547.304812        0.115586
+LBFGS:   13 07:13:40   -55547.307948        0.094141
+LBFGS:   14 07:13:40   -55547.310934        0.062818
+LBFGS:   15 07:13:40   -55547.313406        0.061101
+LBFGS:   16 07:13:40   -55547.315823        0.070015
+LBFGS:   17 07:13:40   -55547.317943        0.105667
+LBFGS:   18 07:13:40   -55547.319996        0.080815
+LBFGS:   19 07:13:40   -55547.321757        0.084070
+LBFGS:   20 07:13:40   -55547.323954        0.085917
+LBFGS:   21 07:13:40   -55547.326770        0.098998
+LBFGS:   22 07:13:40   -55547.331500        0.129720
+LBFGS:   23 07:13:40   -55547.338332        0.152483
+LBFGS:   24 07:13:40   -55547.347520        0.165765
+LBFGS:   25 07:13:41   -55547.353278        0.567260
+LBFGS:   26 07:13:41   -55547.368674        0.175388
+LBFGS:   27 07:13:41   -55547.382028        0.167263
+LBFGS:   28 07:13:41   -55547.402736        0.199890
+LBFGS:   29 07:13:41   -55547.412964        0.177011
+LBFGS:   30 07:13:41   -55547.426763        0.203423
+LBFGS:   31 07:13:41   -55547.437405        0.187486
+LBFGS:   32 07:13:41   -55547.443952        0.376237
+LBFGS:   33 07:13:41   -55547.456432        0.153637
+LBFGS:   34 07:13:41   -55547.468818        0.140107
+LBFGS:   35 07:13:41   -55547.478105        0.171823
+LBFGS:   36 07:13:41   -55547.487698        0.150931
+LBFGS:   37 07:13:41   -55547.500919        0.166705
+LBFGS:   38 07:13:41   -55547.517733        0.160803
+LBFGS:   39 07:13:41   -55547.528863        0.207985
+LBFGS:   40 07:13:41   -55547.535976        0.276637
+LBFGS:   41 07:13:41   -55547.545267        0.141248
+LBFGS:   42 07:13:41   -55547.556208        0.185384
+LBFGS:   43 07:13:41   -55547.569065        0.172757
+LBFGS:   44 07:13:41   -55547.580842        0.135902
+LBFGS:   45 07:13:41   -55547.591142        0.139166
+LBFGS:   46 07:13:41   -55547.598580        0.156607
+LBFGS:   47 07:13:41   -55547.605358        0.137084
+LBFGS:   48 07:13:41   -55547.613308        0.142018
+LBFGS:   49 07:13:41   -55547.620636        0.116850
+LBFGS:   50 07:13:41   -55547.626641        0.133184
+LBFGS:   51 07:13:42   -55547.633412        0.124031
+LBFGS:   52 07:13:42   -55547.642263        0.103115
+LBFGS:   53 07:13:42   -55547.649789        0.119471
+LBFGS:   54 07:13:42   -55547.656421        0.123958
+LBFGS:   55 07:13:42   -55547.662269        0.124954
+LBFGS:   56 07:13:42   -55547.670014        0.118700
+LBFGS:   57 07:13:42   -55547.678931        0.134274
+LBFGS:   58 07:13:42   -55547.687399        0.112118
+LBFGS:   59 07:13:42   -55547.694121        0.134540
+LBFGS:   60 07:13:42   -55547.701494        0.140656
+LBFGS:   61 07:13:42   -55547.709806        0.151731
+LBFGS:   62 07:13:42   -55547.719431        0.165006
+LBFGS:   63 07:13:42   -55547.727370        0.145887
+LBFGS:   64 07:13:42   -55547.735504        0.132845
+LBFGS:   65 07:13:42   -55547.743317        0.136125
+LBFGS:   66 07:13:42   -55547.751755        0.106815
+LBFGS:   67 07:13:42   -55547.757542        0.168389
+LBFGS:   68 07:13:42   -55547.762519        0.097540
+LBFGS:   69 07:13:42   -55547.767029        0.092923
+LBFGS:   70 07:13:42   -55547.771456        0.082074
+LBFGS:   71 07:13:42   -55547.774438        0.066589
+LBFGS:   72 07:13:42   -55547.776731        0.068378
+LBFGS:   73 07:13:42   -55547.778574        0.062244
+LBFGS:   74 07:13:42   -55547.780523        0.083158
+LBFGS:   75 07:13:42   -55547.782511        0.077206
+LBFGS:   76 07:13:42   -55547.784236        0.053921
+LBFGS:   77 07:13:43   -55547.785523        0.052360
+LBFGS:   78 07:13:43   -55547.786815        0.065201
+LBFGS:   79 07:13:43   -55547.788111        0.060229
+LBFGS:   80 07:13:43   -55547.789514        0.055675
+LBFGS:   81 07:13:43   -55547.791055        0.058350
+LBFGS:   82 07:13:43   -55547.792756        0.064690
+LBFGS:   83 07:13:43   -55547.794569        0.069550
+LBFGS:   84 07:13:43   -55547.796531        0.076033
+LBFGS:   85 07:13:43   -55547.798718        0.091514
+LBFGS:   86 07:13:43   -55547.800968        0.084090
+LBFGS:   87 07:13:43   -55547.802996        0.063556
+LBFGS:   88 07:13:43   -55547.804746        0.080992
+LBFGS:   89 07:13:43   -55547.806467        0.071057
+LBFGS:   90 07:13:43   -55547.808484        0.065368
+LBFGS:   91 07:13:43   -55547.810734        0.069438
+LBFGS:   92 07:13:43   -55547.813021        0.068667
+LBFGS:   93 07:13:43   -55547.815221        0.076617
+LBFGS:   94 07:13:43   -55547.817431        0.086074
+LBFGS:   95 07:13:43   -55547.819762        0.083716
+LBFGS:   96 07:13:43   -55547.822271        0.084484
+LBFGS:   97 07:13:43   -55547.824515        0.062549
+LBFGS:   98 07:13:43   -55547.826492        0.068821
+LBFGS:   99 07:13:43   -55547.828101        0.054298
+LBFGS:  100 07:13:43   -55547.829629        0.046079
+LBFGS:  101 07:13:43   -55547.831005        0.058799
+LBFGS:  102 07:13:43   -55547.832156        0.052044
+LBFGS:  103 07:13:44   -55547.833086        0.048828
+LBFGS:  104 07:13:44   -55547.833851        0.036398
+LBFGS:  105 07:13:44   -55547.834464        0.035946
+LBFGS:  106 07:13:44   -55547.834989        0.035333
+LBFGS:  107 07:13:44   -55547.835515        0.028969
+LBFGS:  108 07:13:44   -55547.836086        0.038931
+LBFGS:  109 07:13:44   -55547.836705        0.042230
+LBFGS:  110 07:13:44   -55547.837403        0.043225
+LBFGS:  111 07:13:44   -55547.838210        0.042231
+LBFGS:  112 07:13:44   -55547.839129        0.041915
+LBFGS:  113 07:13:44   -55547.840090        0.052887
+LBFGS:  114 07:13:44   -55547.841087        0.064638
+LBFGS:  115 07:13:44   -55547.842155        0.055092
+LBFGS:  116 07:13:44   -55547.843342        0.060155
+LBFGS:  117 07:13:44   -55547.844569        0.068062
+LBFGS:  118 07:13:44   -55547.846028        0.060345
+LBFGS:  119 07:13:44   -55547.848067        0.057757
+LBFGS:  120 07:13:44   -55547.850212        0.072460
+LBFGS:  121 07:13:44   -55547.852438        0.061503
+LBFGS:  122 07:13:44   -55547.854109        0.052838
+LBFGS:  123 07:13:44   -55547.855275        0.053288
+LBFGS:  124 07:13:44   -55547.856281        0.053907
+LBFGS:  125 07:13:44   -55547.857301        0.083187
+LBFGS:  126 07:13:44   -55547.858590        0.071710
+LBFGS:  127 07:13:44   -55547.860022        0.053116
+LBFGS:  128 07:13:44   -55547.861015        0.071421
+LBFGS:  129 07:13:44   -55547.861762        0.042392
+LBFGS:  130 07:13:45   -55547.862441        0.036895
+LBFGS:  131 07:13:45   -55547.863119        0.030334
+LBFGS:  132 07:13:45   -55547.863727        0.030010
+LBFGS:  133 07:13:45   -55547.864540        0.033956
+LBFGS:  134 07:13:45   -55547.865235        0.031703
+LBFGS:  135 07:13:45   -55547.865792        0.034030
+LBFGS:  136 07:13:45   -55547.866177        0.022378
+LBFGS:  137 07:13:45   -55547.866465        0.025621
+LBFGS:  138 07:13:45   -55547.866710        0.020903
+LBFGS:  139 07:13:45   -55547.866963        0.021974
+LBFGS:  140 07:13:45   -55547.867245        0.020440
+LBFGS:  141 07:13:45   -55547.867511        0.030984
+LBFGS:  142 07:13:45   -55547.867709        0.022261
+LBFGS:  143 07:13:45   -55547.867864        0.019553
+LBFGS:  144 07:13:45   -55547.868021        0.017702
+LBFGS:  145 07:13:45   -55547.868193        0.023022
+LBFGS:  146 07:13:45   -55547.868384        0.025688
+LBFGS:  147 07:13:45   -55547.868605        0.025577
+LBFGS:  148 07:13:45   -55547.868876        0.027590
+LBFGS:  149 07:13:45   -55547.869206        0.029419
+LBFGS:  150 07:13:45   -55547.869582        0.031374
+LBFGS:  151 07:13:45   -55547.869945        0.029067
+LBFGS:  152 07:13:45   -55547.870237        0.025161
+LBFGS:  153 07:13:45   -55547.870493        0.026453
+LBFGS:  154 07:13:45   -55547.870718        0.023898
+LBFGS:  155 07:13:45   -55547.870941        0.022658
+LBFGS:  156 07:13:46   -55547.871197        0.026948
+LBFGS:  157 07:13:46   -55547.871526        0.029720
+LBFGS:  158 07:13:46   -55547.871958        0.038437
+LBFGS:  159 07:13:46   -55547.872509        0.035419
+LBFGS:  160 07:13:46   -55547.873159        0.034743
+LBFGS:  161 07:13:46   -55547.873854        0.038276
+LBFGS:  162 07:13:46   -55547.874536        0.037594
+LBFGS:  163 07:13:46   -55547.875205        0.038950
+LBFGS:  164 07:13:46   -55547.875864        0.031388
+LBFGS:  165 07:13:46   -55547.876595        0.040518
+LBFGS:  166 07:13:46   -55547.877436        0.051939
+LBFGS:  167 07:13:46   -55547.878495        0.047713
+LBFGS:  168 07:13:46   -55547.879687        0.040294
+LBFGS:  169 07:13:46   -55547.880670        0.039088
+LBFGS:  170 07:13:46   -55547.881315        0.035861
+LBFGS:  171 07:13:46   -55547.881881        0.029934
+LBFGS:  172 07:13:46   -55547.882543        0.035733
+LBFGS:  173 07:13:46   -55547.883349        0.039048
+LBFGS:  174 07:13:46   -55547.884212        0.038428
+LBFGS:  175 07:13:46   -55547.885084        0.042020
+LBFGS:  176 07:13:46   -55547.885957        0.043125
+LBFGS:  177 07:13:46   -55547.886913        0.037349
+LBFGS:  178 07:13:46   -55547.887984        0.041419
+LBFGS:  179 07:13:46   -55547.889098        0.041322
+LBFGS:  180 07:13:46   -55547.890097        0.038561
+LBFGS:  181 07:13:47   -55547.890952        0.038967
+LBFGS:  182 07:13:47   -55547.891741        0.043750
+LBFGS:  183 07:13:47   -55547.892526        0.045635
+LBFGS:  184 07:13:47   -55547.893243        0.039916
+LBFGS:  185 07:13:47   -55547.893821        0.034692
+LBFGS:  186 07:13:47   -55547.894302        0.030314
+LBFGS:  187 07:13:47   -55547.894767        0.034083
+LBFGS:  188 07:13:47   -55547.895263        0.048288
+LBFGS:  189 07:13:47   -55547.895830        0.053673
+LBFGS:  190 07:13:47   -55547.896447        0.036553
+LBFGS:  191 07:13:47   -55547.897017        0.027032
+LBFGS:  192 07:13:47   -55547.897490        0.034805
+LBFGS:  193 07:13:47   -55547.897903        0.039101
+LBFGS:  194 07:13:47   -55547.898300        0.035928
+LBFGS:  195 07:13:47   -55547.898647        0.033030
+LBFGS:  196 07:13:47   -55547.898912        0.029094
+LBFGS:  197 07:13:47   -55547.899138        0.019990
+LBFGS:  198 07:13:47   -55547.899401        0.022762
+LBFGS:  199 07:13:47   -55547.899725        0.026307
+LBFGS:  200 07:13:47   -55547.900038        0.021728
+LBFGS:  201 07:13:47   -55547.900260        0.018646
+LBFGS:  202 07:13:47   -55547.900396        0.015943
+LBFGS:  203 07:13:47   -55547.900502        0.015938
+LBFGS:  204 07:13:47   -55547.900617        0.014866
+LBFGS:  205 07:13:47   -55547.900759        0.016895
+LBFGS:  206 07:13:47   -55547.900940        0.017681
+LBFGS:  207 07:13:48   -55547.901171        0.022027
+LBFGS:  208 07:13:48   -55547.901457        0.024414
+LBFGS:  209 07:13:48   -55547.901781        0.024550
+LBFGS:  210 07:13:48   -55547.902102        0.025433
+LBFGS:  211 07:13:48   -55547.902394        0.028938
+LBFGS:  212 07:13:48   -55547.902676        0.031373
+LBFGS:  213 07:13:48   -55547.902969        0.029966
+LBFGS:  214 07:13:48   -55547.903270        0.028525
+LBFGS:  215 07:13:48   -55547.903548        0.031357
+LBFGS:  216 07:13:48   -55547.903789        0.028630
+LBFGS:  217 07:13:48   -55547.904022        0.024524
+LBFGS:  218 07:13:48   -55547.904269        0.020369
+LBFGS:  219 07:13:48   -55547.904493        0.017606
+LBFGS:  220 07:13:48   -55547.904635        0.016510
+LBFGS:  221 07:13:48   -55547.904707        0.011252
+LBFGS:  222 07:13:48   -55547.904752        0.011225
+LBFGS:  223 07:13:48   -55547.904798        0.011146
+LBFGS:  224 07:13:48   -55547.904850        0.011041
+LBFGS:  225 07:13:48   -55547.904903        0.010998
+LBFGS:  226 07:13:48   -55547.904957        0.010954
+LBFGS:  227 07:13:48   -55547.905016        0.012710
+LBFGS:  228 07:13:48   -55547.905087        0.014413
+LBFGS:  229 07:13:48   -55547.905182        0.022542
+LBFGS:  230 07:13:48   -55547.905317        0.022766
+LBFGS:  231 07:13:48   -55547.905501        0.024684
+LBFGS:  232 07:13:48   -55547.905728        0.023336
+LBFGS:  233 07:13:49   -55547.905979        0.028190
+LBFGS:  234 07:13:49   -55547.906251        0.026217
+LBFGS:  235 07:13:49   -55547.906570        0.028449
+LBFGS:  236 07:13:49   -55547.906963        0.033560
+LBFGS:  237 07:13:49   -55547.907417        0.035987
+LBFGS:  238 07:13:49   -55547.907912        0.038547
+LBFGS:  239 07:13:49   -55547.908466        0.037324
+LBFGS:  240 07:13:49   -55547.909125        0.044475
+LBFGS:  241 07:13:49   -55547.909887        0.037875
+LBFGS:  242 07:13:49   -55547.910677        0.040412
+LBFGS:  243 07:13:49   -55547.911478        0.042216
+LBFGS:  244 07:13:49   -55547.912385        0.042153
+LBFGS:  245 07:13:49   -55547.913574        0.057353
+LBFGS:  246 07:13:49   -55547.915119        0.070532
+LBFGS:  247 07:13:49   -55547.916900        0.059780
+LBFGS:  248 07:13:49   -55547.918744        0.059532
+LBFGS:  249 07:13:49   -55547.920496        0.055858
+LBFGS:  250 07:13:49   -55547.921981        0.060104
+LBFGS:  251 07:13:49   -55547.923170        0.048196
+LBFGS:  252 07:13:49   -55547.924387        0.043848
+LBFGS:  253 07:13:49   -55547.925771        0.049650
+LBFGS:  254 07:13:49   -55547.927504        0.065480
+LBFGS:  255 07:13:49   -55547.929406        0.068994
+LBFGS:  256 07:13:49   -55547.931184        0.073119
+LBFGS:  257 07:13:49   -55547.932833        0.070355
+LBFGS:  258 07:13:49   -55547.934402        0.060120
+LBFGS:  259 07:13:50   -55547.936118        0.059442
+LBFGS:  260 07:13:50   -55547.937265        0.057694
+LBFGS:  261 07:13:50   -55547.938572        0.054875
+LBFGS:  262 07:13:50   -55547.939940        0.051973
+LBFGS:  263 07:13:50   -55547.941421        0.056193
+LBFGS:  264 07:13:50   -55547.942823        0.048750
+LBFGS:  265 07:13:50   -55547.944173        0.057765
+LBFGS:  266 07:13:50   -55547.945670        0.053321
+LBFGS:  267 07:13:50   -55547.947521        0.060243
+LBFGS:  268 07:13:50   -55547.949425        0.062487
+LBFGS:  269 07:13:50   -55547.950960        0.059262
+LBFGS:  270 07:13:50   -55547.952608        0.064244
+LBFGS:  271 07:13:50   -55547.954062        0.059317
+LBFGS:  272 07:13:50   -55547.955570        0.061425
+LBFGS:  273 07:13:50   -55547.956967        0.059673
+LBFGS:  274 07:13:50   -55547.958411        0.061482
+LBFGS:  275 07:13:50   -55547.959806        0.062956
+LBFGS:  276 07:13:50   -55547.961240        0.064017
+LBFGS:  277 07:13:50   -55547.962653        0.064963
+LBFGS:  278 07:13:50   -55547.964109        0.065619
+LBFGS:  279 07:13:50   -55547.965555        0.066280
+LBFGS:  280 07:13:50   -55547.967052        0.066759
+LBFGS:  281 07:13:50   -55547.968543        0.067253
+LBFGS:  282 07:13:50   -55547.970090        0.067671
+LBFGS:  283 07:13:50   -55547.971626        0.068097
+LBFGS:  284 07:13:51   -55547.973233        0.068494
+LBFGS:  285 07:13:51   -55547.974818        0.069612
+LBFGS:  286 07:13:51   -55547.976508        0.070675
+LBFGS:  287 07:13:51   -55547.978137        0.071720
+LBFGS:  288 07:13:51   -55547.979929        0.072707
+LBFGS:  289 07:13:51   -55547.981600        0.073469
+LBFGS:  290 07:13:51   -55547.983490        0.074657
+LBFGS:  291 07:13:51   -55547.985240        0.075779
+LBFGS:  292 07:13:51   -55547.987185        0.076913
+LBFGS:  293 07:13:51   -55547.989047        0.078020
+LBFGS:  294 07:13:51   -55547.991057        0.079015
+LBFGS:  295 07:13:51   -55547.993028        0.080064
+LBFGS:  296 07:13:51   -55547.995122        0.080894
+LBFGS:  297 07:13:51   -55547.997189        0.081855
+LBFGS:  298 07:13:51   -55547.999374        0.082488
+LBFGS:  299 07:13:51   -55548.001527        0.083354
+LBFGS:  300 07:13:51   -55548.003799        0.083724
+LBFGS:  301 07:13:51   -55548.006023        0.084517
+LBFGS:  302 07:13:51   -55548.008368        0.084547
+LBFGS:  303 07:13:51   -55548.010640        0.085325
+LBFGS:  304 07:13:51   -55548.013033        0.084956
+LBFGS:  305 07:13:51   -55548.015343        0.085743
+LBFGS:  306 07:13:51   -55548.017765        0.084997
+LBFGS:  307 07:13:51   -55548.020109        0.085760
+LBFGS:  308 07:13:52   -55548.022548        0.084747
+LBFGS:  309 07:13:52   -55548.024916        0.085382
+LBFGS:  310 07:13:52   -55548.027379        0.084267
+LBFGS:  311 07:13:52   -55548.029746        0.084579
+LBFGS:  312 07:13:52   -55548.032281        0.083743
+LBFGS:  313 07:13:52   -55548.034588        0.083089
+LBFGS:  314 07:13:52   -55548.037285        0.083583
+LBFGS:  315 07:13:52   -55548.039471        0.081356
+LBFGS:  316 07:13:52   -55548.042196        0.082949
+LBFGS:  317 07:13:52   -55548.044497        0.080758
+LBFGS:  318 07:13:52   -55548.047027        0.081065
+LBFGS:  319 07:13:52   -55548.049452        0.079485
+LBFGS:  320 07:13:52   -55548.051939        0.079359
+LBFGS:  321 07:13:52   -55548.054418        0.078065
+LBFGS:  322 07:13:52   -55548.056908        0.078201
+LBFGS:  323 07:13:52   -55548.059426        0.077600
+LBFGS:  324 07:13:52   -55548.061937        0.077836
+LBFGS:  325 07:13:52   -55548.064487        0.078478
+LBFGS:  326 07:13:52   -55548.067016        0.079446
+LBFGS:  327 07:13:52   -55548.069599        0.080562
+LBFGS:  328 07:13:52   -55548.072155        0.081763
+LBFGS:  329 07:13:52   -55548.074775        0.083831
+LBFGS:  330 07:13:52   -55548.077359        0.085918
+LBFGS:  331 07:13:52   -55548.080011        0.087984
+LBFGS:  332 07:13:53   -55548.082640        0.090142
+LBFGS:  333 07:13:53   -55548.085335        0.092186
+LBFGS:  334 07:13:53   -55548.088029        0.094460
+LBFGS:  335 07:13:53   -55548.090785        0.096590
+LBFGS:  336 07:13:53   -55548.093552        0.098930
+LBFGS:  337 07:13:53   -55548.096383        0.101234
+LBFGS:  338 07:13:53   -55548.099223        0.103605
+LBFGS:  339 07:13:53   -55548.102137        0.106131
+LBFGS:  340 07:13:53   -55548.105061        0.108553
+LBFGS:  341 07:13:53   -55548.108065        0.111307
+LBFGS:  342 07:13:53   -55548.111077        0.113745
+LBFGS:  343 07:13:53   -55548.114175        0.116714
+LBFGS:  344 07:13:53   -55548.117283        0.119238
+LBFGS:  345 07:13:53   -55548.120485        0.122397
+LBFGS:  346 07:13:53   -55548.123703        0.125033
+LBFGS:  347 07:13:53   -55548.127023        0.128370
+LBFGS:  348 07:13:53   -55548.130357        0.131093
+LBFGS:  349 07:13:53   -55548.133805        0.134642
+LBFGS:  350 07:13:53   -55548.137261        0.137427
+LBFGS:  351 07:13:53   -55548.140847        0.141228
+LBFGS:  352 07:13:53   -55548.144424        0.143961
+LBFGS:  353 07:13:53   -55548.148157        0.148119
+LBFGS:  354 07:13:53   -55548.151851        0.150536
+LBFGS:  355 07:13:53   -55548.155740        0.155302
+LBFGS:  356 07:13:54   -55548.159547        0.157019
+LBFGS:  357 07:13:54   -55548.163602        0.162818
+LBFGS:  358 07:13:54   -55548.167531        0.163552
+LBFGS:  359 07:13:54   -55548.171734        0.170167
+LBFGS:  360 07:13:54   -55548.175817        0.170058
+LBFGS:  361 07:13:54   -55548.180136        0.176566
+LBFGS:  362 07:13:54   -55548.184431        0.176583
+LBFGS:  363 07:13:54   -55548.188848        0.181861
+LBFGS:  364 07:13:54   -55548.193475        0.182374
+LBFGS:  365 07:13:54   -55548.197954        0.185337
+LBFGS:  366 07:13:54   -55548.203197        0.187195
+LBFGS:  367 07:13:54   -55548.207619        0.186615
+LBFGS:  368 07:13:54   -55548.213822        0.189788
+LBFGS:  369 07:13:54   -55548.218405        0.186529
+LBFGS:  370 07:13:54   -55548.225176        0.185960
+LBFGS:  371 07:13:54   -55548.230858        0.179179
+LBFGS:  372 07:13:54   -55548.238804        0.174996
+LBFGS:  373 07:13:54   -55548.246699        0.172248
+LBFGS:  374 07:13:54   -55548.257814        0.172215
+LBFGS:  375 07:13:54   -55548.270273        0.176582
+LBFGS:  376 07:13:54   -55548.289364        0.188861
+LBFGS:  377 07:13:54   -55548.305873        0.327143
+LBFGS:  378 07:13:54   -55548.326654        0.238640
+LBFGS:  379 07:13:54   -55548.343827        0.225316
+LBFGS:  380 07:13:55   -55548.359018        0.200279
+LBFGS:  381 07:13:55   -55548.375854        0.187806
+LBFGS:  382 07:13:55   -55548.390006        0.157925
+LBFGS:  383 07:13:55   -55548.401728        0.168152
+LBFGS:  384 07:13:55   -55548.412383        0.165639
+LBFGS:  385 07:13:55   -55548.422858        0.163860
+LBFGS:  386 07:13:55   -55548.433712        0.151809
+LBFGS:  387 07:13:55   -55548.444853        0.144482
+LBFGS:  388 07:13:55   -55548.456408        0.126955
+LBFGS:  389 07:13:55   -55548.468004        0.121318
+LBFGS:  390 07:13:55   -55548.479788        0.122222
+LBFGS:  391 07:13:55   -55548.490982        0.121390
+LBFGS:  392 07:13:55   -55548.501913        0.117562
+LBFGS:  393 07:13:55   -55548.511068        0.111834
+LBFGS:  394 07:13:55   -55548.517717        0.123770
+LBFGS:  395 07:13:55   -55548.523602        0.113035
+LBFGS:  396 07:13:55   -55548.532269        0.097820
+LBFGS:  397 07:13:55   -55548.537933        0.108585
+LBFGS:  398 07:13:55   -55548.540918        0.100524
+LBFGS:  399 07:13:55   -55548.543929        0.084458
+LBFGS:  400 07:13:55   -55548.548145        0.091589
+LBFGS:  401 07:13:55   -55548.551866        0.088061
+LBFGS:  402 07:13:55   -55548.555397        0.086089
+LBFGS:  403 07:13:56   -55548.560250        0.085426
+LBFGS:  404 07:13:56   -55548.565670        0.084226
+LBFGS:  405 07:13:56   -55548.570426        0.082078
+LBFGS:  406 07:13:56   -55548.574325        0.090565
+LBFGS:  407 07:13:56   -55548.578407        0.085618
+LBFGS:  408 07:13:56   -55548.583859        0.136070
+LBFGS:  409 07:13:56   -55548.589718        0.111142
+LBFGS:  410 07:13:56   -55548.594465        0.096729
+LBFGS:  411 07:13:56   -55548.600202        0.103506
+LBFGS:  412 07:13:56   -55548.606950        0.095605
+LBFGS:  413 07:13:56   -55548.613197        0.128802
+LBFGS:  414 07:13:56   -55548.618071        0.089324
+LBFGS:  415 07:13:56   -55548.621689        0.101602
+LBFGS:  416 07:13:56   -55548.624161        0.085106
+LBFGS:  417 07:13:56   -55548.627244        0.060899
+LBFGS:  418 07:13:56   -55548.631744        0.064834
+LBFGS:  419 07:13:56   -55548.635111        0.078516
+LBFGS:  420 07:13:56   -55548.637844        0.092451
+LBFGS:  421 07:13:56   -55548.640058        0.069851
+LBFGS:  422 07:13:56   -55548.642933        0.068594
+LBFGS:  423 07:13:56   -55548.645452        0.081853
+LBFGS:  424 07:13:56   -55548.647479        0.081494
+LBFGS:  425 07:13:57   -55548.649437        0.061102
+LBFGS:  426 07:13:57   -55548.651646        0.068972
+LBFGS:  427 07:13:57   -55548.654057        0.080253
+LBFGS:  428 07:13:57   -55548.656525        0.070579
+LBFGS:  429 07:13:57   -55548.659040        0.071683
+LBFGS:  430 07:13:57   -55548.661652        0.072247
+LBFGS:  431 07:13:57   -55548.664186        0.102108
+LBFGS:  432 07:13:57   -55548.666550        0.081209
+LBFGS:  433 07:13:57   -55548.668810        0.058826
+LBFGS:  434 07:13:57   -55548.670959        0.058807
+LBFGS:  435 07:13:57   -55548.672828        0.082974
+LBFGS:  436 07:13:57   -55548.674731        0.085455
+LBFGS:  437 07:13:57   -55548.677232        0.078568
+LBFGS:  438 07:13:57   -55548.680888        0.096424
+LBFGS:  439 07:13:57   -55548.684521        0.079031
+LBFGS:  440 07:13:57   -55548.687636        0.069970
+LBFGS:  441 07:13:57   -55548.690338        0.071734
+LBFGS:  442 07:13:57   -55548.693110        0.088989
+LBFGS:  443 07:13:57   -55548.695748        0.087864
+LBFGS:  444 07:13:57   -55548.697869        0.065161
+LBFGS:  445 07:13:57   -55548.699586        0.056862
+LBFGS:  446 07:13:57   -55548.701195        0.065668
+LBFGS:  447 07:13:58   -55548.702900        0.073307
+LBFGS:  448 07:13:58   -55548.704740        0.050928
+LBFGS:  449 07:13:58   -55548.706299        0.055457
+LBFGS:  450 07:13:58   -55548.707903        0.064187
+LBFGS:  451 07:13:58   -55548.709903        0.073628
+LBFGS:  452 07:13:58   -55548.712145        0.074459
+LBFGS:  453 07:13:58   -55548.714138        0.062810
+LBFGS:  454 07:13:58   -55548.715883        0.048595
+LBFGS:  455 07:13:58   -55548.717449        0.054125
+LBFGS:  456 07:13:58   -55548.718852        0.049230
+LBFGS:  457 07:13:58   -55548.720114        0.046473
+LBFGS:  458 07:13:58   -55548.721422        0.046929
+LBFGS:  459 07:13:58   -55548.722940        0.070841
+LBFGS:  460 07:13:58   -55548.724567        0.064360
+LBFGS:  461 07:13:58   -55548.725997        0.051203
+LBFGS:  462 07:13:58   -55548.727212        0.048762
+LBFGS:  463 07:13:58   -55548.728471        0.056493
+LBFGS:  464 07:13:58   -55548.729932        0.065247
+LBFGS:  465 07:13:58   -55548.731446        0.060557
+LBFGS:  466 07:13:58   -55548.732812        0.051275
+LBFGS:  467 07:13:58   -55548.733951        0.046365
+LBFGS:  468 07:13:58   -55548.734868        0.044264
+LBFGS:  469 07:13:59   -55548.735665        0.044558
+LBFGS:  470 07:13:59   -55548.736541        0.042107
+LBFGS:  471 07:13:59   -55548.737647        0.044427
+LBFGS:  472 07:13:59   -55548.738801        0.060006
+LBFGS:  473 07:13:59   -55548.739625        0.055704
+LBFGS:  474 07:13:59   -55548.740149        0.031935
+LBFGS:  475 07:13:59   -55548.740505        0.029132
+LBFGS:  476 07:13:59   -55548.740847        0.024223
+LBFGS:  477 07:13:59   -55548.741109        0.021643
+LBFGS:  478 07:13:59   -55548.741349        0.025742
+LBFGS:  479 07:13:59   -55548.741549        0.021865
+LBFGS:  480 07:13:59   -55548.741752        0.020080
+LBFGS:  481 07:13:59   -55548.741934        0.024141
+LBFGS:  482 07:13:59   -55548.742100        0.042207
+LBFGS:  483 07:13:59   -55548.742282        0.021290
+LBFGS:  484 07:13:59   -55548.742542        0.025047
+LBFGS:  485 07:13:59   -55548.742826        0.027054
+LBFGS:  486 07:13:59   -55548.743074        0.026583
+LBFGS:  487 07:13:59   -55548.743288        0.024961
+LBFGS:  488 07:13:59   -55548.743497        0.020078
+LBFGS:  489 07:14:00   -55548.743732        0.026655
+LBFGS:  490 07:14:00   -55548.743952        0.020909
+LBFGS:  491 07:14:00   -55548.744101        0.015956
+LBFGS:  492 07:14:00   -55548.744207        0.016560
+LBFGS:  493 07:14:00   -55548.744325        0.016387
+LBFGS:  494 07:14:00   -55548.744457        0.014606
+LBFGS:  495 07:14:00   -55548.744577        0.016546
+LBFGS:  496 07:14:00   -55548.744673        0.012731
+LBFGS:  497 07:14:00   -55548.744756        0.013089
+LBFGS:  498 07:14:00   -55548.744835        0.012378
+LBFGS:  499 07:14:00   -55548.744913        0.013112
+LBFGS:  500 07:14:00   -55548.744980        0.015768
+LBFGS:  501 07:14:00   -55548.745034        0.010116
+LBFGS:  502 07:14:00   -55548.745080        0.009175
+Saved optimized energies: PBI-COF/4_PBI-COF_optimization/PBI-COF_opt_energies_per_layer.csv
+Inclined:
+ ILD (Å)  ILS (Å)  Erel (eV)
+    3.3      1.9        0.7
+    2.0     12.7        0.0

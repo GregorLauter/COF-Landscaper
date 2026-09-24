@@ -947,6 +947,7 @@ class BuildCOF2D:
 
             return [output]
 
+
 class ConstructCOFfromCIF:
     """Construct a single-layer COF from an existing periodic CIF structure.
 
@@ -1017,12 +1018,12 @@ class ConstructCOFfromCIF:
                 neighbors, _ = neighbor_list.get_neighbors(i)
 
                 for j in neighbors:
-                    j = int(j)
+                    neighbor = int(j)
 
-                    if j in unvisited:
-                        unvisited.remove(j)
-                        component.add(j)
-                        queue.append(j)
+                    if neighbor in unvisited:
+                        unvisited.remove(neighbor)
+                        component.add(neighbor)
+                        queue.append(neighbor)
 
             components.append(sorted(component))
 
@@ -1078,8 +1079,7 @@ class ConstructCOFfromCIF:
         layer_composition = self._composition(layer)
 
         if any(
-            count % n_layers != 0
-            for count in original_composition.values()
+            count % n_layers != 0 for count in original_composition.values()
         ):
             raise ValueError(
                 "Input CIF composition cannot be divided evenly between "
@@ -1223,17 +1223,13 @@ class ConstructCOFfromCIF:
             components,
             original,
         )
-        extracted_file = (
-            extraction_folder / f"{cof_name}_extracted_layer.cif"
-        )
+        extracted_file = extraction_folder / f"{cof_name}_extracted_layer.cif"
         ase.io.write(extracted_file, layer)
 
         straightened = self._straighten_layer(layer)
         straightened = self._center_layer(straightened)
 
-        straightened_file = (
-            extraction_folder / f"{cof_name}_straightened.cif"
-        )
+        straightened_file = extraction_folder / f"{cof_name}_straightened.cif"
         ase.io.write(straightened_file, straightened)
 
         output = final_folder / f"{cof_name}_preopt.cif"
