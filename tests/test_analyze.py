@@ -44,7 +44,9 @@ def test_load_energy_map_skips_malformed_rows(tmp_path: Path) -> None:
 
 
 def test_run_writes_expected_csv_schema_for_both_modes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """This test ensures the exported analysis CSV keeps the expected reviewer-facing schema."""
     analyzer = AnalyzeStacking()
@@ -55,7 +57,7 @@ def test_run_writes_expected_csv_schema_for_both_modes(
     def fake_metrics(
         _input_file: str, selected_mode: str
     ) -> tuple[float, float]:
-        return (1.0, 2.0) if selected_mode == "serr" else (3.0, 4.0)
+        return (1.234, 2.345) if selected_mode == "serr" else (3.456, 4.567)
 
     def fake_energy_map(**_kwargs):
         return {
@@ -73,7 +75,15 @@ def test_run_writes_expected_csv_schema_for_both_modes(
         mode="both",
         input_base=tmp_path / "in",
         output_base=out_dir,
-        print_values=False,
+    )
+
+    assert capsys.readouterr().out == (
+        "Serrated:\n"
+        " ILD (Å)  ILS (Å)  Erel (eV)\n"
+        "   1.23     2.35        0.0\n"
+        "Inclined:\n"
+        " ILD (Å)  ILS (Å)  Erel (eV)\n"
+        "   3.46     4.57        1.0\n"
     )
 
     output_csv = out_dir / "final_structures.csv"
@@ -94,6 +104,10 @@ def test_run_writes_expected_csv_schema_for_both_modes(
     assert len(rows) == 2
     assert {row["Stacking"] for row in rows} == {"serr", "incl"}
     assert {row["filename"] for row in rows} == {"mock-a.cif"}
+    assert {(row["ILD"], row["ILS"]) for row in rows} == {
+        ("1.234", "2.345"),
+        ("3.456", "4.567"),
+    }
 
 
 def test_run_dft_mode_uses_dft_folder_and_filename(

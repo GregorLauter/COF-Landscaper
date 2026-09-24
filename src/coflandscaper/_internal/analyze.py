@@ -355,7 +355,7 @@ class AnalyzeStacking:
             dft: If ``True``, analyze ``dft_{mode}`` subfolders and write
                 ``final_structures_dft.csv``. Defaults to ``False``.
             print_values: Whether to print calculated ILD/ILS values to standard
-                output. Defaults to ``True``.
+                output with two decimal places. Defaults to ``True``.
             source: Structure stage to analyze: ``"opt"`` or ``"postopt"``.
                 Defaults to ``"opt"``.
 
@@ -409,7 +409,7 @@ class AnalyzeStacking:
                     rel_display = (
                         "--" if np.isnan(energy_rel) else f"{energy_rel:.1f}"
                     )
-                    print(f" {ild:6.1f}  {ils:7.1f}  {rel_display:>9}")
+                    print(f" {ild:6.2f}  {ils:7.2f}  {rel_display:>9}")
                 rows.append(
                     {
                         "Stacking": selected_mode,

@@ -604,7 +604,9 @@ def test_sim_peak_centroid_and_median_scale_factor() -> None:
 
 @pytest.mark.unit
 def test_generate_scaled_cif_scales_in_plane_vectors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """This test ensures scaled CIF generation changes only in-plane cell vectors."""
     monkeypatch.chdir(tmp_path)
@@ -636,6 +638,11 @@ def test_generate_scaled_cif_scales_in_plane_vectors(
     )
     assert scaled.cell.lengths() == pytest.approx([10.237, 20.474, 30.0])
     assert scaled.positions[0] == pytest.approx([1.0237, 2.0474, 3.0])
+    assert capsys.readouterr().out == ""
+    pxrd.generate_scaled_cif("cof-a", "serr", print_scale_factor=True)
+    assert capsys.readouterr().out == (
+        "Recommended in-plane scale factor: 1.0237\n"
+    )
 
 
 @pytest.mark.unit
