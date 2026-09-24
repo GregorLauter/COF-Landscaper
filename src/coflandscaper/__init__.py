@@ -6,7 +6,10 @@ from coflandscaper._internal.analyze import (
     Supercell,
     VisualizeCOF,
 )
-from coflandscaper._internal.build_cof_2d import BuildCOF2D
+from coflandscaper._internal.build_cof_2d import (
+    BuildCOF2D,
+    ConstructCOFfromCIF,
+)
 from coflandscaper._internal.dft import (
     Crystal,
     CrystalOpt,
@@ -49,6 +52,7 @@ __all__ = [
     "PXRD",
     "AnalyzeStacking",
     "BuildCOF2D",
+    "ConstructCOFfromCIF",
     "ChangeIld",
     "CreateMatrix",
     "Crystal",

@@ -946,3 +946,303 @@ class BuildCOF2D:
             )
 
             return [output]
+
+class ConstructCOFfromCIF:
+    """Construct a single-layer COF from an existing periodic CIF structure.
+
+    The input structure is expanded to a 1x1x3 supercell along the stacking
+    direction. Covalent connectivity is then evaluated with periodicity in the
+    a-b plane and no periodicity along c, allowing complete physical layers to
+    be identified even when atoms cross the original unit-cell boundary.
+
+    The physical layer nearest the center of the supercell is extracted and
+    validated against the input structure. Input unit cells containing either
+    one or two equivalent physical layers are supported. The extracted layer is
+    reoriented so that its a-b plane is perpendicular to c and written as a
+    single-layer structure for the standard COF-Landscaper workflow. The final
+    interlayer distance is set to 15 Å.
+
+    Intermediate structures are written to
+    ``{cof_name}/0_{cof_name}_layer_extraction``. The final structure is written
+    to ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif``.
+    """
+
+    @staticmethod
+    def _create_triple_cell(atoms: Atoms) -> Atoms:
+        """Create a 1x1x3 supercell along the stacking direction."""
+        triple = atoms.repeat((1, 1, 3))
+        triple.pbc = [True, True, True]
+        return triple
+
+    @staticmethod
+    def _find_connected_layers(
+        atoms: Atoms,
+        cutoff_mult: float = 1.15,
+    ) -> list[list[int]]:
+        """Identify connected physical layers in a 1x1x3 structure.
+
+        Connectivity is periodic within the a-b plane and non-periodic along
+        the stacking direction.
+
+        Args:
+            atoms: ASE atoms object containing the 1x1x3 structure.
+            cutoff_mult: Multiplier applied to ASE natural covalent cutoffs.
+
+        Returns:
+            Connected components represented as lists of atom indices.
+        """
+        connectivity_atoms = atoms.copy()
+        connectivity_atoms.pbc = [True, True, False]
+
+        cutoffs = natural_cutoffs(connectivity_atoms, mult=cutoff_mult)
+        neighbor_list = NeighborList(
+            cutoffs,
+            self_interaction=False,
+            bothways=True,
+            skin=0.0,
+        )
+        neighbor_list.update(connectivity_atoms)
+
+        unvisited = set(range(len(connectivity_atoms)))
+        components: list[list[int]] = []
+
+        while unvisited:
+            start = next(iter(unvisited))
+            component = {start}
+            queue = [start]
+            unvisited.remove(start)
+
+            while queue:
+                i = queue.pop()
+                neighbors, _ = neighbor_list.get_neighbors(i)
+
+                for j in neighbors:
+                    j = int(j)
+
+                    if j in unvisited:
+                        unvisited.remove(j)
+                        component.add(j)
+                        queue.append(j)
+
+            components.append(sorted(component))
+
+        return components
+
+    @staticmethod
+    def _composition(atoms: Atoms) -> dict[str, int]:
+        """Return elemental composition as symbol-count pairs."""
+        composition: dict[str, int] = {}
+
+        for atom in atoms:
+            composition[atom.symbol] = composition.get(atom.symbol, 0) + 1
+
+        return composition
+
+    def _extract_central_layer(
+        self,
+        triple: Atoms,
+        components: list[list[int]],
+        original: Atoms,
+    ) -> Atoms:
+        """Select and validate the physical layer nearest the cell center."""
+        frac = triple.get_scaled_positions(wrap=False)
+
+        central_component = min(
+            components,
+            key=lambda component: abs(
+                float(np.mean(frac[component, 2])) - 0.5
+            ),
+        )
+
+        n_original = len(original)
+        n_layer = len(central_component)
+
+        if n_layer == n_original:
+            n_layers = 1
+        elif n_original % 2 == 0 and n_layer == n_original // 2:
+            n_layers = 2
+        else:
+            raise ValueError(
+                "Extracted physical layer has an unexpected number of atoms. "
+                f"Input CIF contains {n_original} atoms, while the extracted "
+                f"layer contains {n_layer}. Expected either {n_original} atoms "
+                f"for a single-layer unit cell or {n_original // 2} atoms for "
+                "a double-layer unit cell."
+            )
+
+        layer = triple[central_component]
+        layer.set_cell(triple.cell)
+        layer.pbc = [True, True, False]
+
+        original_composition = self._composition(original)
+        layer_composition = self._composition(layer)
+
+        if any(
+            count % n_layers != 0
+            for count in original_composition.values()
+        ):
+            raise ValueError(
+                "Input CIF composition cannot be divided evenly between "
+                f"{n_layers} equivalent physical layers."
+            )
+
+        expected_composition = {
+            element: count // n_layers
+            for element, count in original_composition.items()
+        }
+
+        if layer_composition != expected_composition:
+            raise ValueError(
+                "Extracted physical-layer composition does not match the "
+                f"expected composition. Expected {expected_composition}, found "
+                f"{layer_composition}."
+            )
+
+        return layer
+
+    @staticmethod
+    def _straighten_layer(layer: Atoms) -> Atoms:
+        """Reorient a physical layer so alpha and beta are 90 degrees.
+
+        The transformation rigidly rotates both atomic positions and the a and
+        b lattice vectors into the layer plane. Intralayer distances, lattice
+        lengths a and b, and gamma are preserved.
+        """
+        cell = np.asarray(layer.cell)
+        a_vec = cell[0]
+        b_vec = cell[1]
+        c_vec = cell[2]
+
+        normal = np.cross(a_vec, b_vec)
+        normal_norm = np.linalg.norm(normal)
+
+        if normal_norm < 1e-8:
+            raise ValueError(
+                "Cannot straighten layer because the a-b plane is degenerate."
+            )
+
+        normal /= normal_norm
+
+        e1 = a_vec / np.linalg.norm(a_vec)
+        e3 = normal
+        e2 = np.cross(e3, e1)
+        e2 /= np.linalg.norm(e2)
+
+        basis = np.vstack([e1, e2, e3])
+
+        positions_new = layer.positions @ basis.T
+        a_new = a_vec @ basis.T
+        b_new = b_vec @ basis.T
+
+        c_perpendicular = abs(float(np.dot(c_vec, normal)))
+        c_new = np.array([0.0, 0.0, c_perpendicular])
+
+        straightened = layer.copy()
+        straightened.set_positions(positions_new)
+        straightened.set_cell(
+            [a_new, b_new, c_new],
+            scale_atoms=False,
+        )
+        straightened.pbc = [True, True, False]
+
+        return straightened
+
+    @staticmethod
+    def _center_layer(layer: Atoms) -> Atoms:
+        """Center a physical layer along the Cartesian z direction."""
+        centered = layer.copy()
+        positions = centered.get_positions()
+
+        z_min = float(np.min(positions[:, 2]))
+        z_max = float(np.max(positions[:, 2]))
+        z_center = 0.5 * (z_min + z_max)
+
+        cell_center = 0.5 * float(centered.cell[2, 2])
+        positions[:, 2] += cell_center - z_center
+
+        centered.set_positions(positions)
+
+        return centered
+
+    def run(
+        self,
+        cof_name: str,
+        input_cif: str | os.PathLike[str],
+        cutoff_mult: float = 1.15,
+    ) -> str:
+        """Construct a standardized single-layer COF from a periodic CIF.
+
+        Args:
+            cof_name: COF identifier used for workflow folder and file naming.
+            input_cif: Exact path to the periodic CIF structure to process.
+            cutoff_mult: Multiplier applied to ASE natural covalent cutoffs.
+                Defaults to 1.15.
+
+        Returns:
+            Path to the final ``{cof_name}_preopt.cif`` structure.
+
+        Raises:
+            FileNotFoundError: If the supplied CIF does not exist.
+            ValueError: If a valid central physical layer cannot be identified
+                or the extracted layer does not match the input structure.
+        """
+        input_path = Path(input_cif)
+
+        if (
+            not input_path.exists()
+            or not input_path.is_file()
+            or input_path.suffix.lower() != ".cif"
+        ):
+            raise FileNotFoundError(f"Input CIF file not found: {input_cif}")
+
+        extraction_folder = Path(
+            cof_name,
+            f"0_{cof_name}_layer_extraction",
+        )
+        final_folder = Path(
+            cof_name,
+            f"1_{cof_name}_single_layer",
+        )
+
+        extraction_folder.mkdir(parents=True, exist_ok=True)
+        final_folder.mkdir(parents=True, exist_ok=True)
+
+        original = cast("Atoms", ase.io.read(input_path))
+
+        triple = self._create_triple_cell(original)
+        triple_file = extraction_folder / f"{cof_name}_triple_cell.cif"
+        ase.io.write(triple_file, triple)
+
+        components = self._find_connected_layers(
+            triple,
+            cutoff_mult=cutoff_mult,
+        )
+
+        layer = self._extract_central_layer(
+            triple,
+            components,
+            original,
+        )
+        extracted_file = (
+            extraction_folder / f"{cof_name}_extracted_layer.cif"
+        )
+        ase.io.write(extracted_file, layer)
+
+        straightened = self._straighten_layer(layer)
+        straightened = self._center_layer(straightened)
+
+        straightened_file = (
+            extraction_folder / f"{cof_name}_straightened.cif"
+        )
+        ase.io.write(straightened_file, straightened)
+
+        output = final_folder / f"{cof_name}_preopt.cif"
+        ase.io.write(output, straightened)
+
+        ChangeIld()._change_interlayer_distance(
+            input_file=str(output),
+            output_file=str(output),
+            new_z=15.0,
+        )
+
+        return str(output)
