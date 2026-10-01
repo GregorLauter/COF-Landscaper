@@ -83,22 +83,19 @@ def _topology_cache_dir() -> Path:
 def _sync_topology_cache(cache_dir: Path, source_dir: Path) -> None:
     """Sync packaged topology files into a writable cache directory."""
     cache_dir.mkdir(parents=True, exist_ok=True)
-    patterns = ("*.cgd", "*.pickle")
-    for pattern in patterns:
-        for src in source_dir.glob(pattern):
-            dst = cache_dir / src.name
-            should_copy = True
-            if dst.exists():
-                try:
-                    if (
-                        src.stat().st_mtime <= dst.stat().st_mtime
-                        and src.read_bytes() == dst.read_bytes()
-                    ):
-                        should_copy = False
-                except OSError:
-                    should_copy = True
-            if should_copy:
-                shutil.copy2(src, dst)
+    for src in source_dir.glob("*.cgd"):
+        dst = cache_dir / src.name
+        source_changed = True
+        if dst.exists():
+            try:
+                source_changed = src.read_bytes() != dst.read_bytes()
+            except OSError:
+                source_changed = True
+        if source_changed:
+            shutil.copy2(src, dst)
+            cached_pickle = dst.with_suffix(".pickle")
+            if cached_pickle.exists():
+                cached_pickle.unlink()
 
 
 class PackageDatabase(pm.Database):

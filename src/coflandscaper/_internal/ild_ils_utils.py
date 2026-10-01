@@ -332,12 +332,15 @@ def default_shift_from_cif(
         fractional lattice vector ``(a + 2b) / 3``. Its length and angle are
         calculated from its in-plane Cartesian components.
 
+        For ``ladder_1d``, the maximum shift is half of ``b``, with the
+        direction given by the input lattice gamma angle.
+
         The returned values are used as the default upper limit and direction of the
         ILS scan when explicit values are not supplied.
 
     Args:
         input_file: CIF structure path.
-        topo: Topology selector: ``"sql"`, ``"hcb"`, or ``"kgm"``.
+        topo: Topology selector: ``"sql"``, ``"hcb"``, ``"kgm"``, or ``"ladder_1d"``.
         print_shift: Whether to print the calculated default shift.
             Defaults to ``False``.
 
@@ -348,9 +351,18 @@ def default_shift_from_cif(
     Raises:
         ValueError: If ``topo`` is unsupported.
     """
-    if topo not in ("sql", "hcb", "kgm"):
-        raise ValueError("topo must be 'sql', 'hcb', or 'kgm'")
+    if topo not in ("sql", "hcb", "kgm", "ladder_1d"):
+        raise ValueError("topo must be 'sql', 'hcb', 'kgm', or 'ladder_1d'")
     struct = Structure.from_file(input_file)
+    if topo == "ladder_1d":
+        length = float(struct.lattice.b / 2.0)
+        angle = float(struct.lattice.gamma)
+        if print_shift:
+            print(
+                f"[DEFAULT_SHIFT_VALUES] Length={length:.2f}Å Angle={angle:.2f}"
+            )
+        return length, angle
+
     a_vec, b_vec, _ = struct.lattice.matrix
 
     vec = 0.5 * (a_vec + b_vec)

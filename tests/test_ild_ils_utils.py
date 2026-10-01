@@ -207,9 +207,7 @@ def test_default_shift_from_cif_hcb_and_kgm_match_for_hex_cell(
 @pytest.mark.unit
 def test_default_shift_from_cif_rejects_invalid_topology() -> None:
     """This test ensures invalid topology names fail fast in default shift computation."""
-    with pytest.raises(
-        ValueError, match="topo must be 'sql', 'hcb', or 'kgm'"
-    ):
+    with pytest.raises(ValueError, match="topo must be"):
         cl.default_shift_from_cif("dummy.cif", "bad")
 
 
@@ -269,3 +267,77 @@ def test_ils_defaults_map_hcb_ab_but_not_kgm(
     )
 
     assert seen == ["hcb", "kgm"]
+
+
+@pytest.mark.parametrize("gamma", [90.0, 87.123456])
+@pytest.mark.parametrize("override", ["none", "both", "length", "angle"])
+def test_ladder_matrix_actual_shift(
+    tmp_path: Path, gamma: float, override: str
+) -> None:
+    """Both written stacking modes use b/2 and gamma, or explicit overrides."""
+    from pymatgen.core import Lattice, Structure
+    from pymatgen.io.cif import CifWriter
+
+    source = tmp_path / "input.cif"
+    lattice = Lattice.from_parameters(12.3, 20.2468, 15.0, 90.0, 90.0, gamma)
+    CifWriter(Structure(lattice, ["C"], [[0.2, 0.3, 0.5]])).write_file(source)
+    length, angle = cl.default_shift_from_cif(str(source), "ladder_1d")
+    assert length == pytest.approx(lattice.b / 2, abs=1e-8)
+    assert angle == pytest.approx(gamma, abs=1e-8)
+    if override in {"both", "length"}:
+        length = 1.2345
+    if override in {"both", "angle"}:
+        angle = 0.0
+    output = tmp_path / "matrix"
+    cl.CreateMatrix(
+        ild_start=3.5,
+        ild_end=3.5,
+        ils_length_step=30.0,
+        ils_length_end=1.2345 if override in {"both", "length"} else None,
+        ils_angle=0.0 if override in {"both", "angle"} else None,
+    ).run(
+        cof_name="test",
+        topo="ladder_1d",
+        mode="both",
+        input_cif=str(source),
+        output_base_folder=str(output),
+    )
+
+    incl = [Structure.from_file(p) for p in (output / "incl").glob("*.cif")]
+    serr = [Structure.from_file(p) for p in (output / "serr").glob("*.cif")]
+    assert len(incl) == len(serr) == 2  # zero and exact endpoint
+    endpoint = max(incl, key=lambda s: s.lattice.c)
+    a, b, c = endpoint.lattice.matrix
+    # Dot products remain valid after CIF canonicalizes the Cartesian frame.
+    assert np.dot(c, a) == pytest.approx(
+        length * lattice.a * np.cos(np.radians(angle)), abs=2e-6
+    )
+    assert np.dot(c, b) == pytest.approx(
+        length * lattice.b * np.cos(np.radians(gamma - angle)), abs=2e-6
+    )
+    assert endpoint.lattice.c == pytest.approx(np.hypot(3.5, length), abs=1e-7)
+    assert endpoint.lattice.gamma == pytest.approx(gamma, abs=1e-7)
+
+    shifts = []
+    for structure in serr:
+        lower, upper = sorted(structure.frac_coords, key=lambda f: f[2])
+        delta = upper - lower
+        delta[:2] -= np.round(delta[:2])
+        shifts.append(delta[:2])
+        assert delta[2] == pytest.approx(0.5, abs=1e-7)
+        assert structure.lattice.c == pytest.approx(7.0, abs=1e-7)
+    fractional_y = (
+        length
+        * np.sin(np.radians(angle))
+        / (lattice.b * np.sin(np.radians(gamma)))
+    )
+    fractional_x = (
+        length * np.cos(np.radians(angle))
+        - fractional_y * lattice.b * np.cos(np.radians(gamma))
+    ) / lattice.a
+    expected = np.array([fractional_x, fractional_y])
+    assert any(np.allclose(s, 0, atol=1e-7) for s in shifts)
+    assert any(
+        np.allclose(s - expected - np.round(s - expected), 0, atol=1e-7)
+        for s in shifts
+    )

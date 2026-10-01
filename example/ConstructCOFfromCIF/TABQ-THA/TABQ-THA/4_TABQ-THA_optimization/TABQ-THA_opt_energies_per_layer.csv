@@ -1,0 +1,5 @@
+structure,stacking_mode,energy_eV_per_layer,energy_rel_eV_per_layer,stopped_due_to_max_steps
+TABQ-THA_z34_L072_incl,incl,-41279.49100973143,0.860705431747192,False
+TABQ-THA_z35_L000_incl,incl,-41280.351715163175,0.0,False
+TABQ-THA_z34_L072_serr,serr,-41279.489528785365,0.8621863778098486,False
+TABQ-THA_z35_L000_serr,serr,-41280.34855685481,0.0031583083618897945,False

@@ -1,0 +1,20 @@
+{
+  "COF_NAME": "TABQ-THA",
+  "TOPOLOGY": "sql",
+  "MODE": "both",
+  "NODES": null,
+  "LINKERS": null,
+  "MACE_HEAD": "spice_wB97M",
+  "DEVICE": "cuda",
+  "MAX_STEPS": 5000,
+  "FIX_Z": true,
+  "ILD_START": 3.0,
+  "ILD_END": 4.0,
+  "ILD_STEP": 0.1,
+  "MINIMA_MODE": "global",
+  "SHOW_LANDSCAPE": false,
+  "SHOW_TITLE_BLOCK": false,
+  "SHOW_MINIMA_MARKERS": true,
+  "EXTRA_SERR": [[3.4, 7.2]],
+  "EXTRA_INCL": [[3.4, 7.2]]
+}
