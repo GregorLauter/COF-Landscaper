@@ -4,11 +4,43 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from ase import Atoms
+from ase.io import write
 from pormake.framework import Framework
 from pormake.neighbor_list import NeighborList
 from pormake.topology import Topology
 
 from coflandscaper._internal import build_cof_1d as builder
+
+
+def test_build_ignores_hidden_xyz_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ignore hidden AppleDouble XYZ files when discovering default inputs."""
+    monkeypatch.chdir(tmp_path)
+    node_dir = tmp_path / "0_node"
+    node_dir.mkdir()
+    write(node_dir / "A.xyz", Atoms("C2He2", positions=np.zeros((4, 3))))
+    write(node_dir / "N.xyz", Atoms("C4He4", positions=np.zeros((8, 3))))
+    (node_dir / "._A.xyz").write_text("metadata", encoding="utf-8")
+    (node_dir / "._N.xyz").write_text("metadata", encoding="utf-8")
+
+    seen: list[Path] = []
+
+    class FakeFramework:
+        atoms = Atoms("C", positions=[[0, 0, 0]])
+
+        @staticmethod
+        def write_cif(path: str) -> None:
+            write(path, FakeFramework.atoms, format="cif")
+
+    def fake_build(_config, paths, _inputs, _cgd_path):
+        seen.extend(paths)
+        return FakeFramework()
+
+    monkeypatch.setattr(builder, "_build_ladder", fake_build)
+    builder.BuildCOF1D().build(topo="ladder_1d", cof_name="test")
+
+    assert [path.name for path in seen] == ["A.xyz", "N.xyz"]
 
 
 @pytest.mark.parametrize("forced", [False, True])

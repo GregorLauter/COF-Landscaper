@@ -96,7 +96,11 @@ class BuildCOF1D:
                 "cof_name must be a nonempty name without directory components"
             )
         paths = (
-            sorted(Path("0_node").glob("*.xyz"))
+            sorted(
+                path
+                for path in Path("0_node").glob("*.xyz")
+                if not path.name.startswith(".")
+            )
             if input_nodes is None
             else [Path(p) for p in input_nodes]
         )
