@@ -169,9 +169,20 @@ def synthetic_ladder(
     cgd = (
         Path(builder.__file__).parents[1] / "database/topologies/ladder_1d.cgd"
     )
-    framework = builder._build_ladder(
-        config, [Path("star.xyz"), Path("bend.xyz")], [star, bend], cgd
-    )
+    # Centering two connection points always produces opposite directions:
+    # rotation about their axis is ambiguous, even for asymmetric fragments.
+    # Exact synthetic matches also trigger PORMAKE's unguarded 0/0 RMSD ratio.
+    # Expect only these messages during construction; pytest re-emits others.
+    with pytest.warns(
+        (UserWarning, RuntimeWarning),
+        match=(
+            r"^(Optimal rotation is not uniquely or poorly defined for the "
+            r"given sets of vectors\.|invalid value encountered in scalar divide)$"
+        ),
+    ):
+        framework = builder._build_ladder(
+            config, [Path("star.xyz"), Path("bend.xyz")], [star, bend], cgd
+        )
     return framework, config
 
 
