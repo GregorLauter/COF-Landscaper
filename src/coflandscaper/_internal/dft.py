@@ -20,6 +20,8 @@ import numpy as np
 import pandas as pd
 from ase.data import atomic_numbers
 
+from .utilities import list_visible_files
+
 if TYPE_CHECKING:
     from ase.atoms import Atoms
 
@@ -432,7 +434,7 @@ class Crystal:
         out_path = Path(output_folder) if output_folder else in_path
         out_path.mkdir(parents=True, exist_ok=True)
 
-        for cif in sorted(in_path.glob("*.cif")):
+        for cif in list_visible_files(in_path, ".cif"):
             try:
                 subdir = out_path / cif.stem
                 subdir.mkdir(parents=True, exist_ok=True)
@@ -598,7 +600,11 @@ END"""
             cof_name = input_path.parent.name
 
         out_files: list[Path] = []
-        for out_path in sorted(input_path.rglob("*.out")):
+        for out_path in sorted(
+            path
+            for path in input_path.rglob("*.out")
+            if not path.name.startswith(".")
+        ):
             if out_path.name.lower().startswith("slurm"):
                 continue
             if out_path.parent == input_path:
@@ -918,7 +924,11 @@ END"""
         """
         out_files: list[Path] = []
         for input_path in input_paths:
-            for out_path in sorted(input_path.rglob("*.out")):
+            for out_path in sorted(
+                path
+                for path in input_path.rglob("*.out")
+                if not path.name.startswith(".")
+            ):
                 if out_path.name.lower().startswith("slurm"):
                     continue
                 if out_path.parent == input_path:
@@ -1087,7 +1097,11 @@ END"""
             raise FileNotFoundError(f"Input folder not found: {input_path}")
 
         out_files: list[Path] = []
-        for out_path in sorted(input_path.rglob("*.out")):
+        for out_path in sorted(
+            path
+            for path in input_path.rglob("*.out")
+            if not path.name.startswith(".")
+        ):
             if out_path.name.lower().startswith("slurm"):
                 continue
             if out_path.parent == input_path:

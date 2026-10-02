@@ -6,6 +6,22 @@ import json
 from pathlib import Path
 
 
+def list_visible_files(folder: str | Path, suffix: str) -> list[Path]:
+    """Return non-hidden files with ``suffix`` in deterministic order.
+
+    Hidden macOS metadata files such as ``._structure.cif`` are not workflow
+    inputs and must be excluded from every structure-file discovery step.
+    """
+    normalized_suffix = suffix.lower()
+    return sorted(
+        path
+        for path in Path(folder).iterdir()
+        if path.is_file()
+        and not path.name.startswith(".")
+        and path.suffix.lower() == normalized_suffix
+    )
+
+
 def load_params(params_file: str | Path) -> dict[str, object]:
     """Load workflow parameters from a JSON file.
 

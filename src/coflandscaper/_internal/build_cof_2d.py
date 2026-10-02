@@ -547,7 +547,11 @@ def _prepare_xyz(input_folder: str, output_folder: str) -> list[str]:
         List of input XYZ file paths processed.
     """
     Path(output_folder).mkdir(parents=True, exist_ok=True)
-    xyz_files = sorted(glob.glob(os.path.join(input_folder, "*.xyz")))
+    xyz_files = sorted(
+        path
+        for path in glob.glob(os.path.join(input_folder, "*.xyz"))
+        if not os.path.basename(path).startswith(".")
+    )
 
     return _prepare_xyz_files(xyz_files, output_folder)
 
@@ -812,7 +816,11 @@ class BuildCOF2D:
         Returns:
             Sorted list of `(basename_without_extension, absolute_or_relative_path)`.
         """
-        files = sorted(glob.glob(os.path.join(folder, "*.xyz")))
+        files = sorted(
+            path
+            for path in glob.glob(os.path.join(folder, "*.xyz"))
+            if not os.path.basename(path).startswith(".")
+        )
         return [(os.path.splitext(os.path.basename(p))[0], p) for p in files]
 
     def build(
@@ -902,7 +910,11 @@ class BuildCOF2D:
                 _prepare_xyz("0_linker", linker_dir_used)
                 linkers = self._list_xyz(linker_dir_used)
             else:
-                extra_linkers = sorted(Path("0_linker").glob("*.xyz"))
+                extra_linkers = sorted(
+                    path
+                    for path in Path("0_linker").glob("*.xyz")
+                    if not path.name.startswith(".")
+                )
                 if extra_linkers:
                     warnings.warn(
                         "Topology 'hcb_ab' ignores linker files in 0_linker/.",

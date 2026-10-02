@@ -28,7 +28,7 @@ from .ild_ils_utils import (
     parse_xyz_from_atom_line,
     pick_lower_left_pair_from_lines,
 )
-from .utilities import read_cif_atom_lines
+from .utilities import list_visible_files, read_cif_atom_lines
 
 
 class Supercell:
@@ -108,7 +108,11 @@ class AnalyzeStacking:
             raise FileNotFoundError(f"Input folder not found: {folder}")
 
         for entry in sorted(folder.iterdir()):
-            if entry.is_file() and entry.suffix.lower() == ".cif":
+            if (
+                entry.is_file()
+                and not entry.name.startswith(".")
+                and entry.suffix.lower() == ".cif"
+            ):
                 files.append(str(entry))
             elif entry.is_dir():
                 candidate = entry / f"{entry.name}.cif"
@@ -501,7 +505,7 @@ class VisualizeCOF:
         Returns:
             Sorted list of `.cif` file paths.
         """
-        return sorted(path.glob("*.cif"))
+        return list_visible_files(path, ".cif")
 
     def _resolve_model(
         self, source: str | Path | Structure

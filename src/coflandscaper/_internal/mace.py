@@ -25,6 +25,8 @@ from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 from mace.modules.models import ScaleShiftMACE
 
+from .utilities import list_visible_files
+
 if TYPE_CHECKING:
     from ase.atoms import Atoms
 
@@ -297,7 +299,7 @@ class MaceSP(Mace):
         elif input_path.parent.name:
             cof_name = input_path.parent.name
 
-        cif_files = sorted(input_path.glob("*.cif"))
+        cif_files = list_visible_files(input_path, ".cif")
         if not cif_files:
             raise FileNotFoundError(
                 f"No .cif files found in: {input_path.resolve()}"
@@ -585,7 +587,7 @@ class MaceOpt(Mace):
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         convergence_by_structure: dict[str, bool] = {}
         for file_name in os.listdir(input_folder):
-            if file_name.endswith(".cif"):
+            if not file_name.startswith(".") and file_name.endswith(".cif"):
                 input_path = os.path.join(input_folder, file_name)
                 output_path = os.path.join(output_folder, file_name)
                 converged = self.optimize_cof(input_path, output_path)
@@ -654,7 +656,7 @@ class MaceOpt(Mace):
                 or f"{cof_name}/6_{cof_name}_scaling/postopt/{selected_mode}"
             )
             if source_cif is None:
-                cif_files = sorted(input_dir.glob("*.cif"))
+                cif_files = list_visible_files(input_dir, ".cif")
                 if not cif_files:
                     raise FileNotFoundError(
                         f"No CIF files found in: {input_dir}"
@@ -780,7 +782,7 @@ class MaceOpt(Mace):
         failed: list[tuple[str, str]] = []
 
         for mode_tag, folder in mode_output_folders.items():
-            cif_files = sorted(folder.glob("*.cif"))
+            cif_files = list_visible_files(folder, ".cif")
             for cif_path in cif_files:
                 try:
                     atoms = cast("Atoms", read(str(cif_path)))

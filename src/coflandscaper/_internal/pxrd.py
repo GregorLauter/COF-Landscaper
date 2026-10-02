@@ -24,6 +24,8 @@ from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
 from scipy.optimize import curve_fit
 
+from .utilities import list_visible_files
+
 if TYPE_CHECKING:
     from ase.atoms import Atoms
 
@@ -166,7 +168,7 @@ class PXRD:
             raise FileNotFoundError(
                 f"Experimental folder not found: {exp_dir}"
             )
-        exp_files = sorted(exp_dir.glob("*.xy"))
+        exp_files = list_visible_files(exp_dir, ".xy")
         if not exp_files:
             raise FileNotFoundError(
                 f"No experimental .xy files found in: {exp_dir}"
@@ -370,7 +372,7 @@ class PXRD:
         if not cif_dir.exists() or not cif_dir.is_dir():
             raise FileNotFoundError(f"CIF folder not found: {cif_dir}")
 
-        cifs = sorted(cif_dir.glob("*.cif"))
+        cifs = list_visible_files(cif_dir, ".cif")
         if not cifs:
             raise FileNotFoundError(f"No .cif files found in: {cif_dir}")
 
@@ -421,7 +423,7 @@ class PXRD:
         if not xy_dir.exists() or not xy_dir.is_dir():
             raise FileNotFoundError(f"XY folder not found: {xy_dir}")
 
-        xy_files = sorted(xy_dir.glob("*.xy"))
+        xy_files = list_visible_files(xy_dir, ".xy")
         if not xy_files:
             raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
 
@@ -561,7 +563,7 @@ class PXRD:
             if not xy_dir.exists() or not xy_dir.is_dir():
                 raise FileNotFoundError(f"XY folder not found: {xy_dir}")
 
-            xy_files = sorted(xy_dir.glob("*.xy"))
+            xy_files = list_visible_files(xy_dir, ".xy")
             if not xy_files:
                 raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
 
@@ -763,7 +765,7 @@ class PXRD:
             xy_dir = xy_root / selected_mode
             if not xy_dir.exists() or not xy_dir.is_dir():
                 raise FileNotFoundError(f"XY folder not found: {xy_dir}")
-            xy_files = sorted(xy_dir.glob("*.xy"))
+            xy_files = list_visible_files(xy_dir, ".xy")
             if not xy_files:
                 raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
 
@@ -1083,7 +1085,7 @@ class PXRD:
                 raise FileNotFoundError(
                     f"Optimization folder not found: {optimization_dir}"
                 )
-            cif_files = sorted(optimization_dir.glob("*.cif"))
+            cif_files = list_visible_files(optimization_dir, ".cif")
             if source_cif is not None:
                 cif_files = [optimization_dir / source_cif]
                 if not cif_files[0].is_file():
@@ -1231,7 +1233,7 @@ class PXRD:
             xy_dir = xy_root / selected_mode
             if not xy_dir.exists() or not xy_dir.is_dir():
                 raise FileNotFoundError(f"XY folder not found: {xy_dir}")
-            mode_files = sorted(xy_dir.glob("*.xy"))
+            mode_files = list_visible_files(xy_dir, ".xy")
             if not mode_files:
                 raise FileNotFoundError(
                     f"No simulated .xy files found in: {xy_dir}"
@@ -1463,7 +1465,9 @@ class PXRD:
             sim_root = Path(simulated_xy_folder)
             if mode_lower == "both":
                 direct_files = (
-                    sorted(sim_root.glob("*.xy")) if sim_root.is_dir() else []
+                    list_visible_files(sim_root, ".xy")
+                    if sim_root.is_dir()
+                    else []
                 )
                 if direct_files:
                     sim_files = direct_files
@@ -1479,7 +1483,7 @@ class PXRD:
                     raise FileNotFoundError(
                         f"Simulated XY folder not found: {sim_dir}"
                     )
-                mode_files = sorted(sim_dir.glob("*.xy"))
+                mode_files = list_visible_files(sim_dir, ".xy")
                 if not mode_files:
                     raise FileNotFoundError(
                         f"No simulated .xy files found in: {sim_dir}"

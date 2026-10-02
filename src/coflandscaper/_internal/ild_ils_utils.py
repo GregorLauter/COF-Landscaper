@@ -36,7 +36,7 @@ def list_cifs(input_folder: str) -> list[str]:
         for f in (
             os.path.join(input_folder, n) for n in os.listdir(input_folder)
         )
-        if f.endswith(".cif")
+        if f.endswith(".cif") and not os.path.basename(f).startswith(".")
     )
     if not files:
         raise FileNotFoundError(f"No .cif files found in '{input_folder}'")

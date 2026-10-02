@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .ild_ils_utils import get_mode_folders
+from .utilities import list_visible_files
 
 
 class Landscape:
@@ -648,7 +649,7 @@ class SelectCofs:
         out_path = Path(output_folder)
         out_path.mkdir(parents=True, exist_ok=True)
 
-        cif_files = sorted(in_path.glob("*.cif"))
+        cif_files = list_visible_files(in_path, ".cif")
         if not cif_files:
             raise FileNotFoundError(
                 f"No .cif files found in: {in_path.resolve()}"
