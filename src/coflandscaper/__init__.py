@@ -11,6 +11,7 @@ from coflandscaper._internal.build_cof_2d import (
     BuildCOF2D,
     ConstructCOFfromCIF,
 )
+from coflandscaper._internal.build_cof_3d import BuildCOF3D
 from coflandscaper._internal.dft import (
     Crystal,
     CrystalOpt,
@@ -54,6 +55,7 @@ __all__ = [
     "AnalyzeStacking",
     "BuildCOF1D",
     "BuildCOF2D",
+    "BuildCOF3D",
     "ChangeIld",
     "ConstructCOFfromCIF",
     "CreateMatrix",

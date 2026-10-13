@@ -199,7 +199,7 @@ In this context, the terms **node** and **linker** refer to the structural fragm
   </em>
 </p>
 
-Supported topologies:
+Supported 2D topologies:
 
 | Topology | Keyword | Description | Node amount | Node connectivity | Linker amount | Linker connectivity |
 |---|---|---|---:|---|---:|---|
@@ -229,6 +229,27 @@ Input fragments should ideally be pre-optimized with a generic force field, such
 The subsequent pre-optimization step handles the assembled framework. Therefore, the main requirement at this stage is that the individual fragments are chemically sensible and can be connected cleanly by the builder.
 
 The `.xyz` files can be prepared using any suitable molecular editor or visualizer, for example Avogadro, Mercury, or DrawMol.
+
+### 3D framework construction
+
+`BuildCOF3D` constructs fully periodic frameworks using the topologies bundled with PORMAKE and its standard builder. Inputs use the same He-marked XYZ convention as the other COF-Landscaper builders, including the existing 0.8 marker-distance adjustment.
+
+Use explicit mappings from PORMAKE node types to molecular files and from endpoint-type pairs to linker files. Missing or `None` linker assignments give direct node-to-node connections. `describe_topology` reports the required node connectivity and edge types:
+
+```python
+builder = cl.BuildCOF3D()
+builder.describe_topology("pts")
+outputs = builder.build(
+    topo="pts",
+    cof_name="N5-A6-pts",
+    input_nodes={0: "0_node/N5_2d_up.xyz", 1: "0_node/A6_3d.xyz"},
+    input_linkers={},
+)
+```
+
+The output is `N5-A6-pts/1_N5-A6-pts_framework/N5-A6-pts_unopt.cif`, or a directory supplied through `output_folder`. The builder retains PORMAKE's full 3D cell. It validates periodic connectivity in all three directions and checks the connection count of each supplied fragment.
+
+For full-cell relaxation, use `MaceOpt(fix_z=False).optimize_cof(input_path, output_path)` with explicit paths. The ILD/ILS stacking workflow applies to layers rather than these covalently connected 3D frameworks.
 
 ## Documentation
 

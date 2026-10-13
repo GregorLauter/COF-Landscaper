@@ -16,6 +16,7 @@ Classes for constructing COF structures and generating interlayer-distance
    :toctree: _autosummary
 
    coflandscaper.BuildCOF2D
+   coflandscaper.BuildCOF3D
    coflandscaper.CreateMatrix
    coflandscaper.ChangeIld
    coflandscaper.IlsSerr
