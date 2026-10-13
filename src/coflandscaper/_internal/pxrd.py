@@ -560,68 +560,83 @@ class PXRD:
             xy_dir = xy_root / selected_mode
             target_output = output_root / selected_mode
 
-            if not xy_dir.exists() or not xy_dir.is_dir():
-                raise FileNotFoundError(f"XY folder not found: {xy_dir}")
-
-            xy_files = list_visible_files(xy_dir, ".xy")
-            if not xy_files:
-                raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
-
-            rows: list[dict[str, object]] = []
-            for xy_file in xy_files:
-                two_theta, intensity = self._read_xy(xy_file)
-                max_intensity = (
-                    float(np.max(intensity)) if intensity.size else 0.0
-                )
-                if max_intensity > 0.0:
-                    rel_intensity = (intensity / max_intensity) * 100.0
-                else:
-                    rel_intensity = np.zeros_like(intensity, dtype=float)
-
-                data = np.column_stack((two_theta, rel_intensity))
-                data = data[data[:, 1] >= float(min_relative_intensity)]
-                data = data[np.argsort(data[:, 1])[::-1]]
-                if max_peaks > 0:
-                    data = data[:max_peaks]
-
-                for rank, (theta, rel) in enumerate(data, start=1):
-                    rows.append(
-                        {
-                            "structure": xy_file.stem,
-                            "rank": rank,
-                            "two_theta_deg": float(theta),
-                            "relative_intensity": float(rel),
-                        }
-                    )
-
-            df = pd.DataFrame(
-                rows,
-                columns=[
-                    "structure",
-                    "rank",
-                    "two_theta_deg",
-                    "relative_intensity",
-                ],
+            outputs[selected_mode] = self._extract_peaks_from_folder(
+                xy_dir=xy_dir,
+                target_output=target_output,
+                max_peaks=max_peaks,
+                min_relative_intensity=min_relative_intensity,
+                print_peaks=print_peaks,
+                save_csv=save_csv,
             )
 
-            if print_peaks:
-                for structure, group in df.groupby("structure", sort=False):
-                    print(f"Structure: {structure}")
-                    print(group.to_string(index=False))
-                    print()
-
-            if save_csv:
-                target_output.mkdir(parents=True, exist_ok=True)
-                for structure, structure_df in df.groupby(
-                    "structure", sort=False
-                ):
-                    structure_df.to_csv(
-                        target_output / f"{structure}_all.csv", index=False
-                    )
-
-            outputs[selected_mode] = df
-
         return outputs
+
+    def _extract_peaks_from_folder(
+        self,
+        xy_dir: Path,
+        target_output: Path,
+        max_peaks: int,
+        min_relative_intensity: float,
+        print_peaks: bool,
+        save_csv: bool,
+    ) -> pd.DataFrame:
+        """Extract and optionally save normalized peak tables for one XY folder."""
+        if not xy_dir.exists() or not xy_dir.is_dir():
+            raise FileNotFoundError(f"XY folder not found: {xy_dir}")
+
+        xy_files = list_visible_files(xy_dir, ".xy")
+        if not xy_files:
+            raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
+
+        rows: list[dict[str, object]] = []
+        for xy_file in xy_files:
+            two_theta, intensity = self._read_xy(xy_file)
+            max_intensity = float(np.max(intensity)) if intensity.size else 0.0
+            if max_intensity > 0.0:
+                rel_intensity = (intensity / max_intensity) * 100.0
+            else:
+                rel_intensity = np.zeros_like(intensity, dtype=float)
+
+            data = np.column_stack((two_theta, rel_intensity))
+            data = data[data[:, 1] >= float(min_relative_intensity)]
+            data = data[np.argsort(data[:, 1])[::-1]]
+            if max_peaks > 0:
+                data = data[:max_peaks]
+
+            for rank, (theta, rel) in enumerate(data, start=1):
+                rows.append(
+                    {
+                        "structure": xy_file.stem,
+                        "rank": rank,
+                        "two_theta_deg": float(theta),
+                        "relative_intensity": float(rel),
+                    }
+                )
+
+        df = pd.DataFrame(
+            rows,
+            columns=[
+                "structure",
+                "rank",
+                "two_theta_deg",
+                "relative_intensity",
+            ],
+        )
+
+        if print_peaks:
+            for structure, group in df.groupby("structure", sort=False):
+                print(f"Structure: {structure}")
+                print(group.to_string(index=False))
+                print()
+
+        if save_csv:
+            target_output.mkdir(parents=True, exist_ok=True)
+            for structure, structure_df in df.groupby("structure", sort=False):
+                structure_df.to_csv(
+                    target_output / f"{structure}_all.csv", index=False
+                )
+
+        return df
 
     def _fit_exp_peak(
         self,
@@ -1240,12 +1255,46 @@ class PXRD:
                 )
             sim_files.extend((selected_mode, path) for path in mode_files)
 
+        plot_files = [
+            (sim_file, output_root / selected_mode / f"{sim_file.stem}.pdf")
+            for selected_mode, sim_file in sim_files
+        ]
+        stacking_by_file: dict[Path, tuple[float, float]] = {}
+        if show_stacking_values:
+            for selected_mode, sim_file in sim_files:
+                values = self._load_stacking_values(
+                    cof_name=cof_name,
+                    source=source,
+                    mode=selected_mode,
+                    structure_filename=f"{sim_file.stem}.cif",
+                    dft=dft,
+                )
+                if values is not None:
+                    stacking_by_file[sim_file] = values
+        return self._plot_sim_files(
+            plot_files=plot_files,
+            xlim=plot_xlim,
+            show=show,
+            save=save,
+            stacking_by_file=stacking_by_file,
+        )
+
+    def _plot_sim_files(
+        self,
+        plot_files: list[tuple[Path, Path]],
+        xlim: tuple[float, float],
+        show: bool,
+        save: bool,
+        stacking_by_file: dict[Path, tuple[float, float]] | None = None,
+    ) -> list[str]:
+        """Plot explicit simulated files with optional layer annotations."""
+        stacking_by_file = {} if stacking_by_file is None else stacking_by_file
         figure_width = 15.0
         figure_height = 5.0
         dpi = 500
         outputs: list[str] = []
 
-        for selected_mode, sim_file in sim_files:
+        for sim_file, output_path in plot_files:
             x_sim, y_sim = self._read_xy(sim_file)
             x_sim = np.asarray(x_sim, dtype=float)
             y_sim = np.asarray(y_sim, dtype=float)
@@ -1253,7 +1302,7 @@ class PXRD:
             x_sim = x_sim[order]
             y_sim = y_sim[order]
             sim_shifted = y_sim - np.nanmin(y_sim)
-            y_max = self._visible_y_max(x_sim, sim_shifted, plot_xlim)
+            y_max = self._visible_y_max(x_sim, sim_shifted, xlim)
 
             fig, ax = plt.subplots(figsize=(figure_width, figure_height))
             ax.vlines(
@@ -1266,32 +1315,25 @@ class PXRD:
             )
 
             handles: list[Line2D] = []
-            if show_stacking_values:
-                stacking_values = self._load_stacking_values(
-                    cof_name=cof_name,
-                    source=source,
-                    mode=selected_mode,
-                    structure_filename=f"{sim_file.stem}.cif",
-                    dft=dft,
+            stacking_values = stacking_by_file.get(sim_file)
+            if stacking_values is not None:
+                ild, ils = stacking_values
+                handles.extend(
+                    [
+                        Line2D(
+                            [],
+                            [],
+                            color="none",
+                            label=f"ILD = {ild:.2f} Å",
+                        ),
+                        Line2D(
+                            [],
+                            [],
+                            color="none",
+                            label=f"ILS = {ils:.2f} Å",
+                        ),
+                    ]
                 )
-                if stacking_values is not None:
-                    ild, ils = stacking_values
-                    handles.extend(
-                        [
-                            Line2D(
-                                [],
-                                [],
-                                color="none",
-                                label=f"ILD = {ild:.2f} Å",
-                            ),
-                            Line2D(
-                                [],
-                                [],
-                                color="none",
-                                label=f"ILS = {ils:.2f} Å",
-                            ),
-                        ]
-                    )
             if handles:
                 ax.legend(
                     handles=handles,
@@ -1308,13 +1350,12 @@ class PXRD:
             ax.tick_params(axis="x", labelbottom=True)
             ax.set_yticks([])
             ax.tick_params(axis="y", length=0)
-            ax.set_xlim(*plot_xlim)
+            ax.set_xlim(*xlim)
             ax.set_xlabel(r"2$\theta$ (°)", fontsize=14)
             ax.set_ylabel("Intensity (a.u.)", fontsize=14)
             ax.tick_params(axis="both", labelsize=11)
             fig.tight_layout()
 
-            output_path = output_root / selected_mode / f"{sim_file.stem}.pdf"
             if save:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 fig.savefig(str(output_path), dpi=dpi, bbox_inches="tight")
@@ -1500,6 +1541,55 @@ class PXRD:
             )
         )
 
+        plot_files = [
+            (
+                sim_file,
+                output_root / sim_file.parent.name / f"{sim_file.stem}.pdf"
+                if default_output
+                else output_root / f"{sim_file.stem}.pdf",
+            )
+            for sim_file in sim_files
+        ]
+        stacking_by_file: dict[Path, tuple[float, float]] = {}
+        if show_stacking_values:
+            for sim_file in sim_files:
+                values = self._load_stacking_values(
+                    cof_name=cof_name,
+                    source=source,
+                    mode=(
+                        mode_lower
+                        if mode_lower != "both"
+                        else sim_file.parent.name
+                    ),
+                    structure_filename=f"{sim_file.stem}.cif",
+                    dft=dft,
+                )
+                if values is not None:
+                    stacking_by_file[sim_file] = values
+        return self._plot_sim_vs_exp_files(
+            plot_files=plot_files,
+            exp_path=exp_path,
+            xlim=(1.5, 30.0) if isinstance(xlim, str) else xlim,
+            region_selector=region_selector,
+            show_color_legend=show_color_legend,
+            show=show,
+            save=save,
+            stacking_by_file=stacking_by_file,
+        )
+
+    def _plot_sim_vs_exp_files(
+        self,
+        plot_files: list[tuple[Path, Path]],
+        exp_path: Path,
+        xlim: tuple[float, float],
+        show_color_legend: bool,
+        show: bool,
+        save: bool,
+        region_selector: int | None = None,
+        stacking_by_file: dict[Path, tuple[float, float]] | None = None,
+    ) -> list[str]:
+        """Compare explicit simulated files with a shared experimental profile."""
+        stacking_by_file = {} if stacking_by_file is None else stacking_by_file
         x_exp, y_exp = self._read_xy(exp_path)
         x_exp = np.asarray(x_exp, dtype=float)
         y_exp = np.asarray(y_exp, dtype=float)
@@ -1509,7 +1599,7 @@ class PXRD:
         dpi = 500
         outputs: list[str] = []
 
-        for sim_file in sim_files:
+        for sim_file, output_path in plot_files:
             structure_peak_data = self._peak_data_by_structure.get(
                 sim_file.stem
             )
@@ -1593,36 +1683,25 @@ class PXRD:
                         Line2D([], [], color="black", label="Simulated"),
                     ]
                 )
-            if show_stacking_values:
-                stacking_values = self._load_stacking_values(
-                    cof_name=cof_name,
-                    source=source,
-                    mode=(
-                        mode_lower
-                        if mode_lower != "both"
-                        else sim_file.parent.name
-                    ),
-                    structure_filename=f"{sim_file.stem}.cif",
-                    dft=dft,
+            stacking_values = stacking_by_file.get(sim_file)
+            if stacking_values is not None:
+                ild, ils = stacking_values
+                handles.extend(
+                    [
+                        Line2D(
+                            [],
+                            [],
+                            color="none",
+                            label=f"ILD = {ild:.2f} Å",
+                        ),
+                        Line2D(
+                            [],
+                            [],
+                            color="none",
+                            label=f"ILS = {ils:.2f} Å",
+                        ),
+                    ]
                 )
-                if stacking_values is not None:
-                    ild, ils = stacking_values
-                    handles.extend(
-                        [
-                            Line2D(
-                                [],
-                                [],
-                                color="none",
-                                label=f"ILD = {ild:.2f} Å",
-                            ),
-                            Line2D(
-                                [],
-                                [],
-                                color="none",
-                                label=f"ILS = {ils:.2f} Å",
-                            ),
-                        ]
-                    )
             if handles:
                 ax.legend(
                     handles=handles,
@@ -1650,12 +1729,6 @@ class PXRD:
             ax.tick_params(axis="both", labelsize=11)
             fig.tight_layout()
 
-            if default_output:
-                output_path = (
-                    output_root / sim_file.parent.name / f"{sim_file.stem}.pdf"
-                )
-            else:
-                output_path = output_root / f"{sim_file.stem}.pdf"
             if save:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 fig.savefig(str(output_path), dpi=dpi, bbox_inches="tight")
@@ -1669,3 +1742,253 @@ class PXRD:
             )
 
         return outputs
+
+
+class PXRD3D:
+    """Simulate and plot PXRD patterns for optimized 3D COF frameworks.
+
+    The class reuses the PXRD simulation, peak extraction, and plotting routines
+    without layer-stacking modes or in-plane refinement. Default input CIFs are
+    read from ``{cof_name}/2_{cof_name}_optimization``. Simulated patterns, peak
+    tables, and plots are written under ``{cof_name}/3_{cof_name}_analysis``.
+    """
+
+    def __init__(
+        self,
+        wavelength: str = "CuKa",
+        two_theta_range: tuple[float, float] = (1.5, 30.0),
+    ) -> None:
+        """Initialize PXRD simulation settings.
+
+        Args:
+            wavelength: X-ray wavelength preset accepted by ``XRDCalculator``.
+                Defaults to ``"CuKa"``.
+            two_theta_range: Simulated and default plotted 2-theta range in
+                degrees. Defaults to ``(1.5, 30.0)``.
+        """
+        self._pxrd = PXRD(
+            wavelength=wavelength,
+            two_theta_range=two_theta_range,
+        )
+        self._two_theta_range = two_theta_range
+
+    @staticmethod
+    def _analysis_root(cof_name: str) -> Path:
+        """Return the default analysis folder for a 3D framework."""
+        return Path(cof_name) / f"3_{cof_name}_analysis"
+
+    @staticmethod
+    def _xy_files(xy_dir: Path) -> list[Path]:
+        """Return the simulated XY files in one folder, requiring at least one."""
+        if not xy_dir.exists() or not xy_dir.is_dir():
+            raise FileNotFoundError(f"XY folder not found: {xy_dir}")
+        xy_files = list_visible_files(xy_dir, ".xy")
+        if not xy_files:
+            raise FileNotFoundError(
+                f"No simulated .xy files found in: {xy_dir}"
+            )
+        return xy_files
+
+    def run(
+        self,
+        cof_name: str,
+        input_folder: str | Path | None = None,
+        output_folder: str | Path | None = None,
+    ) -> str:
+        """Simulate PXRD patterns for all optimized frameworks in one folder.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            input_folder: Optional folder containing CIF structures. Defaults
+                to ``{cof_name}/2_{cof_name}_optimization``.
+            output_folder: Optional folder for simulated XY patterns. Defaults
+                to ``{cof_name}/3_{cof_name}_analysis/pxrd_xy``.
+
+        Returns:
+            Path to the folder containing the generated ``.xy`` files.
+
+        Raises:
+            FileNotFoundError: If the input folder is missing or has no CIFs.
+        """
+        cif_dir = (
+            Path(input_folder)
+            if input_folder is not None
+            else Path(cof_name) / f"2_{cof_name}_optimization"
+        )
+        xy_dir = (
+            Path(output_folder)
+            if output_folder is not None
+            else self._analysis_root(cof_name) / "pxrd_xy"
+        )
+        return self._pxrd.produce_xy(cif_dir, xy_dir)
+
+    def extract_peaks(
+        self,
+        cof_name: str,
+        xy_folder: str | Path | None = None,
+        output_folder: str | Path | None = None,
+        max_peaks: int = 100,
+        min_relative_intensity: float = 1.0,
+        print_peaks: bool = False,
+        save_csv: bool = True,
+    ) -> pd.DataFrame:
+        """Extract normalized reflection tables for simulated 3D frameworks.
+
+        Intensities are normalized against each complete simulated pattern,
+        filtered by relative intensity, and ranked from strongest to weakest.
+        When saving is enabled, each structure gets one ``<structure>_all.csv``.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            xy_folder: Optional folder of simulated XY patterns. Defaults to
+                ``{cof_name}/3_{cof_name}_analysis/pxrd_xy``.
+            output_folder: Optional folder for peak CSV files. Defaults to
+                ``{cof_name}/3_{cof_name}_analysis/pxrd_peaks``.
+            max_peaks: Maximum reflections retained per structure. Values
+                less than or equal to zero retain all reflections. Defaults
+                to ``100``.
+            min_relative_intensity: Minimum relative intensity in percent.
+                Defaults to ``1.0``.
+            print_peaks: Whether to print each structure's table. Defaults
+                to ``False``.
+            save_csv: Whether to write the CSV files. Defaults to ``True``.
+
+        Returns:
+            DataFrame with columns ``structure``, ``rank``, ``two_theta_deg``,
+            and ``relative_intensity`` for all simulated structures.
+
+        Raises:
+            FileNotFoundError: If the XY folder is missing or empty.
+        """
+        xy_dir = (
+            Path(xy_folder)
+            if xy_folder is not None
+            else self._analysis_root(cof_name) / "pxrd_xy"
+        )
+        target_output = (
+            Path(output_folder)
+            if output_folder is not None
+            else self._analysis_root(cof_name) / "pxrd_peaks"
+        )
+        return self._pxrd._extract_peaks_from_folder(
+            xy_dir=xy_dir,
+            target_output=target_output,
+            max_peaks=max_peaks,
+            min_relative_intensity=min_relative_intensity,
+            print_peaks=print_peaks,
+            save_csv=save_csv,
+        )
+
+    def plot_sim(
+        self,
+        cof_name: str,
+        xy_folder: str | Path | None = None,
+        output_folder: str | Path | None = None,
+        xlim: tuple[float, float] | None = None,
+        show: bool = True,
+        save: bool = True,
+    ) -> list[str]:
+        """Plot one simulated PXRD pattern per 3D framework.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            xy_folder: Optional folder of simulated XY patterns. Defaults to
+                ``{cof_name}/3_{cof_name}_analysis/pxrd_xy``.
+            output_folder: Optional folder for structure-specific PDFs.
+                Defaults to ``{cof_name}/3_{cof_name}_analysis/pxrd_plots/simulated``.
+            xlim: Optional plotted 2-theta interval in degrees. Defaults to
+                the range configured when constructing ``PXRD3D``.
+            show: Whether to display figures. Defaults to ``True``.
+            save: Whether to save PDF files. Defaults to ``True``.
+
+        Returns:
+            List of structure-specific PDF paths. Paths are returned even
+            when ``save=False``.
+
+        Raises:
+            FileNotFoundError: If the XY folder is missing or empty.
+        """
+        xy_dir = (
+            Path(xy_folder)
+            if xy_folder is not None
+            else self._analysis_root(cof_name) / "pxrd_xy"
+        )
+        output_root = (
+            Path(output_folder)
+            if output_folder is not None
+            else self._analysis_root(cof_name) / "pxrd_plots" / "simulated"
+        )
+        plot_files = [
+            (sim_file, output_root / f"{sim_file.stem}.pdf")
+            for sim_file in self._xy_files(xy_dir)
+        ]
+        return self._pxrd._plot_sim_files(
+            plot_files=plot_files,
+            xlim=self._two_theta_range if xlim is None else xlim,
+            show=show,
+            save=save,
+        )
+
+    def plot_sim_vs_exp(
+        self,
+        cof_name: str,
+        exp_xy_file: str | Path | None = None,
+        simulated_xy_folder: str | Path | None = None,
+        output_folder: str | Path | None = None,
+        xlim: tuple[float, float] | None = None,
+        show_color_legend: bool = True,
+        show: bool = True,
+        save: bool = True,
+    ) -> list[str]:
+        """Compare experimental PXRD data with each simulated 3D framework.
+
+        Experimental intensities are plotted as a continuous profile. Simulated
+        reflections are rescaled within the visible range for comparison.
+
+        Args:
+            cof_name: COF name used for default path construction.
+            exp_xy_file: Optional experimental XY file. If omitted, exactly
+                one XY file must exist in ``experimental_pxrd/``.
+            simulated_xy_folder: Optional folder of simulated XY patterns.
+                Defaults to ``{cof_name}/3_{cof_name}_analysis/pxrd_xy``.
+            output_folder: Optional folder for structure-specific PDFs.
+                Defaults to ``{cof_name}/3_{cof_name}_analysis/pxrd_plots``.
+            xlim: Optional plotted 2-theta interval in degrees. Defaults to
+                the range configured when constructing ``PXRD3D``.
+            show_color_legend: Whether to display the experimental and
+                simulated legend entries. Defaults to ``True``.
+            show: Whether to display figures. Defaults to ``True``.
+            save: Whether to save PDF files. Defaults to ``True``.
+
+        Returns:
+            List of structure-specific comparison PDF paths. Paths are
+            returned even when ``save=False``.
+
+        Raises:
+            FileNotFoundError: If experimental or simulated data are missing.
+            ValueError: If automatic experimental-file discovery finds
+                multiple files.
+        """
+        exp_path = self._pxrd._resolve_exp_xy_file(exp_xy_file)
+        xy_dir = (
+            Path(simulated_xy_folder)
+            if simulated_xy_folder is not None
+            else self._analysis_root(cof_name) / "pxrd_xy"
+        )
+        output_root = (
+            Path(output_folder)
+            if output_folder is not None
+            else self._analysis_root(cof_name) / "pxrd_plots"
+        )
+        plot_files = [
+            (sim_file, output_root / f"{sim_file.stem}.pdf")
+            for sim_file in self._xy_files(xy_dir)
+        ]
+        return self._pxrd._plot_sim_vs_exp_files(
+            plot_files=plot_files,
+            exp_path=exp_path,
+            xlim=self._two_theta_range if xlim is None else xlim,
+            show_color_legend=show_color_legend,
+            show=show,
+            save=save,
+        )

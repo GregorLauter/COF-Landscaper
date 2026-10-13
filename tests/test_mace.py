@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from ase import Atoms
+from ase.io import read
 
 import coflandscaper as cl
 
@@ -474,3 +476,108 @@ def test_run_both_routes_modes_independently(
             "cof-a/6_cof-a_scaling/postopt/incl/incl.cif",
         ),
     ]
+
+
+@pytest.mark.unit
+def test_mace_opt3d_defaults_without_model_download(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The 3D wrapper retains MACE defaults and always enables z relaxation."""
+    calculator_settings: dict[str, object] = {}
+
+    def fake_make_calc(_self, **kwargs) -> object:
+        calculator_settings.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(cl.MaceOpt, "_make_calc", fake_make_calc)
+    opt = cl.MaceOpt3D(verbose=False)
+    assert opt._fix_z is False
+    assert opt._fmax == 0.01
+    assert opt._max_steps == 2000
+    assert calculator_settings["model"] == "mh-1"
+    assert calculator_settings["dtype"] == "float64"
+    assert calculator_settings["device"] == "cpu"
+    settings = calculator_settings["calc_settings"]
+    assert isinstance(settings, dict)
+    assert settings["head"] == "spice_wB97M"
+
+
+@pytest.mark.unit
+def test_mace_opt3d_relaxes_atoms_and_full_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Default 3D routing uses full-cell optimization without z constraints."""
+    monkeypatch.chdir(tmp_path)
+    source = Path("cof-a/1_cof-a_framework/cof-a_unopt.cif")
+    source.parent.mkdir(parents=True)
+    source.write_text("data_dummy\n", encoding="utf-8")
+    atoms = Atoms("C", positions=[[1, 2, 3]], cell=[10, 11, 12], pbc=True)
+    seen: dict[str, object] = {}
+    filter_target = object()
+    module = importlib.import_module(cl.MaceOpt.__module__)
+
+    def fake_filter(target: Atoms) -> object:
+        seen["filter_atoms"] = target
+        assert target.constraints == []
+        return filter_target
+
+    class FakeOptimizer:
+        def __init__(self, target: object) -> None:
+            seen["optimizer_target"] = target
+
+        def run(self, fmax: float, steps: int) -> bool:
+            seen["fmax"] = fmax
+            seen["steps"] = steps
+            atoms.positions[:, 2] += 1
+            atoms.set_cell([10, 11, 13])
+            return True
+
+    monkeypatch.setattr(module, "read", lambda _path: atoms)
+    monkeypatch.setattr(module, "FrechetCellFilter", fake_filter)
+    monkeypatch.setattr(module, "LBFGS", FakeOptimizer)
+    monkeypatch.setattr(
+        cl.MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    converged = cl.MaceOpt3D(fmax=0.02, max_steps=7, verbose=False).run(
+        "cof-a"
+    )
+    assert converged is True
+    assert seen == {
+        "filter_atoms": atoms,
+        "optimizer_target": filter_target,
+        "fmax": 0.02,
+        "steps": 7,
+    }
+    output = Path("cof-a/2_cof-a_optimization/cof-a_opt.cif")
+    written = read(output)
+    assert isinstance(written, Atoms)
+    assert written.cell.cellpar() == pytest.approx([10, 11, 13, 90, 90, 90])
+    assert written.positions[0, 2] == pytest.approx(4.0)
+
+
+@pytest.mark.unit
+def test_mace_opt3d_custom_routing_and_missing_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Explicit routes preserve convergence and missing CIFs fail before optimization."""
+    monkeypatch.setattr(
+        cl.MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    opt = cl.MaceOpt3D(verbose=False)
+    source = tmp_path / "source.cif"
+    source.write_text("data_dummy\n", encoding="utf-8")
+    output = tmp_path / "results"
+    calls: list[tuple[str, str, bool]] = []
+
+    def fake_optimize(input_path: str, output_path: str) -> bool:
+        calls.append((input_path, output_path, opt._fix_z))
+        return False
+
+    monkeypatch.setattr(opt, "optimize_cof", fake_optimize)
+    assert opt.run("cof-a", input_cif=source, output_folder=output) is False
+    assert calls == [(str(source), str(output / "cof-a_opt.cif"), False)]
+    with pytest.raises(FileNotFoundError, match=r"missing\.cif"):
+        opt.run(
+            "cof-a", input_cif=tmp_path / "missing.cif", output_folder=output
+        )
+    assert len(calls) == 1

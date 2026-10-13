@@ -45,13 +45,15 @@ from coflandscaper._internal.landscape import (
 from coflandscaper._internal.mace import (
     Mace,
     MaceOpt,
+    MaceOpt3D,
     MaceSP,
     calculator_settings_for_head,
 )
-from coflandscaper._internal.pxrd import PXRD
+from coflandscaper._internal.pxrd import PXRD, PXRD3D
 
 __all__ = [
     "PXRD",
+    "PXRD3D",
     "AnalyzeStacking",
     "BuildCOF1D",
     "BuildCOF2D",
@@ -67,6 +69,7 @@ __all__ = [
     "Landscape",
     "Mace",
     "MaceOpt",
+    "MaceOpt3D",
     "MaceSP",
     "SelectCofs",
     "Supercell",

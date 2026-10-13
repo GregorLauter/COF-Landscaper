@@ -901,3 +901,100 @@ class MaceOpt(Mace):
                 convergence_map=convergence_map,
             )
             print(f"Saved optimized energies: {csv_path}")
+
+
+class MaceOpt3D(MaceOpt):
+    """Relax a complete 3D framework with the standard MACE settings.
+
+    Atomic motion is free along x, y, and z, and the complete cell is relaxed
+    through the existing ``FrechetCellFilter`` and ``LBFGS`` workflow. The
+    constructor retains the model, head, precision, device, and convergence
+    defaults of ``MaceOpt``. No layer-stacking mode is needed by :meth:`run`.
+    """
+
+    def __init__(
+        self,
+        fmax: float = 0.01,
+        dtype: str = "float64",
+        head: str = "spice_wB97M",
+        model: str | None = None,
+        device: str = "cpu",
+        max_steps: int = 2000,
+        verbose: bool = True,
+    ) -> None:
+        """Initialize the standard calculator with unconstrained atomic motion.
+
+        Args:
+            fmax: Force convergence threshold in eV/Angstrom. Defaults to ``0.01``.
+            dtype: MACE precision. Defaults to ``"float64"``.
+            head: MACE head preset. Defaults to ``"spice_wB97M"``.
+            model: Optional model identifier. ``None`` resolves to ``"mh-1"``.
+            device: Torch device. Defaults to ``"cpu"``.
+            max_steps: Maximum optimization steps. Defaults to ``2000``.
+            verbose: Whether to log calculator initialization. Defaults to ``True``.
+        """
+        super().__init__(
+            fmax=fmax,
+            dtype=dtype,
+            head=head,
+            model=model,
+            device=device,
+            fix_z=False,
+            max_steps=max_steps,
+            verbose=verbose,
+        )
+
+    def run(
+        self,
+        cof_name: str,
+        input_cif: str | Path | None = None,
+        output_folder: str | Path | None = None,
+    ) -> bool:
+        """Optimize a 3D framework and export its current full-cell structure.
+
+        Args:
+            cof_name: Nonempty framework name without directory components.
+            input_cif: Optional input CIF. Defaults to
+                ``{cof_name}/1_{cof_name}_framework/{cof_name}_unopt.cif``.
+            output_folder: Optional output directory. Defaults to
+                ``{cof_name}/2_{cof_name}_optimization``. Overrides are relative
+                to the caller's working directory when not absolute.
+
+        Returns:
+            Whether optimization converged. The current structure is written as
+            ``{cof_name}_opt.cif`` in either case, following ``MaceOpt`` behaviour.
+
+        Raises:
+            ValueError: If ``cof_name`` is empty or contains directory components.
+            FileNotFoundError: If the resolved input CIF is missing.
+        """
+        if (
+            not cof_name
+            or cof_name in (".", "..")
+            or Path(cof_name).name != cof_name
+        ):
+            raise ValueError(
+                "cof_name must be a nonempty name without directory components"
+            )
+        source = (
+            Path(input_cif)
+            if input_cif is not None
+            else (
+                Path(cof_name)
+                / f"1_{cof_name}_framework"
+                / f"{cof_name}_unopt.cif"
+            )
+        )
+        if not source.is_file():
+            raise FileNotFoundError(f"Missing input CIF: {source}")
+        folder = (
+            Path(output_folder)
+            if output_folder is not None
+            else (Path(cof_name) / f"2_{cof_name}_optimization")
+        )
+        folder.mkdir(parents=True, exist_ok=True)
+        output = folder / f"{cof_name}_opt.cif"
+        converged = self.optimize_cof(str(source), str(output))
+        print("Converged" if converged else "Not converged")
+        print(f"Saved: {output}")
+        return converged
