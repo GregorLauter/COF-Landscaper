@@ -205,6 +205,7 @@ Supported topologies:
 |---|---|---|---:|---|---:|---|
 | Honeycomb | `hcb` | Standard honeycomb lattice. | 1 | 3 | 1 | 2 |
 | Square lattice | `sql` | Square lattice. | 1 | 4 | 1 | 2 |
+| Binary square | `sql_ab` | Alternating four-connected A/B nodes with direct connections and no separate linker. | 2 | 4 each | 0 | — |
 | Binary honeycomb | `hcb_ab` | Honeycomb lattice constructed from two different node types without a separate linker. | 2 | 3 each | 0 | — |
 | Kagome | `kgm` | Kagome lattice. | 1 | 4 | 1 | 2 |
 
@@ -217,7 +218,8 @@ During preprocessing, COF-Landscaper converts these `He` atoms into PORMAKE-comp
 Input requirements:
 
 - `hcb`, `sql`, and `kgm` require one node `.xyz` file and one linker `.xyz` file.
-- `hcb_ab` requires two node `.xyz` files and no linker file.
+- `hcb_ab` and `sql_ab` require two node `.xyz` files and no linker file.
+- For `sql_ab`, each node needs four He connection markers. Explicit input order defines A then B; folder inputs use alphabetical filename order.
 - By default, node files are read from `0_node/`.
 - By default, linker files are read from `0_linker/` when required by the topology.
 - Explicit paths can be provided with `input_nodes=[...]` and `input_linkers=[...]`.

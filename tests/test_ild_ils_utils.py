@@ -341,3 +341,79 @@ def test_ladder_matrix_actual_shift(
         np.allclose(s - expected - np.round(s - expected), 0, atol=1e-7)
         for s in shifts
     )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("stacking_class", [cl.IlsSerr, cl.IlsIncl])
+@pytest.mark.parametrize("override", [False, True])
+def test_sql_ab_shift_and_stacking(
+    tmp_path: Path, stacking_class: type, override: bool
+) -> None:
+    """Both representations write the binary square shift or explicit overrides."""
+    from pymatgen.core import Lattice, Structure
+    from pymatgen.io.cif import CifWriter
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    source = source_dir / "binary.cif"
+    CifWriter(
+        Structure(
+            Lattice.orthorhombic(6, 8, 15),
+            ["C", "N"],
+            [[0, 0, 0.5], [0.5, 0.5, 0.5]],
+        )
+    ).write_file(source)
+    length, angle = cl.default_shift_from_cif(str(source), "sql_ab")
+    assert length == pytest.approx(5)
+    assert angle == pytest.approx(np.degrees(np.arctan2(4, 3)))
+    options = {"ils_length_end": 1.5, "ils_angle": 0.0} if override else {}
+    endpoint = 1.5 if override else length
+    target = tmp_path / "shifted"
+    stacking_class().run(
+        input_folder=str(source_dir),
+        output_folder=str(target),
+        topo="sql_ab",
+        ils_length_step=endpoint,
+        **options,
+    )
+    paths = list(target.glob("*.cif"))
+    assert len(paths) == 2
+    expected = (
+        np.array([1.5, 0.0, 0.0]) if override else np.array([3.0, 4.0, 0.0])
+    )
+    parent = Structure.from_file(source)
+    for path in paths:
+        written = Structure.from_file(path)
+        shift = np.zeros(3) if "L000" in path.stem else expected
+        if stacking_class is cl.IlsIncl:
+            a_vec, b_vec, c_vec = written.lattice.matrix
+            # CIF reading rotates the cell; dot products retain the physical shift.
+            assert np.dot(c_vec, a_vec) == pytest.approx(
+                shift[0] * 6, abs=2e-6
+            )
+            assert np.dot(c_vec, b_vec) == pytest.approx(
+                shift[1] * 8, abs=2e-6
+            )
+            assert written.lattice.c == pytest.approx(
+                np.linalg.norm(shift + np.array([0, 0, 15])), abs=1e-7
+            )
+            reference_delta = parent.cart_coords[1] - parent.cart_coords[0]
+            written_delta = written.cart_coords[1] - written.cart_coords[0]
+            assert np.linalg.norm(written_delta) == pytest.approx(
+                np.linalg.norm(reference_delta), abs=1e-7
+            )
+        else:
+            assert len(written) == 4
+            assert written.lattice.c == pytest.approx(30)
+            for site in written:
+                reference = next(p for p in parent if p.specie == site.specie)
+                delta = site.frac_coords[:2] - reference.frac_coords[:2]
+                expected_frac = (
+                    parent.lattice.get_fractional_coords(shift)[:2]
+                    if site.frac_coords[2] > 0.5
+                    else np.zeros(2)
+                )
+                delta -= expected_frac
+                assert delta - np.round(delta) == pytest.approx(
+                    np.zeros(2), abs=1e-7
+                )

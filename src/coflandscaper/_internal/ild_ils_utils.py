@@ -326,7 +326,10 @@ def default_shift_from_cif(
         The default interlayer slipping (ILS) magnitude and direction are derived from
         the in-plane lattice vectors of the supplied structure.
 
-        For ``sql``, the shift corresponds to half of the ``a + b`` diagonal.
+        For ``sql`` and ``sql_ab``, the shift corresponds to half of the ``a + b`` diagonal.
+
+        For ``sql_ab``, this reaches the A-over-B registry along a grid edge
+        in its binary cell.
 
         For ``hcb`` and ``kgm``, the shift corresponds to the symmetry-equivalent
         fractional lattice vector ``(a + 2b) / 3``. Its length and angle are
@@ -340,7 +343,7 @@ def default_shift_from_cif(
 
     Args:
         input_file: CIF structure path.
-        topo: Topology selector: ``"sql"``, ``"hcb"``, ``"kgm"``, or ``"ladder_1d"``.
+        topo: Topology selector: ``"sql"``, ``"sql_ab"``, ``"hcb"``, ``"kgm"``, or ``"ladder_1d"``.
         print_shift: Whether to print the calculated default shift.
             Defaults to ``False``.
 
@@ -351,8 +354,10 @@ def default_shift_from_cif(
     Raises:
         ValueError: If ``topo`` is unsupported.
     """
-    if topo not in ("sql", "hcb", "kgm", "ladder_1d"):
-        raise ValueError("topo must be 'sql', 'hcb', 'kgm', or 'ladder_1d'")
+    if topo not in ("sql", "sql_ab", "hcb", "kgm", "ladder_1d"):
+        raise ValueError(
+            "topo must be 'sql', 'sql_ab', 'hcb', 'kgm', or 'ladder_1d'"
+        )
     struct = Structure.from_file(input_file)
     if topo == "ladder_1d":
         length = float(struct.lattice.b / 2.0)
