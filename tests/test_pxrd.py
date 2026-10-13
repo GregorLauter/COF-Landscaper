@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from ase import Atoms
 from ase.io import read, write
+from pymatgen.core import Lattice, Structure
 
 import coflandscaper as cl
 
@@ -218,6 +219,8 @@ class _FakePattern:
     def __init__(self) -> None:
         self.x = np.array([5.0, 10.0, 15.0])
         self.y = np.array([10.0, 25.0, 5.0])
+        self.d_hkls = [17.7, 8.8, 5.9]
+        self.hkls = [[{"hkl": (1, 0, 0), "multiplicity": 2}]] * 3
 
 
 class _FakeCalculator:
@@ -247,7 +250,11 @@ def test_produce_xy_writes_xy_for_each_cif(
 
     module = importlib.import_module(cl.PXRD.__module__)
     monkeypatch.setattr(module, "XRDCalculator", _FakeCalculator)
-    monkeypatch.setattr(module.Structure, "from_file", lambda _path: object())
+    monkeypatch.setattr(
+        module.Structure,
+        "from_file",
+        lambda _path: Structure(Lattice.cubic(4), ["C"], [[0, 0, 0]]),
+    )
 
     pxrd = cl.PXRD()
     output = pxrd.produce_xy(input_folder=input_dir, output_folder=output_dir)
@@ -322,6 +329,9 @@ def test_extract_peaks_single_mode_default_routing(
         "rank",
         "two_theta_deg",
         "relative_intensity",
+        "d_spacing_angstrom",
+        "hkls",
+        "multiplicities",
     ]
     assert (
         tmp_path
@@ -817,6 +827,9 @@ def test_pxrd3d_extracts_flat_peak_tables(
         "rank",
         "two_theta_deg",
         "relative_intensity",
+        "d_spacing_angstrom",
+        "hkls",
+        "multiplicities",
     ]
     assert peaks.to_dict("records") == [
         {
@@ -824,6 +837,9 @@ def test_pxrd3d_extracts_flat_peak_tables(
             "rank": 1,
             "two_theta_deg": 8.0,
             "relative_intensity": 100.0,
+            "d_spacing_angstrom": None,
+            "hkls": None,
+            "multiplicities": None,
         }
     ]
     csv_path = Path("cof-a/3_cof-a_analysis/pxrd_peaks/cof-a_opt_all.csv")

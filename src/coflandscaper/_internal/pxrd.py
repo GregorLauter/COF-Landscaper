@@ -11,6 +11,7 @@ after PXRD-guided scaling and fixed-cell postoptimization.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -24,6 +25,12 @@ from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
 from scipy.optimize import curve_fit
 
+from .reflections import (
+    annotate_reflections,
+    load_reflections,
+    save_reflections,
+    validate_annotation_options,
+)
 from .utilities import list_visible_files
 
 if TYPE_CHECKING:
@@ -354,8 +361,9 @@ class PXRD:
         """Simulate PXRD patterns for all CIF structures in one folder.
 
         Each CIF is converted into one two-column ``.xy`` file containing simulated
-        2-theta positions and relative intensities over the range configured when
-        constructing ``PXRD``.
+        2-theta positions and relative intensities over the configured range.
+        A companion ``.reflections.json`` retains full-precision spacings, all hkl
+        families, calculation settings, and the source cell with file fingerprints.
 
         Args:
             input_folder: Folder containing CIF files.
@@ -389,7 +397,20 @@ class PXRD:
                 two_theta_range=self._two_theta_range,
             )
             xy = np.column_stack((pattern.x, pattern.y))
-            np.savetxt(xy_dir / f"{cif_path.stem}.xy", xy, fmt="%.5f %.3f")
+            xy_path = xy_dir / f"{cif_path.stem}.xy"
+            np.savetxt(xy_path, xy, fmt="%.5f %.3f")
+            save_reflections(
+                cif_path,
+                xy_path,
+                structure,
+                pattern,
+                {
+                    "wavelength": self._wavelength,
+                    "two_theta_range": list(self._two_theta_range),
+                    "scaled": True,
+                    "symprec": 0,
+                },
+            )
 
         return str(xy_dir)
 
@@ -533,7 +554,8 @@ class PXRD:
 
         Returns:
             Mapping from stacking mode to a DataFrame containing ``structure``,
-            ``rank``, ``two_theta_deg``, and ``relative_intensity``.
+            ``rank``, ``two_theta_deg``, ``relative_intensity``,
+            ``d_spacing_angstrom``, ``hkls``, and ``multiplicities``.
 
         Raises:
             FileNotFoundError: If a required simulated XY folder is missing or empty.
@@ -597,19 +619,43 @@ class PXRD:
             else:
                 rel_intensity = np.zeros_like(intensity, dtype=float)
 
-            data = np.column_stack((two_theta, rel_intensity))
-            data = data[data[:, 1] >= float(min_relative_intensity)]
-            data = data[np.argsort(data[:, 1])[::-1]]
+            metadata = load_reflections(xy_file, two_theta, intensity)
+            indices = np.flatnonzero(
+                rel_intensity >= float(min_relative_intensity)
+            )
+            indices = indices[
+                np.argsort(-rel_intensity[indices], kind="stable")
+            ]
             if max_peaks > 0:
-                data = data[:max_peaks]
+                indices = indices[:max_peaks]
 
-            for rank, (theta, rel) in enumerate(data, start=1):
+            for rank, index in enumerate(indices, start=1):
+                peak = None if metadata is None else metadata[int(index)]
                 rows.append(
                     {
                         "structure": xy_file.stem,
                         "rank": rank,
-                        "two_theta_deg": float(theta),
-                        "relative_intensity": float(rel),
+                        "two_theta_deg": float(two_theta[index]),
+                        "relative_intensity": float(rel_intensity[index]),
+                        "d_spacing_angstrom": (
+                            None
+                            if peak is None
+                            else peak["d_spacing_angstrom"]
+                        ),
+                        "hkls": (
+                            None
+                            if peak is None
+                            else json.dumps(
+                                [f["hkl"] for f in peak["families"]]
+                            )
+                        ),
+                        "multiplicities": (
+                            None
+                            if peak is None
+                            else json.dumps(
+                                [f["multiplicity"] for f in peak["families"]]
+                            )
+                        ),
                     }
                 )
 
@@ -620,6 +666,9 @@ class PXRD:
                 "rank",
                 "two_theta_deg",
                 "relative_intensity",
+                "d_spacing_angstrom",
+                "hkls",
+                "multiplicities",
             ],
         )
 
@@ -1202,6 +1251,9 @@ class PXRD:
         show: bool = True,
         save: bool = True,
         show_stacking_values: bool = True,
+        annotate_hkl: bool = False,
+        max_hkl_labels: int = 10,
+        min_hkl_intensity: float = 5.0,
     ) -> list[str]:
         """Plot simulated PXRD patterns without experimental data.
 
@@ -1223,6 +1275,12 @@ class PXRD:
             save: Whether to save PDF figures. Defaults to ``True``.
             show_stacking_values: Whether to display analyzed ILD and ILS values when
                 available. Defaults to ``True``.
+
+            annotate_hkl: Label simulated reflections using saved metadata.
+                Defaults to ``False``. Missing metadata skips labels with a warning.
+            max_hkl_labels: Maximum visible peaks to label. Defaults to ``10``.
+            min_hkl_intensity: Label threshold as percent of the strongest peak
+                in the full simulated pattern. Defaults to ``5.0``.
 
         Returns:
             List of generated PDF paths.
@@ -1277,6 +1335,9 @@ class PXRD:
             show=show,
             save=save,
             stacking_by_file=stacking_by_file,
+            annotate_hkl=annotate_hkl,
+            max_hkl_labels=max_hkl_labels,
+            min_hkl_intensity=min_hkl_intensity,
         )
 
     def _plot_sim_files(
@@ -1286,8 +1347,12 @@ class PXRD:
         show: bool,
         save: bool,
         stacking_by_file: dict[Path, tuple[float, float]] | None = None,
+        annotate_hkl: bool = False,
+        max_hkl_labels: int = 10,
+        min_hkl_intensity: float = 5.0,
     ) -> list[str]:
         """Plot explicit simulated files with optional layer annotations."""
+        validate_annotation_options(max_hkl_labels, min_hkl_intensity)
         stacking_by_file = {} if stacking_by_file is None else stacking_by_file
         figure_width = 15.0
         figure_height = 5.0
@@ -1298,6 +1363,11 @@ class PXRD:
             x_sim, y_sim = self._read_xy(sim_file)
             x_sim = np.asarray(x_sim, dtype=float)
             y_sim = np.asarray(y_sim, dtype=float)
+            metadata = (
+                load_reflections(sim_file, x_sim, y_sim)
+                if annotate_hkl
+                else None
+            )
             order = np.argsort(x_sim)
             x_sim = x_sim[order]
             y_sim = y_sim[order]
@@ -1345,6 +1415,19 @@ class PXRD:
                 )
 
             ax.set_ylim(0.0, y_max * 1.15 if y_max > 0 else 1.0)
+            if annotate_hkl:
+                annotate_reflections(
+                    ax,
+                    sim_file,
+                    metadata,
+                    x_sim,
+                    y_sim,
+                    sim_shifted,
+                    order,
+                    xlim,
+                    max_hkl_labels,
+                    min_hkl_intensity,
+                )
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
             ax.tick_params(axis="x", labelbottom=True)
@@ -1422,6 +1505,9 @@ class PXRD:
         show_stacking_values: bool = True,
         show: bool = True,
         save: bool = True,
+        annotate_hkl: bool = False,
+        max_hkl_labels: int = 10,
+        min_hkl_intensity: float = 5.0,
     ) -> list[str]:
         """Compare experimental PXRD data with each simulated structure.
 
@@ -1455,6 +1541,12 @@ class PXRD:
                 available. Defaults to ``True``.
             show: Whether to display generated figures. Defaults to ``True``.
             save: Whether to save PDF figures. Defaults to ``True``.
+
+            annotate_hkl: Label simulated reflections using saved metadata.
+                Defaults to ``False``. Missing metadata skips labels with a warning.
+            max_hkl_labels: Maximum visible peaks to label. Defaults to ``10``.
+            min_hkl_intensity: Label threshold as percent of the strongest peak
+                in the full simulated pattern. Defaults to ``5.0``.
 
         Returns:
             List of generated PDF paths, one for each simulated structure.
@@ -1575,6 +1667,9 @@ class PXRD:
             show=show,
             save=save,
             stacking_by_file=stacking_by_file,
+            annotate_hkl=annotate_hkl,
+            max_hkl_labels=max_hkl_labels,
+            min_hkl_intensity=min_hkl_intensity,
         )
 
     def _plot_sim_vs_exp_files(
@@ -1587,8 +1682,12 @@ class PXRD:
         save: bool,
         region_selector: int | None = None,
         stacking_by_file: dict[Path, tuple[float, float]] | None = None,
+        annotate_hkl: bool = False,
+        max_hkl_labels: int = 10,
+        min_hkl_intensity: float = 5.0,
     ) -> list[str]:
         """Compare explicit simulated files with a shared experimental profile."""
+        validate_annotation_options(max_hkl_labels, min_hkl_intensity)
         stacking_by_file = {} if stacking_by_file is None else stacking_by_file
         x_exp, y_exp = self._read_xy(exp_path)
         x_exp = np.asarray(x_exp, dtype=float)
@@ -1626,6 +1725,11 @@ class PXRD:
             x_sim, y_sim = self._read_xy(sim_file)
             x_sim = np.asarray(x_sim, dtype=float)
             y_sim = np.asarray(y_sim, dtype=float)
+            metadata = (
+                load_reflections(sim_file, x_sim, y_sim)
+                if annotate_hkl
+                else None
+            )
             order = np.argsort(x_sim)
             x_sim = x_sim[order]
             y_sim = y_sim[order]
@@ -1717,6 +1821,19 @@ class PXRD:
                 self._visible_y_max(x_sim, y_sim_scaled, plot_xlim),
             )
             ax.set_ylim(0.0, y_max * 1.15 if y_max > 0 else 1.0)
+            if annotate_hkl:
+                annotate_reflections(
+                    ax,
+                    sim_file,
+                    metadata,
+                    x_sim,
+                    y_sim,
+                    y_sim_scaled,
+                    order,
+                    plot_xlim,
+                    max_hkl_labels,
+                    min_hkl_intensity,
+                )
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
             ax.tick_params(axis="x", labelbottom=True)
@@ -1887,6 +2004,9 @@ class PXRD3D:
         xlim: tuple[float, float] | None = None,
         show: bool = True,
         save: bool = True,
+        annotate_hkl: bool = False,
+        max_hkl_labels: int = 10,
+        min_hkl_intensity: float = 5.0,
     ) -> list[str]:
         """Plot one simulated PXRD pattern per 3D framework.
 
@@ -1900,6 +2020,12 @@ class PXRD3D:
                 the range configured when constructing ``PXRD3D``.
             show: Whether to display figures. Defaults to ``True``.
             save: Whether to save PDF files. Defaults to ``True``.
+
+            annotate_hkl: Label simulated reflections using saved metadata.
+                Defaults to ``False``. Missing metadata skips labels with a warning.
+            max_hkl_labels: Maximum visible peaks to label. Defaults to ``10``.
+            min_hkl_intensity: Label threshold as percent of the strongest peak
+                in the full simulated pattern. Defaults to ``5.0``.
 
         Returns:
             List of structure-specific PDF paths. Paths are returned even
@@ -1927,6 +2053,9 @@ class PXRD3D:
             xlim=self._two_theta_range if xlim is None else xlim,
             show=show,
             save=save,
+            annotate_hkl=annotate_hkl,
+            max_hkl_labels=max_hkl_labels,
+            min_hkl_intensity=min_hkl_intensity,
         )
 
     def plot_sim_vs_exp(
@@ -1939,6 +2068,9 @@ class PXRD3D:
         show_color_legend: bool = True,
         show: bool = True,
         save: bool = True,
+        annotate_hkl: bool = False,
+        max_hkl_labels: int = 10,
+        min_hkl_intensity: float = 5.0,
     ) -> list[str]:
         """Compare experimental PXRD data with each simulated 3D framework.
 
@@ -1959,6 +2091,12 @@ class PXRD3D:
                 simulated legend entries. Defaults to ``True``.
             show: Whether to display figures. Defaults to ``True``.
             save: Whether to save PDF files. Defaults to ``True``.
+
+            annotate_hkl: Label simulated reflections using saved metadata.
+                Defaults to ``False``. Missing metadata skips labels with a warning.
+            max_hkl_labels: Maximum visible peaks to label. Defaults to ``10``.
+            min_hkl_intensity: Label threshold as percent of the strongest peak
+                in the full simulated pattern. Defaults to ``5.0``.
 
         Returns:
             List of structure-specific comparison PDF paths. Paths are
@@ -1991,4 +2129,7 @@ class PXRD3D:
             show_color_legend=show_color_legend,
             show=show,
             save=save,
+            annotate_hkl=annotate_hkl,
+            max_hkl_labels=max_hkl_labels,
+            min_hkl_intensity=min_hkl_intensity,
         )

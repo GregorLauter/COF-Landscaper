@@ -95,6 +95,7 @@ Run code checks:
 
    Classes <classes>
    Modules <modules>
+   PXRD reflection labels <pxrd_reflections>
 
 
 Indices and tables

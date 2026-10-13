@@ -258,3 +258,26 @@ The full documentation is available on Read the Docs:
 [COF-Landscaper documentation](https://cof-landscaper.readthedocs.io/)
 
 Additional stepwise explanations of the computational workflow are provided in the Markdown cells of the example notebooks.
+### PXRD Miller-index labels
+
+PXRD generation now saves a `<structure>.reflections.json` companion beside each
+unchanged two-column XY file. It retains the source cell, calculation settings,
+d-spacing, and all Miller-index families and multiplicities for each reflection.
+Peak CSV exports include `d_spacing_angstrom`, `hkls`, and `multiplicities`.
+
+```python
+pxrd = cl.PXRD(wavelength="CuKa")
+pxrd.run(cof_name=COF_NAME, mode="both")
+pxrd.extract_peaks(cof_name=COF_NAME, mode="both")
+pxrd.plot_sim_vs_exp(
+    cof_name=COF_NAME, mode="both", xlim=(3, 30),
+    annotate_hkl=True, max_hkl_labels=10, min_hkl_intensity=5.0,
+)
+```
+
+The annotation options also work with `plot_sim()` and the 3D PXRD workflow.
+The intensity threshold refers to the full simulated pattern. Miller labels
+refer to the calculation cell and may change when the cell basis changes.
+Legacy XY files remain usable with missing metadata and unlabelled plots;
+stale metadata is rejected. See [reflection metadata and labels](docs/source/pxrd_reflections.rst)
+for the schema, postoptimization usage, and integrity checks.
