@@ -25,11 +25,16 @@ def save_reflections(
     structure: Structure,
     pattern: DiffractionPattern,
     settings: dict[str, Any],
+    *,
+    peak_indices: Sequence[int] | None = None,
+    xy_row_count: int | None = None,
 ) -> None:
     """Save full-precision reflections and fingerprints of their indexing inputs."""
     peaks = [
         {
-            "peak_index": index,
+            "peak_index": (
+                index if peak_indices is None else int(peak_indices[index])
+            ),
             "two_theta_deg": float(angle),
             "relative_intensity": float(intensity),
             "d_spacing_angstrom": float(spacing),
@@ -63,7 +68,7 @@ def save_reflections(
         "xy": {
             "name": xy_path.name,
             "sha256": hashlib.sha256(xy_path.read_bytes()).hexdigest(),
-            "row_count": len(peaks),
+            "row_count": len(peaks) if xy_row_count is None else xy_row_count,
         },
         "peaks": peaks,
     }
@@ -75,12 +80,13 @@ def save_reflections(
 
 def load_reflections(
     xy_path: Path, angles: np.ndarray, intensities: np.ndarray
-) -> list[dict[str, Any]] | None:
+) -> list[dict[str, Any] | None] | None:
     """Validate metadata against XY rows and an available source CIF.
 
     Missing metadata returns None. Invalid or stale metadata raises ValueError.
     A relocated dataset may be read when its original CIF path no longer exists;
     the recorded CIF fingerprint and indexing basis remain in the sidecar.
+    Zero-baseline rows without a reflection are represented by None.
     """
     path = xy_path.with_suffix(".reflections.json")
     if not path.exists():
@@ -117,11 +123,15 @@ def load_reflections(
         for key in ("wavelength", "two_theta_range", "scaled", "symprec"):
             metadata["calculation_settings"][key]
         peaks = metadata["peaks"]
-        if len(peaks) != len(angles):
-            raise ValueError("reflection row count does not match")
-        for index, peak in enumerate(peaks):
-            if peak["peak_index"] != index:
-                raise ValueError("peak indices are not in XY row order")
+        peaks_by_row: list[dict[str, Any] | None] = [None] * len(angles)
+        for peak in peaks:
+            index = peak["peak_index"]
+            if (
+                type(index) is not int
+                or not 0 <= index < len(angles)
+                or peaks_by_row[index] is not None
+            ):
+                raise ValueError("invalid or duplicate XY row index")
             angle, intensity, spacing = (
                 float(peak[key])
                 for key in (
@@ -152,11 +162,17 @@ def load_reflections(
                     or mult <= 0
                 ):
                     raise ValueError("invalid Miller indices or multiplicity")
+            peaks_by_row[index] = peak
+        if any(
+            peak is None and intensities[index] != 0
+            for index, peak in enumerate(peaks_by_row)
+        ):
+            raise ValueError("nonzero XY row has no reflection metadata")
     except (OSError, KeyError, TypeError, ValueError, IndexError) as exc:
         raise ValueError(
             f"Invalid reflection metadata for {xy_path}: {exc}"
         ) from exc
-    return peaks
+    return peaks_by_row
 
 
 def validate_annotation_options(max_labels: int, min_intensity: float) -> None:
@@ -202,7 +218,7 @@ def format_hkl(indices: Sequence[int]) -> str:
 def annotate_reflections(
     ax: Axes,
     xy_path: Path,
-    peaks: list[dict[str, Any]] | None,
+    peaks: list[dict[str, Any] | None] | None,
     angles: np.ndarray,
     intensities: np.ndarray,
     heights: np.ndarray,
@@ -233,6 +249,7 @@ def annotate_reflections(
         & (angles <= xlim[1])
         & (100 * intensities / maximum >= min_intensity)
         & (heights > 0)
+        & np.array([peaks[int(index)] is not None for index in order])
     )
     selected = eligible[
         np.argsort(-intensities[eligible], kind="stable")[:max_labels]
@@ -250,6 +267,8 @@ def annotate_reflections(
     )
     for slot, index in zip(slots, selected, strict=True):
         peak = peaks[int(order[index])]
+        if peak is None:
+            continue
         label = "\n".join(
             format_hkl(family["hkl"]) for family in peak["families"]
         )

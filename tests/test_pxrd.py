@@ -1,15 +1,22 @@
 import importlib
 from pathlib import Path
-from typing import cast
+from typing import TypedDict, cast
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
 from ase import Atoms
 from ase.io import read, write
+from matplotlib.collections import LineCollection
+from matplotlib.figure import Figure
 from pymatgen.core import Lattice, Structure
 
 import coflandscaper as cl
+
+
+class _ComparisonOptions(TypedDict, total=False):
+    offset: float
 
 
 @pytest.mark.unit
@@ -215,10 +222,224 @@ def test_plot_sim_vs_exp_default_routing(
     ]
 
 
+@pytest.fixture
+def comparison_figures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[Figure]:
+    """Prepare small XY files and retain figures after their normal cleanup."""
+    monkeypatch.chdir(tmp_path)
+    exp_dir = tmp_path / "experimental_pxrd"
+    exp_dir.mkdir()
+    np.savetxt(exp_dir / "sample.xy", [[5, 3], [10, 7], [15, 5]])
+    sim_dir = tmp_path / "cof-c" / "5_cof-c_analysis" / "pxrd_xy" / "serr"
+    sim_dir.mkdir(parents=True)
+    for name in ("sim_1", "sim_2"):
+        np.savetxt(
+            sim_dir / f"{name}.xy",
+            np.array(
+                [
+                    [5.08, 0],
+                    [5.09, 0],
+                    [5.10228, 4],
+                    [5.12, 0],
+                    [5.13, 0],
+                    [10, 1],
+                ]
+            ),
+        )
+
+    figures: list[Figure] = []
+    original_close = plt.close
+
+    def capture_close(figure: Figure | int | str | None = None) -> None:
+        if isinstance(figure, Figure):
+            figures.append(figure)
+        original_close(figure)
+
+    monkeypatch.setattr(plt, "close", capture_close)
+    return figures
+
+
+@pytest.mark.unit
+def test_plot_sim_vs_exp_without_pawley_preserves_overlay(
+    tmp_path: Path,
+    comparison_figures: list[Figure],
+) -> None:
+    """This test ensures disabled Pawley plotting preserves the existing overlay."""
+    pawley_dir = tmp_path / "pawley"
+    pawley_dir.mkdir()
+    for name in ("first.xy", "second.xy"):
+        (pawley_dir / name).write_text("invalid data", encoding="utf-8")
+    outputs = cl.PXRD().plot_sim_vs_exp(
+        "cof-c",
+        mode="serr",
+        show_stacking_values=False,
+        show=False,
+        save=False,
+    )
+
+    assert outputs == [
+        "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_1.pdf",
+        "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_2.pdf",
+    ]
+    assert len(comparison_figures) == 2
+    for figure in comparison_figures:
+        ax = figure.axes[0]
+        assert len(ax.lines) == 2
+        assert len(ax.collections) == 0
+        experimental, simulated = ax.lines
+        np.testing.assert_allclose(
+            np.asarray(experimental.get_ydata(), dtype=float), [0, 4, 2]
+        )
+        np.testing.assert_array_equal(
+            simulated.get_xdata(), [5.08, 5.09, 5.10228, 5.12, 5.13, 10]
+        )
+        np.testing.assert_array_equal(
+            simulated.get_ydata(), [0, 0, 4, 0, 0, 1]
+        )
+        for line, color in (
+            (experimental, "red"),
+            (simulated, "black"),
+        ):
+            assert line.get_color() == color
+            assert line.get_linestyle() == "-"
+        legend = ax.get_legend()
+        assert legend is not None
+        assert [text.get_text() for text in legend.get_texts()] == [
+            "Experimental",
+            "Simulated",
+        ]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(("offset", "spacing"), [(None, 0.32), (0.25, 1.0)])
+def test_plot_sim_vs_exp_pawley_continuous_and_equally_spaced(
+    tmp_path: Path,
+    comparison_figures: list[Figure],
+    offset: float | None,
+    spacing: float,
+) -> None:
+    """This test ensures discovered Pawley profiles occupy one equally spaced slot."""
+    pawley_dir = tmp_path / "pawley"
+    pawley_dir.mkdir()
+    (pawley_dir / "pattern.XY").write_text(
+        "Pawley refinement\n2theta intensity\n"
+        "5 20\n7.5 22\n10 24\n12.5 22\n15 20\n",
+        encoding="utf-8",
+    )
+    (pawley_dir / "._pattern.xy").write_text("metadata", encoding="utf-8")
+    (pawley_dir / "ignored.xy").mkdir()
+    pxrd = cl.PXRD()
+    pxrd._peak_data_by_structure = {
+        "sim_1": pd.DataFrame({"source": ["exp"], "two_theta": [10.0]})
+    }
+    pxrd._peak_data_source = "opt"
+    options: _ComparisonOptions = {}
+    if offset is not None:
+        options["offset"] = offset
+
+    outputs = pxrd.plot_sim_vs_exp(
+        "cof-c",
+        mode="serr",
+        pawley=True,
+        show_stacking_values=False,
+        show=False,
+        save=False,
+        **options,
+    )
+
+    assert outputs == [
+        "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_1.pdf",
+        "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_2.pdf",
+    ]
+    assert len(comparison_figures) == 2
+    for index, figure in enumerate(comparison_figures):
+        ax = figure.axes[0]
+        assert len(ax.lines) == 3
+        experimental, pawley, simulated = ax.lines
+        np.testing.assert_allclose(
+            np.asarray(pawley.get_xdata(), dtype=float), [5, 7.5, 10, 12.5, 15]
+        )
+        np.testing.assert_allclose(
+            np.asarray(pawley.get_ydata(), dtype=float),
+            np.array([0, 2, 4, 2, 0]) + spacing,
+        )
+        np.testing.assert_allclose(
+            np.asarray(experimental.get_ydata(), dtype=float),
+            np.array([0, 4, 2]) + 2 * spacing,
+        )
+        np.testing.assert_array_equal(
+            simulated.get_xdata(), [5.08, 5.09, 5.10228, 5.12, 5.13, 10]
+        )
+        np.testing.assert_array_equal(
+            simulated.get_ydata(), [0, 0, 4, 0, 0, 1]
+        )
+        for line, color in (
+            (experimental, "red"),
+            (pawley, "blue"),
+            (simulated, "black"),
+        ):
+            assert line.get_color() == color
+            assert line.get_linestyle() == "-"
+        exp_baseline = float(np.min(experimental.get_ydata()))
+        pawley_baseline = float(np.min(pawley.get_ydata()))
+        sim_baseline = float(np.min(simulated.get_ydata()))
+        assert exp_baseline >= pawley_baseline >= sim_baseline
+        assert exp_baseline - pawley_baseline == pytest.approx(
+            pawley_baseline - sim_baseline
+        )
+        assert pawley_baseline - sim_baseline == pytest.approx(spacing)
+        assert len(ax.collections) == (1 if index == 0 else 0)
+        if index == 0:
+            peak_markers = ax.collections[0]
+            assert isinstance(peak_markers, LineCollection)
+            np.testing.assert_allclose(
+                peak_markers.get_segments()[0],
+                [[10, 2 * spacing], [10, 4 + 2 * spacing]],
+            )
+        legend = ax.get_legend()
+        assert legend is not None
+        assert [text.get_text() for text in legend.get_texts()] == [
+            "Experimental",
+            "Pawley",
+            "Simulated",
+        ]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("state", ["missing", "multiple"])
+def test_plot_sim_vs_exp_pawley_requires_one_visible_xy(
+    tmp_path: Path,
+    comparison_figures: list[Figure],
+    state: str,
+) -> None:
+    """This test ensures Pawley discovery rejects missing or ambiguous inputs."""
+    pawley_dir = tmp_path / "pawley"
+    if state == "multiple":
+        pawley_dir.mkdir()
+        for name in ("first.xy", "second.XY"):
+            np.savetxt(pawley_dir / name, [[5, 1], [10, 2]])
+    expected_error = ValueError if state == "multiple" else FileNotFoundError
+
+    with pytest.raises(expected_error, match="Pawley"):
+        cl.PXRD().plot_sim_vs_exp(
+            "cof-c",
+            mode="serr",
+            pawley=True,
+            show_stacking_values=False,
+            show=False,
+            save=False,
+        )
+    assert comparison_figures == []
+
+
 class _FakePattern:
     def __init__(self) -> None:
-        self.x = np.array([5.0, 10.0, 15.0])
-        self.y = np.array([10.0, 25.0, 5.0])
+        self.x = np.array([5.10228, 10.0, 15.1234567890123])
+        self.y = np.array(
+            [10.1234567890123, 25.0123456789012, 5.98765432109876]
+        )
         self.d_hkls = [17.7, 8.8, 5.9]
         self.hkls = [[{"hkl": (1, 0, 0), "multiplicity": 2}]] * 3
 
@@ -262,6 +483,110 @@ def test_produce_xy_writes_xy_for_each_cif(
     assert output == str(output_dir)
     assert (output_dir / "a.xy").exists()
     assert (output_dir / "b.xy").exists()
+    for path in output_dir.glob("*.xy"):
+        xy = np.loadtxt(path)
+        reflections = xy[xy[:, 1] > 0]
+        pattern = _FakePattern()
+        np.testing.assert_array_equal(reflections[:, 0], pattern.x)
+        np.testing.assert_array_equal(reflections[:, 1], pattern.y)
+        assert len(xy) > len(reflections)
+        assert xy[0, 0] == 1.5
+        assert xy[-1, 0] == 30.0
+        assert np.all(np.diff(xy[:, 0]) > 0)
+
+
+@pytest.mark.unit
+def test_xy_with_baseline_adds_narrow_peak_zeros() -> None:
+    """This test ensures narrow peak zeros retain regular grid points outside the peak."""
+    pxrd = cl.PXRD(two_theta_range=(5.08, 5.13))
+    angle = 5.10228
+    angles = np.array([angle])
+    intensities = np.array([98.1234567890123])
+    expected_baseline = [5.08, 5.09, 5.09428, 5.11028, 5.12, 5.13]
+
+    xy, peak_indices = pxrd._xy_with_baseline(angles, intensities)
+
+    np.testing.assert_array_equal(xy[peak_indices, 0], angles)
+    np.testing.assert_array_equal(xy[peak_indices, 1], intensities)
+    baseline = xy[xy[:, 1] == 0, 0]
+    np.testing.assert_allclose(
+        baseline,
+        expected_baseline,
+        rtol=0,
+        atol=1e-14,
+    )
+    for endpoint in (angle - 0.008, angle + 0.008):
+        assert np.count_nonzero(baseline == endpoint) == 1
+    assert np.all(np.diff(xy[:, 0]) > 0)
+
+
+@pytest.mark.unit
+def test_xy_with_baseline_preserves_exact_grid_reflection() -> None:
+    """This test ensures a grid-aligned reflection has narrow zeros without duplicates."""
+    pxrd = cl.PXRD(two_theta_range=(5.08, 5.13))
+    angles = np.array([5.10])
+    intensities = np.array([43.98765432109876])
+
+    xy, peak_indices = pxrd._xy_with_baseline(angles, intensities)
+
+    np.testing.assert_array_equal(
+        xy[:, 0],
+        [
+            5.08,
+            5.09,
+            angles[0] - 0.008,
+            5.10,
+            angles[0] + 0.008,
+            5.11,
+            5.12,
+            5.13,
+        ],
+    )
+    np.testing.assert_array_equal(xy[peak_indices, 0], angles)
+    np.testing.assert_array_equal(xy[peak_indices, 1], intensities)
+    assert np.count_nonzero(xy[:, 0] == 5.10) == 1
+    assert np.count_nonzero(xy[:, 1]) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("angles", "intensities", "expected_baseline"),
+    [
+        (
+            [5.13, 5.10228, 5.101],
+            [4.0, 100.0, 72.1234567890123],
+            [5.08, 5.09, 5.093, 5.09428, 5.109, 5.11028, 5.12, 5.122, 5.138],
+        ),
+        (
+            [5.10228 + 0.008, 5.10228],
+            [4.0, 100.0],
+            [5.08, 5.09, 5.09428, 5.11828, 5.12, 5.13],
+        ),
+        (
+            [5.125 + 0.008, 5.125 - 0.008],
+            [4.0, 100.0],
+            [5.08, 5.09, 5.10, 5.109, 5.125, 5.141],
+        ),
+    ],
+)
+def test_xy_with_baseline_sorts_neighboring_reflections(
+    angles: list[float],
+    intensities: list[float],
+    expected_baseline: list[float],
+) -> None:
+    """This test ensures close peaks and shared zeros retain each exact reflection."""
+    pxrd = cl.PXRD(two_theta_range=(5.08, 5.13))
+    angle_array = np.array(angles)
+    intensity_array = np.array(intensities)
+
+    xy, peak_indices = pxrd._xy_with_baseline(angle_array, intensity_array)
+
+    np.testing.assert_array_equal(xy[peak_indices, 0], angles)
+    np.testing.assert_array_equal(xy[peak_indices, 1], intensities)
+    np.testing.assert_allclose(
+        xy[xy[:, 1] == 0, 0], expected_baseline, rtol=0, atol=1e-14
+    )
+    assert np.all(np.diff(xy[:, 0]) > 0)
 
 
 @pytest.mark.unit

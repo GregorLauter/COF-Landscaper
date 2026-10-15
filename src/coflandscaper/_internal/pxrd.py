@@ -170,23 +170,39 @@ class PXRD:
                 )
             return exp_path
 
-        exp_dir = Path("experimental_pxrd")
-        if not exp_dir.exists() or not exp_dir.is_dir():
+        return PXRD._resolve_profile_xy_file(
+            "experimental_pxrd", "experimental", "exp_xy_file"
+        )
+
+    @staticmethod
+    def _resolve_profile_xy_file(
+        folder: str,
+        label: str,
+        path_parameter: str | None = None,
+    ) -> Path:
+        """Discover exactly one visible XY profile in a workflow root folder."""
+        profile_dir = Path(folder)
+        if not profile_dir.exists() or not profile_dir.is_dir():
             raise FileNotFoundError(
-                f"Experimental folder not found: {exp_dir}"
+                f"{label.capitalize()} folder not found: {profile_dir}"
             )
-        exp_files = list_visible_files(exp_dir, ".xy")
-        if not exp_files:
+        profile_files = list_visible_files(profile_dir, ".xy")
+        if not profile_files:
             raise FileNotFoundError(
-                f"No experimental .xy files found in: {exp_dir}"
+                f"No {label} .xy files found in: {profile_dir}"
             )
-        if len(exp_files) != 1:
-            raise ValueError(
-                f"Expected exactly one experimental .xy file in {exp_dir}, "
-                f"got {len(exp_files)}. Please specify the path explicitly "
-                "using exp_xy_file parameter."
+        if len(profile_files) != 1:
+            message = (
+                f"Expected exactly one {label} .xy file in {profile_dir}, "
+                f"got {len(profile_files)}."
             )
-        return exp_files[0]
+            if path_parameter is not None:
+                message += (
+                    " Please specify the path explicitly "
+                    f"using {path_parameter} parameter."
+                )
+            raise ValueError(message)
+        return profile_files[0]
 
     @staticmethod
     def _validate_peak_range(
@@ -353,6 +369,32 @@ class PXRD:
 
         return outputs
 
+    def _xy_with_baseline(
+        self,
+        angles: np.ndarray,
+        intensities: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Merge exact reflections with zero hundredth-degree grid points.
+
+        Add zeros 0.008 degrees either side of each peak and remove grid points
+        inside those intervals. Real reflections take precedence over zeros.
+        Return sorted XY data and reflection indices in the original peak order.
+        """
+        lower, upper = self._two_theta_range
+        grid = np.arange(np.floor(lower * 100), np.ceil(upper * 100) + 1) / 100
+        grid = grid[(grid >= lower) & (grid <= upper)]
+        keep = np.ones(grid.size, dtype=bool)
+        for angle in angles:
+            keep &= (grid <= angle - 0.008) | (grid >= angle + 0.008)
+        zero_angles = np.unique(
+            np.concatenate((grid[keep], angles - 0.008, angles + 0.008))
+        )
+        zero_angles = zero_angles[~np.isin(zero_angles, angles)]
+        baseline = np.column_stack((zero_angles, np.zeros_like(zero_angles)))
+        xy = np.concatenate((np.column_stack((angles, intensities)), baseline))
+        order = np.argsort(xy[:, 0], kind="stable")
+        return xy[order], np.argsort(order)[: len(angles)]
+
     def produce_xy(
         self,
         input_folder: str | Path,
@@ -362,6 +404,9 @@ class PXRD:
 
         Each CIF is converted into one two-column ``.xy`` file containing simulated
         2-theta positions and relative intensities over the configured range.
+        Exact reflections are merged with a zero-intensity 0.01-degree grid,
+        replacing grid points inside each peak's ±0.008-degree interval with
+        zero-intensity points at the two interval endpoints.
         A companion ``.reflections.json`` retains full-precision spacings, all hkl
         families, calculation settings, and the source cell with file fingerprints.
 
@@ -396,9 +441,9 @@ class PXRD:
                 structure,
                 two_theta_range=self._two_theta_range,
             )
-            xy = np.column_stack((pattern.x, pattern.y))
+            xy, peak_indices = self._xy_with_baseline(pattern.x, pattern.y)
             xy_path = xy_dir / f"{cif_path.stem}.xy"
-            np.savetxt(xy_path, xy, fmt="%.5f %.3f")
+            np.savetxt(xy_path, xy, fmt="%.17g %.17g")
             save_reflections(
                 cif_path,
                 xy_path,
@@ -410,6 +455,8 @@ class PXRD:
                     "scaled": True,
                     "symprec": 0,
                 },
+                peak_indices=peak_indices.tolist(),
+                xy_row_count=len(xy),
             )
 
         return str(xy_dir)
@@ -620,9 +667,10 @@ class PXRD:
                 rel_intensity = np.zeros_like(intensity, dtype=float)
 
             metadata = load_reflections(xy_file, two_theta, intensity)
-            indices = np.flatnonzero(
-                rel_intensity >= float(min_relative_intensity)
-            )
+            mask = rel_intensity >= float(min_relative_intensity)
+            if metadata is not None:
+                mask &= np.array([peak is not None for peak in metadata])
+            indices = np.flatnonzero(mask)
             indices = indices[
                 np.argsort(-rel_intensity[indices], kind="stable")
             ]
@@ -840,6 +888,9 @@ class PXRD:
                     float(np.max(intensity)) if intensity.size else 0.0
                 )
                 mask = (two_theta >= lower) & (two_theta <= upper)
+                metadata = load_reflections(xy_file, two_theta, intensity)
+                if metadata is not None:
+                    mask &= np.array([peak is not None for peak in metadata])
                 for theta, value in zip(
                     two_theta[mask], intensity[mask], strict=True
                 ):
@@ -1508,12 +1559,19 @@ class PXRD:
         annotate_hkl: bool = False,
         max_hkl_labels: int = 10,
         min_hkl_intensity: float = 5.0,
+        pawley: bool = False,
+        offset: float = 0.08,
     ) -> list[str]:
         """Compare experimental PXRD data with each simulated structure.
 
-        The experimental pattern is plotted as a continuous profile and the simulated
-        pattern as vertical diffraction reflections. Simulated intensities are rescaled
-        within the displayed 2-theta window for visual comparison.
+        All patterns are plotted as continuous XY profiles. Simulated intensities
+        are rescaled within the displayed 2-theta window for visual comparison.
+
+        With ``pawley=True``, each plot stacks Experimental, Pawley, and Simulated
+        patterns with equal baseline spacing, controlled by ``offset``. The default
+        spacing is 8% of the pattern height, giving 92% overlap between neighbors.
+        The Pawley pattern is a continuous profile rescaled to the experimental
+        intensity within the displayed window.
 
         If peak-region data have previously been generated with
         ``extract_peak_regions()``, fitted experimental peak positions can be displayed
@@ -1547,14 +1605,23 @@ class PXRD:
             max_hkl_labels: Maximum visible peaks to label. Defaults to ``10``.
             min_hkl_intensity: Label threshold as percent of the strongest peak
                 in the full simulated pattern. Defaults to ``5.0``.
+            pawley: Include the single visible ``.xy`` profile in ``pawley/``,
+                beside ``experimental_pxrd/`` in the current working directory.
+                Defaults to ``False``.
+            offset: Baseline spacing as a fraction of the visible experimental
+                maximum after baseline subtraction. Must be finite and nonnegative.
+                Defaults to ``0.08`` (92% overlap); ``0`` fully overlays the patterns.
+                Used only when ``pawley=True``.
 
         Returns:
             List of generated PDF paths, one for each simulated structure.
 
         Raises:
-            FileNotFoundError: If required experimental or simulated data are missing.
+            FileNotFoundError: If required experimental, Pawley, or simulated data
+                are missing.
             ValueError: If ``mode``, ``source``, a region selector, or stored
-                peak-region state is invalid.
+                peak-region state is invalid, profile discovery is ambiguous,
+                or an enabled Pawley offset is invalid.
         """
         mode_lower = mode.lower()
         if mode_lower not in {"incl", "serr", "both"}:
@@ -1583,6 +1650,11 @@ class PXRD:
             region_selector = int(region_match.group(1))
 
         exp_path = self._resolve_exp_xy_file(exp_xy_file)
+        pawley_path = (
+            self._resolve_profile_xy_file("pawley", "Pawley")
+            if pawley
+            else None
+        )
 
         sim_files: list[Path] = []
         if simulated_xy_folder is None:
@@ -1670,6 +1742,8 @@ class PXRD:
             annotate_hkl=annotate_hkl,
             max_hkl_labels=max_hkl_labels,
             min_hkl_intensity=min_hkl_intensity,
+            pawley_path=pawley_path,
+            offset=offset,
         )
 
     def _plot_sim_vs_exp_files(
@@ -1685,14 +1759,24 @@ class PXRD:
         annotate_hkl: bool = False,
         max_hkl_labels: int = 10,
         min_hkl_intensity: float = 5.0,
+        pawley_path: Path | None = None,
+        offset: float = 0.08,
     ) -> list[str]:
         """Compare explicit simulated files with a shared experimental profile."""
         validate_annotation_options(max_hkl_labels, min_hkl_intensity)
+        if pawley_path is not None and (not np.isfinite(offset) or offset < 0):
+            raise ValueError("offset must be finite and nonnegative.")
         stacking_by_file = {} if stacking_by_file is None else stacking_by_file
-        x_exp, y_exp = self._read_xy(exp_path)
-        x_exp = np.asarray(x_exp, dtype=float)
-        y_exp = np.asarray(y_exp, dtype=float)
-        exp_shifted = y_exp - np.nanmin(y_exp)
+        profile_files = [(exp_path, "Experimental", "red")]
+        if pawley_path is not None:
+            profile_files.append((pawley_path, "Pawley", "blue"))
+        profiles = []
+        for profile_path, label, color in profile_files:
+            x, y = self._read_xy(profile_path)
+            x = np.asarray(x, dtype=float)
+            y = np.asarray(y, dtype=float)
+            profiles.append((x, y - np.nanmin(y), label, color, 1.6, 0.95))
+        x_exp, exp_shifted = profiles[0][:2]
         figure_width = 15.0
         figure_height = 5.0
         dpi = 500
@@ -1735,29 +1819,31 @@ class PXRD:
             y_sim = y_sim[order]
 
             sim_shifted = y_sim - np.nanmin(y_sim)
-            sim_max = self._visible_y_max(x_sim, sim_shifted, plot_xlim)
-            if sim_max <= 0:
-                continue
-
             exp_max = self._visible_y_max(x_exp, exp_shifted, plot_xlim)
-            y_sim_scaled = (sim_shifted / sim_max) * exp_max
+            traces = [profiles[0]]
+            for x, y, label, color, width, alpha in [
+                *profiles[1:],
+                (x_sim, sim_shifted, "Simulated", "black", 1.5, 0.9),
+            ]:
+                scaled_y = (y / self._visible_y_max(x, y, plot_xlim)) * exp_max
+                traces.append((x, scaled_y, label, color, width, alpha))
+            y_sim_scaled = traces[-1][1]
+            spacing = offset * exp_max if pawley_path is not None else 0.0
+            exp_offset = (len(traces) - 1) * spacing
             fig, ax = plt.subplots(figsize=(figure_width, figure_height))
-
-            ax.plot(
-                x_exp,
-                exp_shifted,
-                color="red",
-                linewidth=1.6,
-                alpha=0.95,
-            )
-            ax.vlines(
-                x_sim,
-                0.0,
-                y_sim_scaled,
-                color="black",
-                linewidth=1.5,
-                alpha=0.9,
-            )
+            handles: list[Line2D] = []
+            for index, (x, y, label, color, width, alpha) in enumerate(traces):
+                trace_offset = (len(traces) - 1 - index) * spacing
+                ax.plot(
+                    x,
+                    y + trace_offset,
+                    label=label,
+                    color=color,
+                    linewidth=width,
+                    alpha=alpha,
+                )
+                if show_color_legend:
+                    handles.append(Line2D([], [], color=color, label=label))
 
             if structure_peak_data is not None:
                 exp_peaks = structure_peak_data[
@@ -1771,22 +1857,14 @@ class PXRD:
                     exp_intensity = float(exp_shifted[exp_index])
                     ax.vlines(
                         exp_centre,
-                        0.0,
-                        exp_intensity,
+                        exp_offset,
+                        exp_intensity + exp_offset,
                         color="red",
                         linestyle="--",
                         linewidth=1.0,
                         alpha=0.8,
                     )
 
-            handles: list[Line2D] = []
-            if show_color_legend:
-                handles.extend(
-                    [
-                        Line2D([], [], color="red", label="Experimental"),
-                        Line2D([], [], color="black", label="Simulated"),
-                    ]
-                )
             stacking_values = stacking_by_file.get(sim_file)
             if stacking_values is not None:
                 ild, ils = stacking_values
@@ -1817,7 +1895,8 @@ class PXRD:
                 )
 
             y_max = max(
-                self._visible_y_max(x_exp, exp_shifted, plot_xlim),
+                self._visible_y_max(x_exp, exp_shifted, plot_xlim)
+                + exp_offset,
                 self._visible_y_max(x_sim, y_sim_scaled, plot_xlim),
             )
             ax.set_ylim(0.0, y_max * 1.15 if y_max > 0 else 1.0)
@@ -2074,8 +2153,8 @@ class PXRD3D:
     ) -> list[str]:
         """Compare experimental PXRD data with each simulated 3D framework.
 
-        Experimental intensities are plotted as a continuous profile. Simulated
-        reflections are rescaled within the visible range for comparison.
+        Both patterns are plotted as continuous XY profiles. Simulated
+        intensities are rescaled within the visible range for comparison.
 
         Args:
             cof_name: COF name used for default path construction.

@@ -1,5 +1,6 @@
 """Reflection metadata contracts and plotting regression tests."""
 
+import hashlib
 import importlib
 import json
 from pathlib import Path
@@ -18,7 +19,7 @@ from coflandscaper._internal.reflections import format_hkl, load_reflections
 
 @pytest.fixture
 def simulated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Export distinguishable reflections that round to the same XY angle."""
+    """Export distinguishable reflections with nearly identical XY angles."""
     input_dir = tmp_path / "inputs"
     input_dir.mkdir()
     cif = input_dir / "sample.cif"
@@ -59,11 +60,54 @@ def test_export_keeps_full_precision_and_indexing_basis(
         "scaled": True,
         "symprec": 0,
     }
-    assert np.loadtxt(simulated).shape == (4, 2)
+    xy = np.loadtxt(simulated)
+    assert data["xy"]["row_count"] == len(xy)
+    assert len(xy) > len(data["peaks"])
     assert data["peaks"][0]["two_theta_deg"] == 12.0000041
     assert data["peaks"][2]["two_theta_deg"] == 12.0000042
-    assert data["peaks"][2]["peak_index"] == 2
+    for peak in data["peaks"]:
+        assert np.array_equal(
+            xy[peak["peak_index"]],
+            [peak["two_theta_deg"], peak["relative_intensity"]],
+        )
     assert data["peaks"][2]["families"][1]["hkl"] == [1, 0, -1, 2]
+
+
+def test_baseline_rows_have_no_reflection_metadata(simulated: Path) -> None:
+    xy = np.loadtxt(simulated)
+    peaks = load_reflections(simulated, xy[:, 0], xy[:, 1])
+    assert peaks is not None
+    assert len(peaks) == len(xy)
+    assert sum(peak is not None for peak in peaks) == 4
+    assert all(
+        intensity == 0
+        for peak, intensity in zip(peaks, xy[:, 1], strict=True)
+        if peak is None
+    )
+
+
+def test_dense_metadata_remains_supported(simulated: Path) -> None:
+    path = simulated.with_suffix(".reflections.json")
+    metadata = json.loads(path.read_text())
+    peaks = metadata["peaks"]
+    # Legacy files contained only reflections, in the original pattern order.
+    np.savetxt(
+        simulated,
+        [
+            [peak["two_theta_deg"], peak["relative_intensity"]]
+            for peak in peaks
+        ],
+        fmt="%.5f %.3f",
+    )
+    for index, peak in enumerate(peaks):
+        peak["peak_index"] = index
+    metadata["xy"]["row_count"] = len(peaks)
+    metadata["xy"]["sha256"] = hashlib.sha256(
+        simulated.read_bytes()
+    ).hexdigest()
+    path.write_text(json.dumps(metadata))
+    xy = np.loadtxt(simulated)
+    assert load_reflections(simulated, xy[:, 0], xy[:, 1]) == peaks
 
 
 def test_extraction_alignment_and_csv_lists(simulated: Path) -> None:
@@ -89,7 +133,16 @@ def test_extraction_alignment_and_csv_lists(simulated: Path) -> None:
         min_relative_intensity=0,
         save_csv=False,
     )["serr"]
+    assert len(all_peaks) == 4
     assert json.loads(all_peaks.iloc[2].hkls) == [[0, 0, 1]]
+    regional_peaks = pxrd._extract_sim_peaks(
+        "unused",
+        "serr",
+        (1.5, 30),
+        xy_folder=simulated.parent.parent,
+    )
+    assert len(regional_peaks) == 4
+    assert (regional_peaks.intensity > 0).all()
 
 
 @pytest.mark.parametrize(
@@ -106,7 +159,7 @@ def test_stale_or_invalid_metadata_rejected(
         cif = Path(data["source_cif"]["path"])
         cif.write_text(cif.read_text() + "# changed\n")
     elif damage == "index":
-        data["peaks"][0]["peak_index"] = 2
+        data["peaks"][0]["peak_index"] = data["peaks"][1]["peak_index"]
     elif damage == "angle":
         data["peaks"][0]["two_theta_deg"] = 15
     elif damage == "families":

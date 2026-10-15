@@ -275,6 +275,11 @@ pxrd.plot_sim_vs_exp(
 )
 ```
 
+For three equally spaced traces per PDF (Experimental, Pawley, Simulated), add
+`pawley=True` and place one `.xy` file in `pawley/` beside `experimental_pxrd/`.
+Use `offset=0.08` (default) for 92% overlap between neighboring traces; `offset=0`
+fully overlays them.
+
 The annotation options also work with `plot_sim()` and the 3D PXRD workflow.
 The intensity threshold refers to the full simulated pattern. Miller labels
 refer to the calculation cell and may change when the cell basis changes.
