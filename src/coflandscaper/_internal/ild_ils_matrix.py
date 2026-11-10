@@ -29,6 +29,7 @@ from .ild_ils_utils import (
     _generate_values,
     _slug,
     _unwrap_fractional_z,
+    _validate_slip_path,
     _z_tag,
     default_shift_from_cif,
     list_cifs,
@@ -159,6 +160,7 @@ class IlsSerr:
         ils_length_end: float | None = None,
         ils_angle: float | None = None,
         print_shift: bool = False,
+        slip_path: str = "a/2",
     ) -> None:
         """Generate serrated ILS variants for all input structures.
 
@@ -184,20 +186,27 @@ class IlsSerr:
                 uses the automatically determined default ILS direction.
             print_shift: Whether to print automatically determined shift parameters.
                 Defaults to ``False``.
+            slip_path: SQL scan endpoint: ``"a/2"`` (default), ``"b/2"``, or
+                ``"(a+b)/2"``. Other topology defaults are unchanged. Explicit
+                ``ils_length_end`` and ``ils_angle`` override the selected defaults.
 
         Raises:
-            ValueError: If ``topo`` is unsupported.
+            ValueError: If ``topo`` or ``slip_path`` is unsupported.
         """
         if topo not in {"hcb", "sql", "sql_ab", "hcb_ab", "kgm", "ladder_1d"}:
             raise ValueError(
                 "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', 'kgm', or 'ladder_1d'."
             )
+        _validate_slip_path(topo, slip_path)
         topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
-                cif_files[0], topo_used, print_shift=print_shift
+                cif_files[0],
+                topo_used,
+                print_shift=print_shift,
+                slip_path=slip_path,
             )
             if ils_length_end is None:
                 ils_length_end = auto_len
@@ -293,6 +302,7 @@ class IlsIncl:
         ils_length_step: float = 1.0,
         ils_angle: float | None = None,
         print_shift: bool = False,
+        slip_path: str = "a/2",
     ) -> None:
         """Generate inclined ILS variants for all input structures.
 
@@ -318,20 +328,27 @@ class IlsIncl:
                 uses the automatically determined default ILS direction.
             print_shift: Whether to print automatically determined shift parameters.
                 Defaults to ``False``.
+            slip_path: SQL scan endpoint: ``"a/2"`` (default), ``"b/2"``, or
+                ``"(a+b)/2"``. Other topology defaults are unchanged. Explicit
+                ``ils_length_end`` and ``ils_angle`` override the selected defaults.
 
         Raises:
-            ValueError: If ``topo`` is unsupported.
+            ValueError: If ``topo`` or ``slip_path`` is unsupported.
         """
         if topo not in {"hcb", "sql", "sql_ab", "hcb_ab", "kgm", "ladder_1d"}:
             raise ValueError(
                 "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', 'kgm', or 'ladder_1d'."
             )
+        _validate_slip_path(topo, slip_path)
         topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
-                cif_files[0], topo_used, print_shift=print_shift
+                cif_files[0],
+                topo_used,
+                print_shift=print_shift,
+                slip_path=slip_path,
             )
             if ils_length_end is None:
                 ils_length_end = auto_len
@@ -414,7 +431,8 @@ class CreateMatrix:
 
     The default ILD scan spans 3.0–4.0 Å in 0.1 Å steps. The ILS scan begins at
     0 Å and, unless overridden, extends to the automatically determined default ILS
-    shift for the selected topology. For ``ladder_1d``, this is half the input
+    shift for the selected topology. For ``sql`` and ``sql_ab``, ``slip_path``
+    selects the endpoint, defaulting to ``"a/2"``. For ``ladder_1d``, this is half the input
     lattice b length, along its gamma angle, in both stacking representations.
 
     Generated structures are written to
@@ -432,6 +450,7 @@ class CreateMatrix:
         ils_length_step: float = 1.0,
         ils_angle: float | None = None,
         print_shift: bool = False,
+        slip_path: str = "a/2",
     ) -> None:
         """Configure the ILD/ILS stacking scan.
 
@@ -447,6 +466,9 @@ class CreateMatrix:
                 uses the automatically determined default ILS direction.
             print_shift: Whether to print automatically determined ILS-shift parameters.
                 Defaults to ``False``.
+            slip_path: SQL scan endpoint: ``"a/2"`` (default), ``"b/2"``, or
+                ``"(a+b)/2"``. Other topology defaults are unchanged. Explicit
+                ``ils_length_end`` and ``ils_angle`` override the selected defaults.
         """
         self._ild_start = ild_start
         self._ild_end = ild_end
@@ -456,6 +478,7 @@ class CreateMatrix:
         self._ils_length_step = ils_length_step
         self._ils_angle = ils_angle
         self._print_shift = print_shift
+        self._slip_path = slip_path
 
     def run(
         self,
@@ -494,6 +517,7 @@ class CreateMatrix:
         if mode not in {"incl", "serr", "both"}:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
 
+        _validate_slip_path(topo, self._slip_path)
         input_preopt = input_cif or os.path.join(
             cof_name,
             f"1_{cof_name}_single_layer",
@@ -535,6 +559,7 @@ class CreateMatrix:
                     ils_length_step=self._ils_length_step,
                     ils_angle=self._ils_angle,
                     print_shift=self._print_shift,
+                    slip_path=self._slip_path,
                 )
 
             if mode in {"serr", "both"}:
@@ -549,4 +574,5 @@ class CreateMatrix:
                     ils_length_step=self._ils_length_step,
                     ils_angle=self._ils_angle,
                     print_shift=self._print_shift,
+                    slip_path=self._slip_path,
                 )

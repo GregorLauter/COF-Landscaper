@@ -209,6 +209,38 @@ Supported 2D topologies:
 | Binary honeycomb | `hcb_ab` | Honeycomb lattice constructed from two different node types without a separate linker. | 2 | 3 each | 0 | — |
 | Kagome | `kgm` | Kagome lattice. | 1 | 4 | 1 | 2 |
 
+### SQL slip paths
+
+For `sql` and `sql_ab`, `CreateMatrix(slip_path="a/2")` selects the lateral
+scan endpoint from the preoptimized input cell:
+
+| Keyword | Endpoint | Description |
+|---|---|---|
+| `"a/2"` | a/2 | Half the first in-plane lattice vector. **Default.** |
+| `"b/2"` | b/2 | Half the second in-plane lattice vector. |
+| `"(a+b)/2"` | (a+b)/2 | Half the sum of both in-plane lattice vectors. |
+
+The default scan starts at zero lateral displacement (AA stacking). The selected
+endpoint determines its length and direction; existing explicit `ils_length_end`
+and `ils_angle` settings override those defaults individually. The same keyword
+is supported by `IlsIncl.run()`, `IlsSerr.run()`, and `default_shift_from_cif()`.
+
+```python
+matrix = cl.CreateMatrix(slip_path="b/2")
+matrix.run(cof_name=COF_NAME, topo="sql_ab", mode="both")
+```
+
+The SQL default changed from `(a+b)/2` to `a/2`; select `"(a+b)/2"` to reproduce
+the previous automatic endpoint. These are lattice-vector labels, not universal
+registry names: in the ideal binary `sql_ab` cell, `a/2` and `b/2` probe the two
+pore directions, whereas ordinary `sql` uses `(a+b)/2` towards a pore centre.
+The paths need not be equivalent in an asymmetric or relaxed structure.
+
+Each run selects one path. Use separate run/output directories when comparing
+paths: existing filenames do not encode the path and may otherwise overwrite or
+mix results. Other topologies retain their existing defaults; the alternative
+keywords are supported only for `sql` and `sql_ab`.
+
 ### Connection Points
 
 Connection points must be marked with helium atoms (`He`) in the input `.xyz` files.
