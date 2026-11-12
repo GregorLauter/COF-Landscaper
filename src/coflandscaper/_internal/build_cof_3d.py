@@ -13,9 +13,137 @@ import pormake as pm
 from ase.atoms import Atoms
 from pormake.building_block import BuildingBlock
 from pormake.topology import Topology
-from pymatgen.core import Structure
+from pymatgen.core import Lattice, Structure
+from pymatgen.io.cif import CifFile, str2float
 
 from . import build_cof_2d as preparation
+
+
+def _translated_bond_image(code: str, wrapping: np.ndarray) -> str:
+    """Adjust a P1 bond image for the wrapping of its translated endpoints."""
+    if code == ".":
+        image = np.zeros(3, dtype=int)
+    elif len(code) == 5 and code.startswith("1_") and code[2:].isdigit():
+        image = np.array([int(value) - 5 for value in code[2:]])
+    else:
+        raise ValueError(f"Unsupported P1 bond symmetry code: {code!r}")
+    image += wrapping
+    if not np.any(image):
+        return "."
+    digits = image + 5
+    if np.any((digits < 0) | (digits > 9)):
+        raise ValueError("Translated bond image cannot be represented in CIF")
+    return "1_" + "".join(map(str, digits))
+
+
+def _interpenetrated_cif(
+    source: Path, shift: np.ndarray
+) -> tuple[str, int, float]:
+    """Duplicate a builder P1 CIF, preserving atom properties and periodic bonds."""
+    cif = CifFile.from_file(source)
+    if len(cif.data) != 1:
+        raise ValueError("Interpenetration requires a single P1 framework CIF")
+    block = next(iter(cif.data.values()))
+    data = block.data
+    if str(data.get("_symmetry_Int_Tables_number", "")) != "1":
+        raise ValueError("Interpenetration requires a P1 CIF from BuildCOF3D")
+    labels = list(data["_atom_site_label"])
+    if not labels or len(set(labels)) != len(labels):
+        raise ValueError("Framework atom labels must be nonempty and unique")
+    coordinate_keys = [f"_atom_site_fract_{axis}" for axis in "xyz"]
+    positions = np.array(
+        [[str2float(value) for value in data[key]] for key in coordinate_keys]
+    ).T
+    cell_parameters = [
+        str2float(data[f"_cell_{key}"])
+        for key in (
+            "length_a",
+            "length_b",
+            "length_c",
+            "angle_alpha",
+            "angle_beta",
+            "angle_gamma",
+        )
+    ]
+    lattice = Lattice.from_parameters(*cell_parameters)
+    if (
+        positions.shape != (len(labels), 3)
+        or not np.all(np.isfinite(positions))
+        or not np.all(np.isfinite(lattice.matrix))
+        or abs(np.linalg.det(lattice.matrix)) < 1e-10
+    ):
+        raise ValueError("Framework has invalid coordinates or cell geometry")
+    wrapping = np.floor(positions + shift).astype(int)
+    translated = positions + shift - wrapping
+    minimum_distance = min(
+        float(
+            np.min(
+                lattice.get_all_distances(
+                    positions[start : start + 256], translated
+                )
+            )
+        )
+        for start in range(0, len(labels), 256)
+    )
+    if minimum_distance < 1e-3:
+        raise ValueError(
+            "Translation produces coincident atoms between nets "
+            f"(minimum distance {minimum_distance:.6f} Angstrom)"
+        )
+    copied_labels = [f"{label}_copy" for label in labels]
+    while set(labels).intersection(copied_labels):
+        copied_labels = [f"{label}_copy" for label in copied_labels]
+    label_map = dict(zip(labels, copied_labels, strict=True))
+    indices = {label: index for index, label in enumerate(labels)}
+    for loop in block.loops:
+        is_atoms = "_atom_site_label" in loop
+        is_bonds = "_geom_bond_atom_site_label_1" in loop
+        if not (is_atoms or is_bonds):
+            continue
+        copied = {key: list(data[key]) for key in loop}
+        if is_atoms:
+            copied["_atom_site_label"] = copied_labels
+            for axis, key in enumerate(coordinate_keys):
+                copied[key] = [
+                    f"{value:.15g}" for value in translated[:, axis]
+                ]
+        else:
+            first_key = "_geom_bond_atom_site_label_1"
+            second_key = "_geom_bond_atom_site_label_2"
+            image_key = "_geom_bond_site_symmetry_2"
+            first_images = data.get(
+                "_geom_bond_site_symmetry_1", ["."] * len(data[first_key])
+            )
+            if any(code not in (".", "1_555") for code in first_images):
+                raise ValueError(
+                    "P1 bond first endpoints must use the identity image"
+                )
+            copied[image_key] = [
+                _translated_bond_image(
+                    code, wrapping[indices[second]] - wrapping[indices[first]]
+                )
+                for first, second, code in zip(
+                    data[first_key],
+                    data[second_key],
+                    data[image_key],
+                    strict=True,
+                )
+            ]
+            for key in (first_key, second_key):
+                copied[key] = [label_map[label] for label in data[key]]
+        for key in loop:
+            data[key] = list(data[key]) + copied[key]
+    comments = []
+    for line in source.read_text(encoding="utf-8").splitlines():
+        if line.lstrip().startswith("data_"):
+            break
+        if line.lstrip().startswith("#"):
+            comments.append(line)
+    comments.append(
+        f"# Added one translated net; fractional shift: {tuple(shift)}"
+    )
+    cif.comment = "\n".join(comments)
+    return str(cif), 2 * len(labels), minimum_distance
 
 
 def _periodic_dimension(topology: Topology) -> int:
@@ -176,6 +304,8 @@ class BuildCOF3D:
         order; assigning both orders of a pair is an error. Each node needs its
         topology's connection count, and each populated linker needs two markers.
         Marker counts alone do not guarantee compatible molecular geometry.
+        An existing original backup from :meth:`interpenetrate` is refreshed
+        after a successful new build.
 
         Args:
             topo: Name of a 3D topology in the installed PORMAKE database.
@@ -310,6 +440,105 @@ class BuildCOF3D:
                     raise RuntimeError(
                         "CIF export changed the atom count or produced invalid geometry"
                     )
+                original = folder / f"{cof_name}_original.cif"
+                if original.is_file():
+                    snapshot = Path(export_directory) / original.name
+                    snapshot.write_bytes(trial.read_bytes())
+                    snapshot.replace(original)
                 trial.replace(output)
+        print(f"Saved: {output}")
+        return [str(output)]
+
+    def interpenetrate(
+        self,
+        cof_name: str,
+        shift_vector: tuple[float, float, float] = (0.5, 0.5, 0.5),
+        input_cif: str | os.PathLike[str] | None = None,
+        output_folder: str | os.PathLike[str] | None = None,
+    ) -> list[str]:
+        """Add one translated framework copy in the same periodic cell.
+
+        The result replaces the unoptimized CIF consumed by MaceOpt3D. The
+        single-net input is preserved as ``{cof_name}_original.cif``. Repeated
+        calls start from that original rather than duplicating the previous
+        result; a successful new build refreshes an existing original backup.
+        Atom properties and existing within-net periodic bonds are retained.
+        The minimum inter-net distance is printed for inspection. Successful
+        export does not establish chemical suitability or topological threading;
+        inspect the arrangement before optimizing, including the default shift.
+
+        Args:
+            cof_name: Nonempty framework name without directory components.
+            shift_vector: Translation in fractional cell coordinates. Defaults
+                to ``(0.5, 0.5, 0.5)``; integer components wrap periodically.
+            input_cif: Optional P1 builder CIF used instead of the saved original
+                or, on the first call, the current unoptimized framework.
+            output_folder: Framework directory. Defaults to
+                ``{cof_name}/1_{cof_name}_framework``.
+
+        Returns:
+            List containing the path to the replaced ``{cof_name}_unopt.cif``.
+
+        Raises:
+            ValueError: If the name, vector, P1 CIF, or bond images are invalid,
+                or inter-net atoms are closer than 0.001 Angstrom.
+            FileNotFoundError: If the source CIF is missing.
+            RuntimeError: If the exported structure fails validation.
+
+        """
+        if (
+            not cof_name
+            or cof_name in (".", "..")
+            or Path(cof_name).name != cof_name
+        ):
+            raise ValueError(
+                "cof_name must be a nonempty name without directory components"
+            )
+        shift = np.asarray(shift_vector, dtype=float)
+        if shift.shape != (3,) or not np.all(np.isfinite(shift)):
+            raise ValueError("shift_vector must contain three finite numbers")
+        shift = np.mod(shift, 1.0)
+        folder = (
+            Path(output_folder)
+            if output_folder is not None
+            else Path(cof_name) / f"1_{cof_name}_framework"
+        )
+        output = folder / f"{cof_name}_unopt.cif"
+        original = folder / f"{cof_name}_original.cif"
+        source = (
+            Path(input_cif)
+            if input_cif is not None
+            else original
+            if original.is_file()
+            else output
+        )
+        if not source.is_file():
+            raise FileNotFoundError(f"Missing input CIF: {source}")
+        content, expected_count, minimum_distance = _interpenetrated_cif(
+            source, shift
+        )
+        folder.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=folder) as temporary:
+            trial = Path(temporary) / output.name
+            trial.write_text(content, encoding="utf-8")
+            try:
+                written = Structure.from_file(trial, frac_tolerance=0)
+            except Exception as error:
+                raise RuntimeError(
+                    "Interpenetrated CIF export is unreadable"
+                ) from error
+            if len(written) != expected_count or not np.all(
+                np.isfinite(written.cart_coords)
+            ):
+                raise RuntimeError(
+                    "Interpenetrated CIF export changed the atom count or geometry"
+                )
+            if source.resolve() != original.resolve():
+                snapshot = Path(temporary) / original.name
+                snapshot.write_bytes(source.read_bytes())
+                snapshot.replace(original)
+            trial.replace(output)
+        print(f"Minimum inter-net distance: {minimum_distance:.6f} Angstrom")
+        print(f"Original: {original}")
         print(f"Saved: {output}")
         return [str(output)]
