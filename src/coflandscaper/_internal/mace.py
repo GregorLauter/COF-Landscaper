@@ -18,8 +18,9 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import pandas as pd
 import torch
+from ase.cell import Cell
 from ase.constraints import FixCartesian
-from ase.filters import FrechetCellFilter
+from ase.filters import Filter, FrechetCellFilter
 from ase.io import read
 from ase.optimize import LBFGS
 from mace.calculators import mace_mp
@@ -29,6 +30,92 @@ from .utilities import list_visible_files
 
 if TYPE_CHECKING:
     from ase.atoms import Atoms
+
+
+_PREOPT_CELL_ANGLES = {
+    "hcb": (90.0, 90.0, 120.0),
+    "hcb_ab": (90.0, 90.0, 120.0),
+    "kgm": (90.0, 90.0, 120.0),
+    "sql": (90.0, 90.0, 90.0),
+    "sql_ab": (90.0, 90.0, 90.0),
+}
+
+
+def _prepare_preopt_cell(atoms: Atoms, topo: str) -> None:
+    """Set the ideal 2D cell angles and 15 Angstrom layer spacing in place."""
+    if topo not in _PREOPT_CELL_ANGLES:
+        raise ValueError(
+            f"Unsupported preoptimization topology {topo!r}; "
+            f"expected one of {sorted(_PREOPT_CELL_ANGLES)}"
+        )
+    a, b = atoms.cell.lengths()[:2]
+    if (
+        len(atoms) == 0
+        or not np.all(np.isfinite(atoms.cell))
+        or abs(np.linalg.det(atoms.cell)) < 1e-10
+        or not np.all(np.isfinite(atoms.positions))
+    ):
+        raise ValueError(
+            "Preoptimization requires a finite, nondegenerate cell and atoms"
+        )
+    atoms.set_cell(
+        Cell.fromcellpar([a, b, 15.0, *_PREOPT_CELL_ANGLES[topo]]),
+        scale_atoms=True,
+    )
+
+
+class _FixedAngleCellFilter(Filter):
+    """Relax atoms and independent in-plane lengths at fixed angles and height.
+
+    The extra optimizer row holds two scaled logarithmic length changes. Atomic
+    coordinates refer to the undeformed cell. Cell forces are the stress
+    derivatives of these length variables, including for nonorthogonal cells.
+    """
+
+    def __init__(self, atoms: Atoms) -> None:
+        """Keep the prepared lattice directions and c vector fixed."""
+        super().__init__(atoms, indices=range(len(atoms)))
+        self._reference_cell = np.asarray(atoms.cell).copy()
+        self._cell_factor = float(len(atoms))
+
+    def __len__(self) -> int:
+        """Include the extra row of cell coordinates."""
+        return len(self.atoms) + 1
+
+    def get_positions(self) -> np.ndarray:
+        """Return undeformed atomic positions and logarithmic length changes."""
+        deformation = np.linalg.solve(self._reference_cell, self.atoms.cell)
+        positions = np.zeros((len(self), 3))
+        positions[:-1] = np.linalg.solve(
+            deformation.T, self.atoms.positions.T
+        ).T
+        ratios = self.atoms.cell.lengths()[:2] / np.linalg.norm(
+            self._reference_cell[:2], axis=1
+        )
+        positions[-1, :2] = self._cell_factor * np.log(ratios)
+        return positions
+
+    def set_positions(self, positions: np.ndarray, **kwargs: Any) -> None:
+        """Change a and b without changing angles or the out-of-plane vector."""
+        scales = np.ones(3)
+        scales[:2] = np.exp(positions[-1, :2] / self._cell_factor)
+        cell = self._reference_cell * scales[:, None]
+        deformation = np.linalg.solve(self._reference_cell, cell)
+        self.atoms.set_cell(cell, scale_atoms=False)
+        self.atoms.set_positions(positions[:-1] @ deformation, **kwargs)
+
+    def get_forces(self, **kwargs: Any) -> np.ndarray:
+        """Return energy-consistent atomic forces and in-plane cell forces."""
+        cell = np.asarray(self.atoms.cell)
+        deformation = np.linalg.solve(self._reference_cell, cell)
+        forces = np.zeros((len(self), 3))
+        forces[:-1] = self.atoms.get_forces(**kwargs) @ deformation.T
+        stress = self.atoms.get_stress(voigt=False)
+        length_stress = np.diag(cell @ stress @ np.linalg.inv(cell))
+        forces[-1, :2] = (
+            -self.atoms.get_volume() * length_stress[:2] / self._cell_factor
+        )
+        return forces
 
 
 def _parse_z_L_from_stem(stem: str) -> tuple[float, float]:
@@ -466,6 +553,7 @@ class MaceOpt(Mace):
         input_path: str,
         output_path: str,
         fixed_cell: bool = False,
+        preopt_topo: str | None = None,
     ) -> bool:
         """Optimize one CIF structure and write the resulting structure.
 
@@ -476,6 +564,8 @@ class MaceOpt(Mace):
                 ``FrechetCellFilter``. If ``True``, keep the complete unit cell fixed
                 and optimize atomic coordinates directly with ``LBFGS``. Defaults to
                 ``False``.
+            preopt_topo: Optional 2D topology. Sets its ideal angles and a 15
+                Angstrom height, then relaxes only atoms and the a/b lengths.
 
         Returns:
             ``True`` if the optimization converged within ``max_steps``; otherwise
@@ -487,11 +577,16 @@ class MaceOpt(Mace):
             module="ase.io.cif",
         )
         atoms = cast("Atoms", read(input_path))
+        if preopt_topo is not None:
+            _prepare_preopt_cell(atoms, preopt_topo)
         self._apply_constraints(atoms)
         atoms.calc = self.calc
 
         if fixed_cell:
             dyn = LBFGS(atoms)
+        elif preopt_topo is not None:
+            length_filter = _FixedAngleCellFilter(atoms)
+            dyn = LBFGS(cast("Any", length_filter))
         else:
             fcf = FrechetCellFilter(atoms)
             dyn = LBFGS(cast("Any", fcf))
@@ -532,12 +627,17 @@ class MaceOpt(Mace):
         input_path: str | None = None,
         output_path: str | None = None,
         fix_z: bool = True,
+        *,
+        topo: str | None = None,
     ) -> bool:
         """Pre-optimize the assembled single-layer COF structure.
 
         By default, atomic motion along the Cartesian z direction is constrained
         during this step. This preserves the approximately planar single-layer
         geometry before generation of the stacked structure matrix.
+        When ``topo`` is supplied, its ideal cell angles are set before relaxation
+        and held fixed with a 15 Angstrom out-of-plane spacing. The a and b
+        lengths relax independently. The input CIF is left unchanged.
 
         Args:
             cof_name: COF name used for default path construction.
@@ -547,10 +647,21 @@ class MaceOpt(Mace):
                 ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif``.
             fix_z: Whether to constrain atomic motion along the Cartesian z direction
                 during this preoptimization. Defaults to ``True``.
+            topo: Optional 2D topology: ``hcb``, ``hcb_ab``, and ``kgm`` use
+                90/90/120 degree angles; ``sql`` and ``sql_ab`` use 90/90/90.
+                ``None`` retains the existing full-cell preoptimization.
 
         Returns:
             ``True`` if the optimization converged; otherwise ``False``.
+
+        Raises:
+            ValueError: If ``topo`` is unsupported or the input geometry is invalid.
         """
+        if topo is not None and topo not in _PREOPT_CELL_ANGLES:
+            raise ValueError(
+                f"Unsupported preoptimization topology {topo!r}; "
+                f"expected one of {sorted(_PREOPT_CELL_ANGLES)}"
+            )
         default_dir = Path(cof_name) / f"1_{cof_name}_single_layer"
         resolved_input = Path(
             input_path or default_dir / f"{cof_name}_unopt.cif"
@@ -563,10 +674,14 @@ class MaceOpt(Mace):
         prev_fix_z = self._fix_z
         self._fix_z = fix_z
         try:
-            converged = self.optimize_cof(
-                str(resolved_input),
-                str(resolved_output),
-            )
+            if topo is None:
+                converged = self.optimize_cof(
+                    str(resolved_input), str(resolved_output)
+                )
+            else:
+                converged = self._optimize_cof(
+                    str(resolved_input), str(resolved_output), preopt_topo=topo
+                )
             print("Converged" if converged else "Not converged")
             return converged
         finally:
