@@ -21,10 +21,8 @@ def run_workflow(params: dict[str, object]) -> None:
     topology = str(params["TOPOLOGY"])
     cof_name = str(params["COF_NAME"])
     mode = str(params["MODE"])
-    mace_head = str(params["MACE_HEAD"])
-    device = str(params["DEVICE"])
-
-    mace_opt_max_steps = cl.utilities.get_int_param(params, "MAX_STEPS")
+    options = cl.utilities.get_calculator_options(params)
+    opt_max_steps = cl.utilities.get_int_param(params, "MAX_STEPS")
 
     ild_start = cl.utilities.get_float_param(params, "ILD_START", 3.0)
     ild_end = cl.utilities.get_float_param(params, "ILD_END", 4.0)
@@ -51,7 +49,7 @@ def run_workflow(params: dict[str, object]) -> None:
         input_linkers=input_linkers,
     )
 
-    preopt = cl.MaceOpt(head=mace_head, device=device)
+    preopt = cl.GeometryOpt(**options)
     preopt.run_preopt(cof_name=cof_name, fix_z=fix_z, topo=topology)
 
     matrix = cl.CreateMatrix(
@@ -61,7 +59,7 @@ def run_workflow(params: dict[str, object]) -> None:
     )
     matrix.run(cof_name=cof_name, topo=topology, mode=mode)
 
-    sp = cl.MaceSP(head=mace_head, device=device)
+    sp = cl.SinglePoint(calculator=preopt.calc)
     sp.run(cof_name=cof_name, mode=mode)
 
     landscape = cl.Landscape()
@@ -71,6 +69,10 @@ def run_workflow(params: dict[str, object]) -> None:
         minima_mode=minima_mode,
         show=False,
         show_title_block=show_title_block,
+        method_label=(
+            options["calculator"]
+            or str(options["calculator_kwargs"].get("model", "MACE-MH-1"))
+        ),
         show_minima_markers=show_minima_markers,
     )
 
@@ -84,12 +86,11 @@ def run_workflow(params: dict[str, object]) -> None:
         autoselect_minima=minima_mode,
     )
 
-    mace_opt = cl.MaceOpt(
-        head=mace_head,
-        device=device,
-        max_steps=mace_opt_max_steps,
+    opt = cl.GeometryOpt(
+        calculator=preopt.calc,
+        max_steps=opt_max_steps,
     )
-    mace_opt.run(cof_name=cof_name, mode=mode)
+    opt.run(cof_name=cof_name, mode=mode)
 
     analyzer = cl.AnalyzeStacking()
     analyzer.analyze(cof_name=cof_name, mode=mode)

@@ -14,9 +14,9 @@ from ase.io import read, write
 
 import coflandscaper as cl
 
-mace_mod = importlib.import_module(cl.Mace.__module__)
-MaceSP = cl.MaceSP
-MaceOpt = cl.MaceOpt
+calc_mod = importlib.import_module(cl.GeometryOpt.__module__)
+SinglePoint = cl.SinglePoint
+GeometryOpt = cl.GeometryOpt
 
 
 class _DummyAtoms:
@@ -33,21 +33,21 @@ class _DummyAtoms:
 
 
 @pytest.mark.unit
-def test_mace_sp_run_routes_both_modes(
+def test_single_point_run_routes_both_modes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures the public MaceSP.run API preserves mode routing."""
+    """This test ensures the public SinglePoint.run API preserves mode routing."""
     calls: list[tuple[str, str | None]] = []
 
     def fake_run_folder(
-        _self: MaceSP,
+        _self: SinglePoint,
         input_folder: str,
         output_csv_dir: str | None = None,
     ) -> None:
         calls.append((input_folder, output_csv_dir))
 
-    monkeypatch.setattr(MaceSP, "_run_folder", fake_run_folder)
-    MaceSP(verbose=False).run(
+    monkeypatch.setattr(SinglePoint, "_run_folder", fake_run_folder)
+    SinglePoint(calculator=EMT()).run(
         cof_name="cof-a",
         mode="both",
         output_csv_dir="results",
@@ -82,15 +82,11 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
             _DummyLBFGS.last_steps = steps
             return False
 
-    monkeypatch.setattr(mace_mod, "read", lambda _p: dummy_atoms)
-    monkeypatch.setattr(mace_mod, "FrechetCellFilter", lambda atoms: atoms)
-    monkeypatch.setattr(mace_mod, "LBFGS", _DummyLBFGS)
+    monkeypatch.setattr(calc_mod, "read", lambda _p: dummy_atoms)
+    monkeypatch.setattr(calc_mod, "FrechetCellFilter", lambda atoms: atoms)
+    monkeypatch.setattr(calc_mod, "LBFGS", _DummyLBFGS)
 
-    def fake_make_calc(*_args: object, **_kwargs: object) -> object:
-        return object()
-
-    monkeypatch.setattr(MaceOpt, "_make_calc", fake_make_calc)
-    opt = MaceOpt(fmax=0.01, max_steps=500, fix_z=False, verbose=False)
+    opt = GeometryOpt(fmax=0.01, max_steps=500, fix_z=False, calculator=EMT())
 
     with pytest.warns(UserWarning, match="did not converge within 500 steps"):
         converged = opt.optimize_cof(str(input_cif), str(output_cif))
@@ -102,39 +98,52 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
 
 
 @pytest.mark.unit
-def test_calculator_settings_for_matpes_r2scan(
+@pytest.mark.parametrize(
+    ("options", "head", "cutoff"),
+    [
+        ({}, "spice_wB97M", None),
+        ({"head": "omol"}, "omol", None),
+        ({"head": "omat_pbe"}, "omat_pbe", 21.167088422553647),
+        ({"head": "matpes_r2scan"}, "matpes_r2scan", 40.0),
+        (
+            {"head": "omat_pbe", "dispersion": False, "dispersion_cutoff": 9},
+            "omat_pbe",
+            9,
+        ),
+    ],
+)
+def test_default_factory_preserves_head_presets(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    options: dict,
+    head: str,
+    cutoff: float | None,
 ) -> None:
     captured: dict[str, object] = {}
 
     def fake_mace_mp(**kwargs):
         captured.update(kwargs)
-        return object()
+        return EMT()
 
-    monkeypatch.setattr(mace_mod, "mace_mp", fake_mace_mp)
-
-    base = object.__new__(mace_mod.Mace)
-    base._verbose = False
-
-    calc_settings = cl.calculator_settings_for_head("matpes_r2scan")
-    base._make_calc(
-        device="cpu",
-        dtype="float64",
-        model="mh-1",
-        calc_settings=calc_settings,
-    )
-
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("mace.calculators.mace_mp", fake_mace_mp)
+    cl.SinglePoint(calculator_kwargs=options)
     assert captured["model"] == "mh-1"
     assert captured["default_dtype"] == "float64"
     assert captured["device"] == "cpu"
-    assert captured["head"] == "matpes_r2scan"
-    assert captured["dispersion"] is True
-    assert captured["dispersion_xc"] == "r2scan"
-    assert captured["dispersion_cutoff"] == 40.0
+    assert captured["head"] == head
+    assert captured["dispersion"] is options.get(
+        "dispersion", cutoff is not None
+    )
+    assert captured.get("dispersion_cutoff") == cutoff
+    if cutoff is not None:
+        assert captured["dispersion_xc"] == (
+            "pbe" if head == "omat_pbe" else "r2scan"
+        )
 
 
 @pytest.mark.unit
-def test_mace_opt_energy_csv_replaces_only_processed_mode(
+def test_geometry_opt_energy_csv_replaces_only_processed_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     output_base = tmp_path / "cof-1" / "4_cof-1_optimization"
@@ -178,10 +187,10 @@ def test_mace_opt_energy_csv_replaces_only_processed_mode(
             return _DummyAtoms(energy=-20.0)
         raise AssertionError(f"Unexpected path: {path}")
 
-    monkeypatch.setattr(mace_mod, "read", fake_read)
+    monkeypatch.setattr(calc_mod, "read", fake_read)
 
-    opt = object.__new__(MaceOpt)
-    opt.calc = object()
+    opt = object.__new__(GeometryOpt)
+    opt.calc = EMT()
 
     out_csv = opt._write_optimized_energy_csv(
         cof_name="cof-1",
@@ -231,12 +240,8 @@ def test_run_preopt_uses_default_paths_and_restores_fix_z(
         seen["fix_z_during_call"] = self._fix_z
         return True
 
-    def fake_make_calc(*_args: object, **_kwargs: object) -> object:
-        return object()
-
-    monkeypatch.setattr(MaceOpt, "_make_calc", fake_make_calc)
-    opt = MaceOpt(fix_z=False, verbose=False)
-    opt.optimize_cof = fake_optimize.__get__(opt, MaceOpt)
+    opt = GeometryOpt(fix_z=False, calculator=EMT())
+    opt.optimize_cof = fake_optimize.__get__(opt, GeometryOpt)
 
     monkeypatch.chdir(tmp_path)
 
@@ -259,12 +264,8 @@ def test_run_preopt_can_disable_fix_z_for_single_run(
         seen["fix_z_during_call"] = self._fix_z
         return True
 
-    def fake_make_calc(*_args: object, **_kwargs: object) -> object:
-        return object()
-
-    monkeypatch.setattr(MaceOpt, "_make_calc", fake_make_calc)
-    opt = MaceOpt(fix_z=True, verbose=False)
-    opt.optimize_cof = fake_optimize.__get__(opt, MaceOpt)
+    opt = GeometryOpt(fix_z=True, calculator=EMT())
+    opt.optimize_cof = fake_optimize.__get__(opt, GeometryOpt)
 
     monkeypatch.chdir(tmp_path)
 
@@ -295,13 +296,10 @@ def test_optimize_cof_uses_full_cell_filter(
         seen["filter_called"] = True
         return object()
 
-    monkeypatch.setattr(mace_mod, "read", lambda _path: atoms)
-    monkeypatch.setattr(mace_mod, "FrechetCellFilter", fake_filter)
-    monkeypatch.setattr(mace_mod, "LBFGS", _DummyOptimizer)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = MaceOpt(fix_z=False, verbose=False)
+    monkeypatch.setattr(calc_mod, "read", lambda _path: atoms)
+    monkeypatch.setattr(calc_mod, "FrechetCellFilter", fake_filter)
+    monkeypatch.setattr(calc_mod, "LBFGS", _DummyOptimizer)
+    opt = GeometryOpt(fix_z=False, calculator=EMT())
     opt.optimize_cof(str(tmp_path / "in.cif"), str(tmp_path / "out.cif"))
     assert seen["filter_called"]
 
@@ -325,32 +323,26 @@ def test_run_fixed_uses_atoms_directly(
     def fail_filter(*_args: object, **_kwargs: object) -> object:
         raise AssertionError("fixed mode must not create a cell filter")
 
-    monkeypatch.setattr(mace_mod, "read", lambda _path: atoms)
-    monkeypatch.setattr(mace_mod, "FrechetCellFilter", fail_filter)
-    monkeypatch.setattr(mace_mod, "LBFGS", _DummyOptimizer)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
+    monkeypatch.setattr(calc_mod, "read", lambda _path: atoms)
+    monkeypatch.setattr(calc_mod, "FrechetCellFilter", fail_filter)
+    monkeypatch.setattr(calc_mod, "LBFGS", _DummyOptimizer)
     input_dir = tmp_path / "cof-a" / "6_cof-a_scaling" / "scaling" / "serr"
     input_dir.mkdir(parents=True)
     (input_dir / "scaled.cif").write_text("data_dummy\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    opt = MaceOpt(fix_z=False, verbose=False)
+    opt = GeometryOpt(fix_z=False, calculator=EMT())
     assert opt.run_fixed("cof-a", "serr") == {"serr/scaled": True}
     assert seen["target"] is atoms
 
 
 @pytest.mark.unit
-def test_mace_opt_run_routes_both_modes(
+def test_geometry_opt_run_routes_both_modes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """This test ensures the renamed MaceOpt.run preserves normal routing."""
+    """This test ensures the renamed GeometryOpt.run preserves normal routing."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = MaceOpt(verbose=False)
+    opt = GeometryOpt(calculator=EMT())
     calls: list[tuple[str, str]] = []
 
     def record_process(
@@ -384,10 +376,7 @@ def test_run_routes_one_scaled_cif_to_postopt(
     source = input_dir / "scaled_1.0237.cif"
     source.write_text("data_dummy\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = MaceOpt(verbose=False)
+    opt = GeometryOpt(calculator=EMT())
     seen: dict[str, str] = {}
 
     def fake_optimize(
@@ -419,10 +408,7 @@ def test_run_requires_unambiguous_scaled_cif(
     input_dir = tmp_path / "cof-a" / "6_cof-a_scaling" / "scaling" / "incl"
     input_dir.mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = MaceOpt(verbose=False)
+    opt = GeometryOpt(calculator=EMT())
     monkeypatch.setattr(opt, "_optimize_cof", lambda *_args, **_kwargs: True)
     with pytest.raises(FileNotFoundError, match="No CIF files"):
         opt.run_fixed("cof-a", "incl")
@@ -447,10 +433,7 @@ def test_run_both_routes_modes_independently(
             "data_dummy\n", encoding="utf-8"
         )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = MaceOpt(verbose=False)
+    opt = GeometryOpt(calculator=EMT())
     seen: list[tuple[str, str]] = []
 
     def record_optimization(
@@ -505,7 +488,7 @@ def test_prepare_preopt_cell_preserves_fractional_positions(
 ) -> None:
     """Angle preparation changes neither atom identity nor fractional placement."""
     original = preopt_atoms.copy()
-    mace_mod._prepare_preopt_cell(preopt_atoms, topo)
+    calc_mod._prepare_preopt_cell(preopt_atoms, topo)
     assert preopt_atoms.cell.lengths() == pytest.approx(
         [*original.cell.lengths()[:2], 15]
     )
@@ -526,13 +509,13 @@ def test_fixed_angle_filter_forces_match_finite_differences(
     preopt_atoms: Atoms, topo: str, fix_z: bool
 ) -> None:
     """Check atomic and log-length derivatives at nonzero anisotropic strain."""
-    mace_mod._prepare_preopt_cell(preopt_atoms, topo)
+    calc_mod._prepare_preopt_cell(preopt_atoms, topo)
     if fix_z:
         preopt_atoms.set_constraint(
             FixCartesian(range(len(preopt_atoms)), mask=[False, False, True])
         )
     preopt_atoms.calc = EMT()
-    cell_filter = mace_mod._FixedAngleCellFilter(preopt_atoms)
+    cell_filter = calc_mod._FixedAngleCellFilter(preopt_atoms)
     positions = cell_filter.get_positions()
     positions[-1, :2] = [0.31, -0.22]
     positions[0, 0] += 0.13
@@ -593,7 +576,7 @@ def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
         def run(self, **_kwargs: object) -> bool:
             nonlocal initial_z
             positions = self.target.get_positions()
-            if isinstance(self.target, mace_mod._FixedAngleCellFilter):
+            if isinstance(self.target, calc_mod._FixedAngleCellFilter):
                 initial_z = self.target.atoms.positions[:, 2].copy()
                 positions[-1, :2] = [0.24, -0.17]
                 positions[0, 2] += 0.2
@@ -604,11 +587,8 @@ def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
             self.target.set_positions(positions)
             return True
 
-    monkeypatch.setattr(mace_mod, "LBFGS", RecordingOptimizer)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = MaceOpt(fix_z=False, verbose=False)
+    monkeypatch.setattr(calc_mod, "LBFGS", RecordingOptimizer)
+    opt = GeometryOpt(fix_z=False, calculator=EMT())
     assert opt.run_preopt("cof", fix_z=fix_z, topo=topo)
     assert opt._fix_z is False
     prepared = read(folder / "cof_preopt.cif")
@@ -628,7 +608,7 @@ def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
 
     output = tmp_path / "full_opt.cif"
     assert opt.optimize_cof(str(folder / "cof_preopt.cif"), str(output))
-    assert isinstance(targets[1], mace_mod.FrechetCellFilter)
+    assert isinstance(targets[1], calc_mod.FrechetCellFilter)
     assert not targets[1].atoms.constraints
     relaxed = read(output)
     assert isinstance(relaxed, Atoms)
@@ -642,22 +622,19 @@ def test_preopt_failures_preserve_optimizer_state(
 ) -> None:
     """Reject invalid requests and restore fix_z after an unsuccessful call."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = MaceOpt(fix_z=False, verbose=False)
+    opt = GeometryOpt(fix_z=False, calculator=EMT())
     with pytest.raises(
         ValueError, match="Unsupported preoptimization topology"
     ):
         opt.run_preopt("cof", topo="dia")
     preopt_atoms.set_cell(np.zeros((3, 3)))
     with pytest.raises(ValueError, match="nondegenerate cell"):
-        mace_mod._prepare_preopt_cell(preopt_atoms, "hcb")
+        calc_mod._prepare_preopt_cell(preopt_atoms, "hcb")
 
     def fail_read(_path: str) -> None:
         raise RuntimeError("input read failed")
 
-    monkeypatch.setattr(mace_mod, "read", fail_read)
+    monkeypatch.setattr(calc_mod, "read", fail_read)
     with pytest.raises(RuntimeError, match="input read failed"):
         opt.run_preopt("cof", fix_z=True, topo="hcb")
     assert opt._fix_z is False
@@ -681,21 +658,23 @@ def test_standard_workflows_pass_preopt_topology(
         pass
 
     def record_preopt(self, cof_name: str, **kwargs: object) -> None:
-        _ = self
+        assert isinstance(self.calc, EMT)
         seen.update(cof_name=cof_name, **kwargs)
         raise PreoptReachedError
 
-    monkeypatch.setattr(
-        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    monkeypatch.setattr(MaceOpt, "run_preopt", record_preopt)
+    monkeypatch.setattr(GeometryOpt, "run_preopt", record_preopt)
     monkeypatch.setattr(cl.BuildCOF2D, "build", lambda *_args, **_kwargs: [])
     if workflow == "script":
         driver = runpy.run_path(str(root / "example/cof-landscaper.py"))
         params = json.loads(
             (root / "example/cof-landscaper.params.json").read_text()
         )
-        params.update(TOPOLOGY=topo, COF_NAME="workflow-test")
+        params.update(
+            TOPOLOGY=topo,
+            COF_NAME="workflow-test",
+            CALCULATOR="emt",
+            CALCULATOR_KWARGS={},
+        )
         with pytest.raises(PreoptReachedError):
             driver["run_workflow"](params)
     else:
@@ -718,6 +697,8 @@ def test_standard_workflows_pass_preopt_topology(
                     "cl": cl,
                     "COF_NAME": "workflow-test",
                     "TOPOLOGY": topo,
+                    "CALCULATOR": EMT,
+                    "CALCULATOR_KWARGS": {},
                 },
             )
     assert seen["cof_name"] == "workflow-test"
@@ -725,31 +706,27 @@ def test_standard_workflows_pass_preopt_topology(
 
 
 @pytest.mark.unit
-def test_mace_opt3d_defaults_without_model_download(
+def test_geometry_opt3d_defaults_without_model_download(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The 3D wrapper retains MACE defaults and always enables z relaxation."""
-    calculator_settings: dict[str, object] = {}
+    received = {}
 
-    def fake_make_calc(_self, **kwargs) -> object:
-        calculator_settings.update(kwargs)
-        return object()
+    def fake_preset(**kwargs):
+        received.update(kwargs)
+        return EMT()
 
-    monkeypatch.setattr(cl.MaceOpt, "_make_calc", fake_make_calc)
-    opt = cl.MaceOpt3D(verbose=False)
+    monkeypatch.setattr(calc_mod, "_default_mace", fake_preset)
+    opt = cl.GeometryOpt3D()
+    assert isinstance(opt.calc, EMT)
     assert opt._fix_z is False
     assert opt._fmax == 0.01
     assert opt._max_steps == 2000
-    assert calculator_settings["model"] == "mh-1"
-    assert calculator_settings["dtype"] == "float64"
-    assert calculator_settings["device"] == "cpu"
-    settings = calculator_settings["calc_settings"]
-    assert isinstance(settings, dict)
-    assert settings["head"] == "spice_wB97M"
+    assert received == {}
 
 
 @pytest.mark.unit
-def test_mace_opt3d_relaxes_atoms_and_full_cell(
+def test_geometry_opt3d_relaxes_atoms_and_full_cell(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Default 3D routing uses full-cell optimization without z constraints."""
@@ -760,7 +737,7 @@ def test_mace_opt3d_relaxes_atoms_and_full_cell(
     atoms = Atoms("C", positions=[[1, 2, 3]], cell=[10, 11, 12], pbc=True)
     seen: dict[str, object] = {}
     filter_target = object()
-    module = importlib.import_module(cl.MaceOpt.__module__)
+    module = importlib.import_module(cl.GeometryOpt.__module__)
 
     def fake_filter(target: Atoms) -> object:
         seen["filter_atoms"] = target
@@ -781,10 +758,7 @@ def test_mace_opt3d_relaxes_atoms_and_full_cell(
     monkeypatch.setattr(module, "read", lambda _path: atoms)
     monkeypatch.setattr(module, "FrechetCellFilter", fake_filter)
     monkeypatch.setattr(module, "LBFGS", FakeOptimizer)
-    monkeypatch.setattr(
-        cl.MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    converged = cl.MaceOpt3D(fmax=0.02, max_steps=7, verbose=False).run(
+    converged = cl.GeometryOpt3D(fmax=0.02, max_steps=7, calculator=EMT()).run(
         "cof-a"
     )
     assert converged is True
@@ -802,14 +776,11 @@ def test_mace_opt3d_relaxes_atoms_and_full_cell(
 
 
 @pytest.mark.unit
-def test_mace_opt3d_custom_routing_and_missing_input(
+def test_geometry_opt3d_custom_routing_and_missing_input(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Explicit routes preserve convergence and missing CIFs fail before optimization."""
-    monkeypatch.setattr(
-        cl.MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
-    )
-    opt = cl.MaceOpt3D(verbose=False)
+    opt = cl.GeometryOpt3D(calculator=EMT())
     source = tmp_path / "source.cif"
     source.write_text("data_dummy\n", encoding="utf-8")
     output = tmp_path / "results"
@@ -827,3 +798,95 @@ def test_mace_opt3d_custom_routing_and_missing_input(
             "cof-a", input_cif=tmp_path / "missing.cif", output_folder=output
         )
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("selector", [EMT, "emt", "ase.calculators.emt:EMT"])
+def test_constructed_selector_matches_ase(selector) -> None:
+    opts = {"asap_cutoff": True}
+    sp = SinglePoint(calculator=selector, calculator_kwargs=opts)
+    atoms = Atoms("Cu", cell=[3, 3, 3], pbc=True)
+    reference = atoms.copy()
+    reference.calc = EMT(**opts)
+    assert sp.energy(atoms) == pytest.approx(reference.get_potential_energy())
+    assert sp.calc is atoms.calc
+    assert isinstance(sp.calc, EMT)
+    assert sp.calc.parameters["asap_cutoff"] is True
+
+
+def test_factory_and_instance_reused_for_both_modes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    calls = []
+    backend = EMT()
+    marker = object()
+
+    def factory(**kwargs):
+        calls.append(kwargs)
+        return backend
+
+    atoms = Atoms("Cu", cell=[3, 3, 3], pbc=True)
+    for mode in ("serr", "incl"):
+        folder = Path("cu/2_cu_matrix") / mode
+        folder.mkdir(parents=True)
+        write(folder / "cu_z30_L000.cif", atoms)
+    sp = SinglePoint(calculator=factory, calculator_kwargs={"custom": marker})
+    sp.run("cu", mode="both")
+    assert calls == [{"custom": marker}]
+    energy = sp.energy(atoms)
+    for csv in ("serr", "incl"):
+        data = pd.read_csv(f"cu/3_cu_landscape/cu_sp_energies_{csv}.csv")
+        assert data.energy_eV.iloc[0] == pytest.approx(energy)
+        assert data.energy_rel_eV.iloc[0] == 0
+    assert GeometryOpt(calculator=sp.calc).calc is backend
+    with pytest.raises(ValueError, match="existing calculator"):
+        SinglePoint(calculator=backend, calculator_kwargs={"bad": 1})
+
+
+def test_energy_only_and_missing_stress(tmp_path: Path) -> None:
+    from ase.calculators.calculator import PropertyNotImplementedError
+
+    class EnergyOnly:
+        def get_potential_energy(self, atoms):
+            return 1.0 * len(atoms)
+
+    atoms = Atoms("Cu", cell=[3, 3, 3], pbc=True)
+    source = tmp_path / "cu.cif"
+    write(source, atoms)
+    assert cl.SinglePoint(calculator=EnergyOnly()).energy(atoms) == 1.0
+    with pytest.raises(
+        PropertyNotImplementedError, match=r"forces.*EnergyOnly"
+    ):
+        GeometryOpt(calculator=EnergyOnly()).optimize_cof(
+            str(source), str(tmp_path / "opt.cif")
+        )
+
+    class NoStress(EMT):
+        implemented_properties = ("energy", "forces")
+
+    with pytest.raises(PropertyNotImplementedError, match=r"stress.*NoStress"):
+        GeometryOpt(calculator=NoStress()).run_preopt(
+            "cu",
+            topo="sql",
+            input_path=str(source),
+            output_path=str(tmp_path / "opt.cif"),
+        )
+
+
+def test_json_settings_and_invalid_selections() -> None:
+    options = cl.utilities.get_calculator_options(
+        {"CALCULATOR": "emt", "CALCULATOR_KWARGS": {"asap_cutoff": True}}
+    )
+    calc = GeometryOpt(**options).calc
+    assert isinstance(calc, EMT)
+    assert calc.parameters["asap_cutoff"] is True
+    assert cl.utilities.get_calculator_options({}) == {
+        "calculator": None,
+        "calculator_kwargs": {},
+    }
+    with pytest.raises(TypeError, match="JSON object"):
+        cl.utilities.get_calculator_options({"CALCULATOR_KWARGS": "cpu"})
+    with pytest.raises(ValueError, match="MACE_HEAD"):
+        cl.utilities.get_calculator_options({"MACE_HEAD": "omol"})
+    with pytest.raises(TypeError, match="factory must return"):
+        SinglePoint(calculator="builtins:object")

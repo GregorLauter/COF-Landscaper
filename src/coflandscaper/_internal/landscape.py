@@ -26,7 +26,7 @@ from .ild_ils_utils import get_mode_folders
 class Landscape:
     """Generate simplified potential energy landscapes from ILD/ILS energy grids.
 
-    The landscape is constructed from MACE or DFT single-point energies evaluated
+    The landscape is constructed from ASE calculator or DFT single-point energies evaluated
     for the generated stacking matrix. Relative energies are mapped as a function
     of interlayer distance (ILD) and interlayer slipping (ILS).
 
@@ -87,6 +87,7 @@ class Landscape:
         show_header: bool = True,
         show_title_block: bool = False,
         show: bool = False,
+        method_label: str | None = None,
     ) -> None:
         """Build one fixed-style hybrid PES plot for a single stacking mode.
 
@@ -109,6 +110,7 @@ class Landscape:
             minima_mode: Minima marker mode: "global" (default) marks only the
                 single global minimum; "local" marks local minima as well.
                 Defaults to `"global"`.
+            method_label: Optional level of theory for ASE energy data.
             show_header: If `True`, draw title and header text. Defaults to `True`.
             show_title_block: If True, draw title plus two header lines
                 (stacking mode and level of theory when available).
@@ -126,16 +128,7 @@ class Landscape:
         )
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
-        lot_suffix = None
-        match = re.match(
-            r"(.+)_sp_energies_(serr|incl)_(.+?)(?:\.csv)?$", csv_path.name
-        )
-        if match:
-            lot_suffix = match.group(3)
-
-        lot_label: str | None = "DFT" if dft else "MACE-MH-1"
-        if lot_label is None and lot_suffix:
-            lot_label = "DFT" if lot_suffix.lower() == "dft" else lot_suffix
+        lot_label = "DFT" if dft else method_label
 
         use_mode_naming = (
             folder_tag in {"serr", "incl"} and cof_name is not None
@@ -149,7 +142,7 @@ class Landscape:
             heatmap_dir = Path(f"heatmaps/{folder_tag}")
         heatmap_dir.mkdir(parents=True, exist_ok=True)
 
-        lot_tag = f"_{lot_suffix}" if lot_suffix else ""
+        lot_tag = "_dft" if dft else ""
         rel_grid_csv_path: Path | None = None
 
         if use_mode_naming:
@@ -354,6 +347,7 @@ class Landscape:
         show: bool = False,
         input_folder: str | None = None,
         output_folder: str | None = None,
+        method_label: str | None = None,
     ) -> None:
         """Generate potential energy landscapes for selected stacking mode(s).
 
@@ -379,6 +373,7 @@ class Landscape:
             minima_mode: Minima mode used for plotting: ``"global"`` marks only the
                 global minimum, while ``"local"`` also marks local minima. Defaults to
                 ``"global"``.
+            method_label: Optional level of theory for ASE energy data.
             show_header: Whether plot header information is enabled. Defaults to
                 ``True``.
             show_title_block: Whether to display the title, stacking mode, and level
@@ -434,6 +429,7 @@ class Landscape:
                 minima_mode=minima_mode,
                 show_header=show_header,
                 show_title_block=show_title_block,
+                method_label=method_label,
                 show=show,
             )
 

@@ -1061,7 +1061,7 @@ class PXRD:
         are broad, overlapping, or otherwise unsuitable for reliable comparison.
 
         The resulting structure is written to the mode-specific scaling folder and is
-        intended to undergo subsequent fixed-cell relaxation with ``MaceOpt.run_fixed``.
+        intended to undergo subsequent fixed-cell relaxation with ``GeometryOpt.run_fixed``.
 
         Args:
             cof_name: COF name used for default path construction.

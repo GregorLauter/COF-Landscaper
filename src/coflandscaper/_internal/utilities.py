@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TypedDict
 
 
 def load_params(params_file: str | Path) -> dict[str, object]:
@@ -19,6 +20,28 @@ def load_params(params_file: str | Path) -> dict[str, object]:
     if not params_path.exists():
         raise FileNotFoundError(f"Missing parameter file: {params_path}.")
     return json.loads(params_path.read_text(encoding="utf-8"))
+
+
+class _CalculatorOptions(TypedDict):
+    calculator: str | None
+    calculator_kwargs: dict[str, object]
+
+
+def get_calculator_options(params: dict[str, object]) -> _CalculatorOptions:
+    """Read the ASE calculator selector and native factory keywords from JSON."""
+    if "MACE_HEAD" in params or "DEVICE" in params:
+        raise ValueError(
+            "Move MACE_HEAD and DEVICE to head and device in CALCULATOR_KWARGS"
+        )
+    selector = params.get("CALCULATOR")
+    if selector is not None and not isinstance(selector, str):
+        raise TypeError(
+            "CALCULATOR must be an ASE name, module:attribute string or null"
+        )
+    kwargs = params.get("CALCULATOR_KWARGS", {})
+    if not isinstance(kwargs, dict):
+        raise TypeError("CALCULATOR_KWARGS must be a JSON object")
+    return {"calculator": selector, "calculator_kwargs": kwargs}
 
 
 def get_int_param(params: dict[str, object], key: str) -> int:
@@ -172,6 +195,7 @@ def _parse_extra_points(raw: object) -> list[tuple[float, float]] | None:
 
 __all__ = [
     "_parse_extra_points",
+    "get_calculator_options",
     "get_float_param",
     "get_int_param",
     "get_optional_path_list",

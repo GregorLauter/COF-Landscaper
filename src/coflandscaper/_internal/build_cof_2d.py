@@ -2,7 +2,7 @@
 
 This module prepares PORMAKE-compatible molecular building blocks, assembles
 single-layer covalent organic frameworks for the supported topologies, and
-writes unoptimized CIF structures for subsequent MACE preoptimization and
+writes unoptimized CIF structures for subsequent geometry preoptimization and
 stacking-landscape generation.
 
 Connection points in the input XYZ fragments are marked with helium atoms
@@ -865,7 +865,7 @@ class BuildCOF2D:
         selected topology is accepted.
 
         After construction, the interlayer distance is set to 15 Å before the structure
-        is passed to the subsequent MACE preoptimization stage.
+        is passed to the subsequent geometry preoptimization stage.
 
         Args:
             topo: Topology selector: ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"hcb_ab"``, or

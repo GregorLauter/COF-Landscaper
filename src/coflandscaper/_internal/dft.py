@@ -6,7 +6,7 @@ converting COF CIF structures into CRYSTAL ``.d12`` inputs, extracting converged
 energies from CRYSTAL ``.out`` files, reconstructing optimized structures, and
 writing workflow-compatible CSV outputs.
 
-The CRYSTAL workflow is retained as an alternative to the primary MACE-based
+The CRYSTAL workflow is retained as an alternative to the primary ASE-based
 workflow for benchmarking or calculations requiring an explicit DFT treatment.
 """
 

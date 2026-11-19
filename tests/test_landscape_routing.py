@@ -38,7 +38,9 @@ def test_landscape_run_uses_standard_csv_by_default(
         show_header: bool = True,
         show_title_block: bool = True,
         show: bool = False,
+        method_label: str | None = None,
     ) -> None:
+        assert method_label == "EMT"
         del (
             cof_name,
             output_folder,
@@ -57,6 +59,7 @@ def test_landscape_run_uses_standard_csv_by_default(
     cl.Landscape().run(
         cof_name="cof-1",
         mode="both",
+        method_label="EMT",
         input_folder=str(base),
     )
 
@@ -99,7 +102,9 @@ def test_landscape_run_uses_dft_csv_when_enabled(
         show_header: bool = True,
         show_title_block: bool = True,
         show: bool = False,
+        method_label: str | None = None,
     ) -> None:
+        assert method_label is None
         del (
             cof_name,
             output_folder,

@@ -8,6 +8,11 @@ from coflandscaper._internal.analyze import (
 )
 from coflandscaper._internal.build_cof_2d import BuildCOF2D
 from coflandscaper._internal.build_cof_3d import BuildCOF3D
+from coflandscaper._internal.calculators import (
+    GeometryOpt,
+    GeometryOpt3D,
+    SinglePoint,
+)
 from coflandscaper._internal.dft import (
     Crystal,
     CrystalOpt,
@@ -38,13 +43,6 @@ from coflandscaper._internal.landscape import (
     Landscape,
     SelectCofs,
 )
-from coflandscaper._internal.mace import (
-    Mace,
-    MaceOpt,
-    MaceOpt3D,
-    MaceSP,
-    calculator_settings_for_head,
-)
 from coflandscaper._internal.pxrd import PXRD, PXRD3D
 
 __all__ = [
@@ -58,18 +56,16 @@ __all__ = [
     "Crystal",
     "CrystalOpt",
     "CrystalSP",
+    "GeometryOpt",
+    "GeometryOpt3D",
     "IlsIncl",
     "IlsSerr",
     "Landscape",
-    "Mace",
-    "MaceOpt",
-    "MaceOpt3D",
-    "MaceSP",
     "SelectCofs",
+    "SinglePoint",
     "Supercell",
     "VisualizeCOF",
     "ab_half_diagonal_from_cif",
-    "calculator_settings_for_head",
     "default_shift_from_cif",
     "extract_atoms",
     "find_last_occurrence",
