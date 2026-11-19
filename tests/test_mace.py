@@ -1,8 +1,16 @@
 import importlib
+import json
+import runpy
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
+from ase import Atoms
+from ase.calculators.emt import EMT
+from ase.cell import Cell
+from ase.constraints import FixCartesian
+from ase.io import read, write
 
 import coflandscaper as cl
 
@@ -474,3 +482,243 @@ def test_run_both_routes_modes_independently(
             "cof-a/6_cof-a_scaling/postopt/incl/incl.cif",
         ),
     ]
+
+
+@pytest.fixture
+def preopt_atoms() -> Atoms:
+    """Provide an asymmetric periodic cell for geometry and force checks."""
+    return Atoms(
+        "Cu3",
+        scaled_positions=[[0.1, 0.2, 0.4], [0.5, 0.5, 0.4], [0.2, 0.8, 0.42]],
+        cell=Cell.fromcellpar([4.5, 5.2, 16, 92, 94, 116]),
+        pbc=True,
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("topo", "gamma"),
+    [("hcb", 120), ("hcb_ab", 120), ("kgm", 120), ("sql", 90), ("sql_ab", 90)],
+)
+def test_prepare_preopt_cell_preserves_fractional_positions(
+    preopt_atoms: Atoms, topo: str, gamma: float
+) -> None:
+    """Angle preparation changes neither atom identity nor fractional placement."""
+    original = preopt_atoms.copy()
+    mace_mod._prepare_preopt_cell(preopt_atoms, topo)
+    assert preopt_atoms.cell.lengths() == pytest.approx(
+        [*original.cell.lengths()[:2], 15]
+    )
+    assert preopt_atoms.cell.angles() == pytest.approx([90, 90, gamma])
+    np.testing.assert_allclose(
+        preopt_atoms.get_scaled_positions(), original.get_scaled_positions()
+    )
+    assert (
+        preopt_atoms.get_chemical_symbols() == original.get_chemical_symbols()
+    )
+    assert np.array_equal(preopt_atoms.pbc, original.pbc)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("topo", ["sql", "hcb"])
+@pytest.mark.parametrize("fix_z", [False, True])
+def test_fixed_angle_filter_forces_match_finite_differences(
+    preopt_atoms: Atoms, topo: str, fix_z: bool
+) -> None:
+    """Check atomic and log-length derivatives at nonzero anisotropic strain."""
+    mace_mod._prepare_preopt_cell(preopt_atoms, topo)
+    if fix_z:
+        preopt_atoms.set_constraint(
+            FixCartesian(range(len(preopt_atoms)), mask=[False, False, True])
+        )
+    preopt_atoms.calc = EMT()
+    cell_filter = mace_mod._FixedAngleCellFilter(preopt_atoms)
+    positions = cell_filter.get_positions()
+    positions[-1, :2] = [0.31, -0.22]
+    positions[0, 0] += 0.13
+    positions[1, 1] -= 0.07
+    cell_filter.set_positions(positions)
+    analytic = cell_filter.get_forces()
+    if topo == "hcb":
+        # Ensure this case distinguishes the oblique-cell derivative from sigma_ii.
+        cartesian = (
+            -preopt_atoms.get_volume()
+            * preopt_atoms.get_stress(voigt=False).diagonal()[:2]
+            / len(preopt_atoms)
+        )
+        assert not np.allclose(analytic[-1, :2], cartesian, atol=1e-3)
+    numerical = np.zeros_like(analytic)
+    step = 1e-6
+    for index in range(positions.size):
+        plus = positions.copy()
+        minus = positions.copy()
+        plus.flat[index] += step
+        minus.flat[index] -= step
+        cell_filter.set_positions(plus)
+        energy_plus = cell_filter.get_potential_energy()
+        cell_filter.set_positions(minus)
+        energy_minus = cell_filter.get_potential_energy()
+        numerical.flat[index] = -(energy_plus - energy_minus) / (2 * step)
+        cell_filter.set_positions(positions)
+    np.testing.assert_allclose(analytic, numerical, atol=2e-6, rtol=2e-5)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(("topo", "gamma"), [("sql", 90), ("hcb", 120)])
+@pytest.mark.parametrize("fix_z", [False, True])
+def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    preopt_atoms: Atoms,
+    topo: str,
+    gamma: float,
+    fix_z: bool,
+) -> None:
+    """Exercise CIF routing, independent lengths, atomic z, and mode isolation."""
+    monkeypatch.chdir(tmp_path)
+    folder = Path("cof/1_cof_single_layer")
+    folder.mkdir(parents=True)
+    source = folder / "cof_unopt.cif"
+    write(source, preopt_atoms)
+    original_bytes = source.read_bytes()
+    original_lengths = preopt_atoms.cell.lengths()[:2].copy()
+    targets = []
+    initial_z: np.ndarray | None = None
+
+    class RecordingOptimizer:
+        def __init__(self, target) -> None:
+            self.target = target
+            targets.append(target)
+
+        def run(self, **_kwargs: object) -> bool:
+            nonlocal initial_z
+            positions = self.target.get_positions()
+            if isinstance(self.target, mace_mod._FixedAngleCellFilter):
+                initial_z = self.target.atoms.positions[:, 2].copy()
+                positions[-1, :2] = [0.24, -0.17]
+                positions[0, 2] += 0.2
+            else:
+                positions[-3:] += self.target.exp_cell_factor * np.array(
+                    [[0.01, 0.05, 0], [0.05, -0.02, 0], [0, 0, 0.1]]
+                )
+            self.target.set_positions(positions)
+            return True
+
+    monkeypatch.setattr(mace_mod, "LBFGS", RecordingOptimizer)
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    opt = MaceOpt(fix_z=False, verbose=False)
+    assert opt.run_preopt("cof", fix_z=fix_z, topo=topo)
+    assert opt._fix_z is False
+    prepared = read(folder / "cof_preopt.cif")
+    assert isinstance(prepared, Atoms)
+    assert prepared.cell.angles() == pytest.approx([90, 90, gamma])
+    assert prepared.cell.lengths()[2] == pytest.approx(15)
+    np.testing.assert_allclose(
+        prepared.cell.lengths()[:2],
+        original_lengths * np.exp(np.array([0.24, -0.17]) / len(preopt_atoms)),
+    )
+    assert initial_z is not None
+    expected_z = initial_z.copy()
+    if not fix_z:
+        expected_z[0] += 0.2
+    np.testing.assert_allclose(prepared.positions[:, 2], expected_z)
+    assert source.read_bytes() == original_bytes
+
+    output = tmp_path / "full_opt.cif"
+    assert opt.optimize_cof(str(folder / "cof_preopt.cif"), str(output))
+    assert isinstance(targets[1], mace_mod.FrechetCellFilter)
+    assert not targets[1].atoms.constraints
+    relaxed = read(output)
+    assert isinstance(relaxed, Atoms)
+    assert relaxed.cell.lengths()[2] != pytest.approx(15)
+    assert relaxed.cell.angles()[2] != pytest.approx(gamma)
+
+
+@pytest.mark.unit
+def test_preopt_failures_preserve_optimizer_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, preopt_atoms: Atoms
+) -> None:
+    """Reject invalid requests and restore fix_z after an unsuccessful call."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    opt = MaceOpt(fix_z=False, verbose=False)
+    with pytest.raises(
+        ValueError, match="Unsupported preoptimization topology"
+    ):
+        opt.run_preopt("cof", topo="dia")
+    preopt_atoms.set_cell(np.zeros((3, 3)))
+    with pytest.raises(ValueError, match="nondegenerate cell"):
+        mace_mod._prepare_preopt_cell(preopt_atoms, "hcb")
+
+    def fail_read(_path: str) -> None:
+        raise RuntimeError("input read failed")
+
+    monkeypatch.setattr(mace_mod, "read", fail_read)
+    with pytest.raises(RuntimeError, match="input read failed"):
+        opt.run_preopt("cof", fix_z=True, topo="hcb")
+    assert opt._fix_z is False
+    with pytest.raises(ValueError, match="cannot be combined"):
+        opt._optimize_cof(
+            "in.cif", "out.cif", fixed_cell=True, preopt_topo="hcb"
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("workflow", ["script", "notebook"])
+@pytest.mark.parametrize("topo", ["sql", "kgm"])
+def test_standard_workflows_pass_preopt_topology(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, workflow: str, topo: str
+) -> None:
+    """Run each standard preopt entry point without loading a MACE model."""
+    root = Path(__file__).resolve().parents[1]
+    seen: dict[str, object] = {}
+
+    class PreoptReachedError(Exception):
+        pass
+
+    def record_preopt(self, cof_name: str, **kwargs: object) -> None:
+        _ = self
+        seen.update(cof_name=cof_name, **kwargs)
+        raise PreoptReachedError
+
+    monkeypatch.setattr(
+        MaceOpt, "_make_calc", lambda *_args, **_kwargs: object()
+    )
+    monkeypatch.setattr(MaceOpt, "run_preopt", record_preopt)
+    monkeypatch.setattr(cl.BuildCOF2D, "build", lambda *_args, **_kwargs: [])
+    if workflow == "script":
+        driver = runpy.run_path(str(root / "example/cof-landscaper.py"))
+        params = json.loads(
+            (root / "example/cof-landscaper.params.json").read_text()
+        )
+        params.update(TOPOLOGY=topo, COF_NAME="workflow-test")
+        with pytest.raises(PreoptReachedError):
+            driver["run_workflow"](params)
+    else:
+        notebook = json.loads(
+            (root / "example/cof-landscaper_local.ipynb").read_text()
+        )
+        cells = [
+            "".join(cell["source"])
+            for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+            and "run_preopt(" in "".join(cell["source"])
+        ]
+        assert len(cells) == 1
+        cell_script = tmp_path / "preopt_cell.py"
+        cell_script.write_text(cells[0])
+        with pytest.raises(PreoptReachedError):
+            runpy.run_path(
+                str(cell_script),
+                init_globals={
+                    "cl": cl,
+                    "COF_NAME": "workflow-test",
+                    "TOPOLOGY": topo,
+                },
+            )
+    assert seen["cof_name"] == "workflow-test"
+    assert seen["topo"] == topo

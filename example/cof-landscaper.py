@@ -17,7 +17,7 @@ DEFAULT_PARAMS_FILE = Path(__file__).with_name("cof-landscaper.params.json")
 
 
 def run_workflow(params: dict[str, object]) -> None:
-    """Run the batch computational workflow using JSON parameters."""
+    """Preoptimize at ideal 2D angles, then screen and fully relax stacked COFs."""
     topology = str(params["TOPOLOGY"])
     cof_name = str(params["COF_NAME"])
     mode = str(params["MODE"])
@@ -52,7 +52,7 @@ def run_workflow(params: dict[str, object]) -> None:
     )
 
     preopt = cl.MaceOpt(head=mace_head, device=device)
-    preopt.run_preopt(cof_name=cof_name, fix_z=fix_z)
+    preopt.run_preopt(cof_name=cof_name, fix_z=fix_z, topo=topology)
 
     matrix = cl.CreateMatrix(
         ild_start=ild_start,
