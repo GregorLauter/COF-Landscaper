@@ -316,18 +316,30 @@ def ab_half_diagonal_from_cif(input_file: str) -> tuple[float, float]:
     return length, angle
 
 
+def _validate_slip_path(topo: str, slip_path: str) -> None:
+    """Validate fixed SQL path keywords without changing other topology defaults."""
+    if slip_path not in {"a/2", "b/2", "(a+b)/2"}:
+        raise ValueError("slip_path must be 'a/2', 'b/2', or '(a+b)/2'.")
+    if topo not in {"sql", "sql_ab"} and slip_path != "a/2":
+        raise ValueError(
+            "Alternative slip_path values require 'sql' or 'sql_ab'."
+        )
+
+
 def default_shift_from_cif(
     input_file: str,
     topo: str,
     print_shift: bool = False,
+    slip_path: str = "a/2",
 ) -> tuple[float, float]:
     """Determine the default interlayer-slipping vector.
 
         The default interlayer slipping (ILS) magnitude and direction are derived from
         the in-plane lattice vectors of the supplied structure.
 
-        For ``sql`` and ``sql_ab``, the shift is ``(a + b) / 2``. In the binary
-        square cell this places A over B across a net edge.
+        For ``sql`` and ``sql_ab``, ``slip_path`` selects half of ``a``, ``b``,
+        or ``a + b`` from the supplied cell. The default is half of ``a``.
+        In the binary square cell, ``(a+b)/2`` places A over B across a net edge.
 
         For ``hcb`` and ``kgm``, the shift corresponds to the symmetry-equivalent
         fractional lattice vector ``(a + 2b) / 3``. Its length and angle are
@@ -341,36 +353,34 @@ def default_shift_from_cif(
         topo: Topology selector: ``"sql"``, ``"sql_ab"``, ``"hcb"``, or ``"kgm"``.
         print_shift: Whether to print the calculated default shift.
             Defaults to ``False``.
+        slip_path: SQL path keyword: ``"a/2"`` (default), ``"b/2"``, or
+            ``"(a+b)/2"``. Other topologies retain their existing defaults and
+            accept only the default keyword.
 
     Returns:
         Tuple ``(length, angle_deg)`` containing the default ILS magnitude in Å
         and direction in degrees.
 
     Raises:
-        ValueError: If ``topo`` is unsupported.
+        ValueError: If ``topo`` or ``slip_path`` is unsupported.
     """
     if topo not in ("sql", "sql_ab", "hcb", "kgm"):
         raise ValueError("topo must be 'sql', 'sql_ab', 'hcb', or 'kgm'")
+    _validate_slip_path(topo, slip_path)
     struct = Structure.from_file(input_file)
     a_vec, b_vec, _ = struct.lattice.matrix
 
-    vec = 0.5 * (a_vec + b_vec)
-    vec_xy = np.array([vec[0], vec[1]], dtype=float)
-    sql_len = float(np.linalg.norm(vec_xy))
-
     if topo in {"hcb", "kgm"}:
         vec = (a_vec + 2.0 * b_vec) / 3.0
-        vec_xy = np.array([vec[0], vec[1]], dtype=float)
-        length = float(np.linalg.norm(vec_xy))
-        angle = float(math.degrees(math.atan2(vec_xy[1], vec_xy[0])))
-        if print_shift:
-            print(
-                f"[DEFAULT_SHIFT_VALUES] Length={length:.2f}Å Angle={angle:.2f}"
-            )
-        return length, angle
+    elif slip_path == "a/2":
+        vec = a_vec / 2.0
+    elif slip_path == "b/2":
+        vec = b_vec / 2.0
+    else:
+        vec = (a_vec + b_vec) / 2.0
 
-    length = sql_len
-    angle = float(math.degrees(math.atan2(vec_xy[1], vec_xy[0])))
+    length = float(np.linalg.norm(vec[:2]))
+    angle = float(math.degrees(math.atan2(vec[1], vec[0])))
     if print_shift:
         print(f"[DEFAULT_SHIFT_VALUES] Length={length:.2f}Å Angle={angle:.2f}")
     return length, angle

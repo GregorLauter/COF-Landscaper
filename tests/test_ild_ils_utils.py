@@ -162,8 +162,8 @@ def test_default_shift_from_cif_sql_hcb_kgm(
     hcb_length, hcb_angle = cl.default_shift_from_cif("dummy.cif", "hcb")
     kgm_length, kgm_angle = cl.default_shift_from_cif("dummy.cif", "kgm")
 
-    assert sql_length == pytest.approx(np.sqrt(2.0))
-    assert sql_angle == pytest.approx(45.0)
+    assert sql_length == pytest.approx(1.0)
+    assert sql_angle == pytest.approx(0.0)
     hcb_vec_xy = hcb_length * np.array(
         [np.cos(np.radians(hcb_angle)), np.sin(np.radians(hcb_angle))]
     )
@@ -211,6 +211,34 @@ def test_default_shift_from_cif_rejects_invalid_topology() -> None:
         ValueError, match="topo must be 'sql', 'sql_ab', 'hcb', or 'kgm'"
     ):
         cl.default_shift_from_cif("dummy.cif", "bad")
+    with pytest.raises(ValueError, match="slip_path must be"):
+        cl.default_shift_from_cif("dummy.cif", "sql", slip_path="diagonal")
+    with pytest.raises(ValueError, match="require 'sql' or 'sql_ab'"):
+        cl.default_shift_from_cif("dummy.cif", "hcb", slip_path="b/2")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("slip_path", "expected"),
+    [("a/2", [2.0, 0.0]), ("b/2", [0.5, 3.0]), ("(a+b)/2", [2.5, 3.0])],
+)
+def test_sql_slip_paths(
+    monkeypatch: pytest.MonkeyPatch, slip_path: str, expected: list[float]
+) -> None:
+    """Both square topologies derive each path from a nonorthogonal input cell."""
+    matrix = np.array([[4.0, 0.0, 0.0], [1.0, 6.0, 0.0], [0.0, 0.0, 15.0]])
+    module = importlib.import_module(cl.default_shift_from_cif.__module__)
+    monkeypatch.setattr(
+        module.Structure, "from_file", lambda _path: _FakeStructure(matrix)
+    )
+    for topo in ("sql", "sql_ab"):
+        length, angle = cl.default_shift_from_cif(
+            "dummy.cif", topo, slip_path=slip_path
+        )
+        vector = length * np.array(
+            [np.cos(np.radians(angle)), np.sin(np.radians(angle))]
+        )
+        assert vector == pytest.approx(expected)
 
 
 @pytest.mark.unit
@@ -230,8 +258,10 @@ def test_ils_defaults_map_hcb_ab_but_not_kgm(
         _input_file: str,
         topo: str,
         print_shift: bool = False,
+        slip_path: str = "a/2",
     ) -> tuple[float, float]:
         _ = print_shift
+        assert slip_path == "a/2"
         seen.append(topo)
         return 1.0, 90.0
 
@@ -273,33 +303,45 @@ def test_ils_defaults_map_hcb_ab_but_not_kgm(
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", ["serr", "incl"])
-@pytest.mark.parametrize("override", [False, True])
+@pytest.mark.parametrize(
+    ("max_slip", "angle_deg", "expected_xy"),
+    [
+        (None, None, (0.0, 4.0)),
+        (1.5, None, (0.0, 1.5)),
+        (None, 0.0, (4.0, 0.0)),
+        (1.5, 0.0, (1.5, 0.0)),
+    ],
+)
 def test_sql_ab_shift_and_stacking(
-    tmp_path: Path, mode: str, override: bool
+    tmp_path: Path,
+    mode: str,
+    max_slip: float | None,
+    angle_deg: float | None,
+    expected_xy: tuple[float, float],
 ) -> None:
-    """Both representations write the binary square shift or explicit overrides."""
+    """Both representations receive the SQL path and preserve explicit overrides."""
     from pymatgen.core import Lattice, Structure
     from pymatgen.io.cif import CifWriter
 
     source = tmp_path / "binary.cif"
     CifWriter(
         Structure(
-            Lattice.orthorhombic(6, 8, 15),
+            Lattice.orthorhombic(5, 8, 15),
             ["C", "N"],
             [[0, 0, 0.5], [0.5, 0.5, 0.5]],
         )
     ).write_file(source)
     length, angle = cl.default_shift_from_cif(str(source), "sql_ab")
-    assert length == pytest.approx(5)
-    assert angle == pytest.approx(np.degrees(np.arctan2(4, 3)))
-    endpoint = 1.5 if override else length
+    assert length == pytest.approx(2.5)
+    assert angle == pytest.approx(0)
     target = tmp_path / "shifted"
     cl.CreateMatrix(
         ild_start=3.5,
         ild_end=3.5,
-        ils_length_step=endpoint,
-        ils_length_end=1.5 if override else None,
-        ils_angle=0.0 if override else None,
+        ils_length_step=5.0,
+        slip_path="b/2",
+        ils_length_end=max_slip,
+        ils_angle=angle_deg,
     ).run(
         cof_name="binary",
         topo="sql_ab",
@@ -309,9 +351,7 @@ def test_sql_ab_shift_and_stacking(
     )
     paths = list((target / mode).glob("*.cif"))
     assert len(paths) == 2
-    expected = (
-        np.array([1.5, 0.0, 0.0]) if override else np.array([3.0, 4.0, 0.0])
-    )
+    expected = np.array([*expected_xy, 0.0])
     parent = Structure.from_file(source)
     for path in paths:
         written = Structure.from_file(path)
@@ -320,7 +360,7 @@ def test_sql_ab_shift_and_stacking(
             a_vec, b_vec, c_vec = written.lattice.matrix
             # CIF reading rotates the cell; dot products retain the physical shift.
             assert np.dot(c_vec, a_vec) == pytest.approx(
-                shift[0] * 6, abs=2e-6
+                shift[0] * 5, abs=2e-6
             )
             assert np.dot(c_vec, b_vec) == pytest.approx(
                 shift[1] * 8, abs=2e-6
