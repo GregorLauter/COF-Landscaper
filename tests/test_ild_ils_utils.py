@@ -208,7 +208,7 @@ def test_default_shift_from_cif_hcb_and_kgm_match_for_hex_cell(
 def test_default_shift_from_cif_rejects_invalid_topology() -> None:
     """This test ensures invalid topology names fail fast in default shift computation."""
     with pytest.raises(
-        ValueError, match="topo must be 'sql', 'hcb', or 'kgm'"
+        ValueError, match="topo must be 'sql', 'sql_ab', 'hcb', or 'kgm'"
     ):
         cl.default_shift_from_cif("dummy.cif", "bad")
 
@@ -269,3 +269,82 @@ def test_ils_defaults_map_hcb_ab_but_not_kgm(
     )
 
     assert seen == ["hcb", "kgm"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("mode", ["serr", "incl"])
+@pytest.mark.parametrize("override", [False, True])
+def test_sql_ab_shift_and_stacking(
+    tmp_path: Path, mode: str, override: bool
+) -> None:
+    """Both representations write the binary square shift or explicit overrides."""
+    from pymatgen.core import Lattice, Structure
+    from pymatgen.io.cif import CifWriter
+
+    source = tmp_path / "binary.cif"
+    CifWriter(
+        Structure(
+            Lattice.orthorhombic(6, 8, 15),
+            ["C", "N"],
+            [[0, 0, 0.5], [0.5, 0.5, 0.5]],
+        )
+    ).write_file(source)
+    length, angle = cl.default_shift_from_cif(str(source), "sql_ab")
+    assert length == pytest.approx(5)
+    assert angle == pytest.approx(np.degrees(np.arctan2(4, 3)))
+    endpoint = 1.5 if override else length
+    target = tmp_path / "shifted"
+    cl.CreateMatrix(
+        ild_start=3.5,
+        ild_end=3.5,
+        ils_length_step=endpoint,
+        ils_length_end=1.5 if override else None,
+        ils_angle=0.0 if override else None,
+    ).run(
+        cof_name="binary",
+        topo="sql_ab",
+        mode=mode,
+        input_cif=str(source),
+        output_base_folder=str(target),
+    )
+    paths = list((target / mode).glob("*.cif"))
+    assert len(paths) == 2
+    expected = (
+        np.array([1.5, 0.0, 0.0]) if override else np.array([3.0, 4.0, 0.0])
+    )
+    parent = Structure.from_file(source)
+    for path in paths:
+        written = Structure.from_file(path)
+        shift = np.zeros(3) if "L000" in path.stem else expected
+        if mode == "incl":
+            a_vec, b_vec, c_vec = written.lattice.matrix
+            # CIF reading rotates the cell; dot products retain the physical shift.
+            assert np.dot(c_vec, a_vec) == pytest.approx(
+                shift[0] * 6, abs=2e-6
+            )
+            assert np.dot(c_vec, b_vec) == pytest.approx(
+                shift[1] * 8, abs=2e-6
+            )
+            assert written.lattice.c == pytest.approx(
+                np.linalg.norm(shift + np.array([0, 0, 3.5])), abs=1e-7
+            )
+            reference_delta = parent.cart_coords[1] - parent.cart_coords[0]
+            written_delta = written.cart_coords[1] - written.cart_coords[0]
+            assert np.linalg.norm(written_delta) == pytest.approx(
+                np.linalg.norm(reference_delta), abs=1e-7
+            )
+        else:
+            assert len(written) == 4
+            assert written.lattice.c == pytest.approx(7)
+            for site in written:
+                reference = next(p for p in parent if p.specie == site.specie)
+                delta = site.frac_coords[:2] - reference.frac_coords[:2]
+                expected_frac = (
+                    parent.lattice.get_fractional_coords(shift)[:2]
+                    if site.frac_coords[2] > 0.5
+                    else np.zeros(2)
+                )
+                delta -= expected_frac
+                assert delta - np.round(delta) == pytest.approx(
+                    np.zeros(2), abs=1e-7
+                )

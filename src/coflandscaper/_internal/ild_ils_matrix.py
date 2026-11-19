@@ -173,7 +173,7 @@ class IlsSerr:
             input_folder: Folder containing ILD-modified CIF structures.
             output_folder: Destination folder for serrated structures.
             topo: Topology selector used to determine the default ILS shift. Allowed
-                values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
+                values are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"hcb_ab"``, and ``"kgm"``.
             cof_name: Optional COF name used for standardized output filenames.
                 Defaults to ``None``.
             ils_length_step: Interlayer-slipping step size in Å. Defaults to ``1.0``.
@@ -188,8 +188,10 @@ class IlsSerr:
         Raises:
             ValueError: If ``topo`` is unsupported.
         """
-        if topo not in {"hcb", "sql", "hcb_ab", "kgm"}:
-            raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'.")
+        if topo not in {"hcb", "sql", "sql_ab", "hcb_ab", "kgm"}:
+            raise ValueError(
+                "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', or 'kgm'."
+            )
         topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
@@ -305,7 +307,7 @@ class IlsIncl:
             input_folder: Folder containing ILD-modified CIF structures.
             output_folder: Destination folder for inclined structures.
             topo: Topology selector used to determine the default ILS shift. Allowed
-                values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
+                values are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"hcb_ab"``, and ``"kgm"``.
             cof_name: Optional COF name used for standardized output filenames.
                 Defaults to ``None``.
             ils_length_start: Minimum interlayer slipping in Å. Defaults to ``0.0``.
@@ -320,8 +322,10 @@ class IlsIncl:
         Raises:
             ValueError: If ``topo`` is unsupported.
         """
-        if topo not in {"hcb", "sql", "hcb_ab", "kgm"}:
-            raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'.")
+        if topo not in {"hcb", "sql", "sql_ab", "hcb_ab", "kgm"}:
+            raise ValueError(
+                "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', or 'kgm'."
+            )
         topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
@@ -474,7 +478,7 @@ class CreateMatrix:
         Args:
             cof_name: COF name used for default workflow folder and file naming.
             topo: Topology selector used to determine the default ILS shift.
-                Allowed values are ``"hcb"``, ``"sql"``, ``"hcb_ab"``, and ``"kgm"``.
+                Allowed values are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"hcb_ab"``, and ``"kgm"``.
             mode: Stacking-mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
             input_cif: Optional preoptimized input CIF path. Defaults to
                 ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif``.

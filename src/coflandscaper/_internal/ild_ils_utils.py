@@ -326,7 +326,8 @@ def default_shift_from_cif(
         The default interlayer slipping (ILS) magnitude and direction are derived from
         the in-plane lattice vectors of the supplied structure.
 
-        For ``sql``, the shift corresponds to half of the ``a + b`` diagonal.
+        For ``sql`` and ``sql_ab``, the shift is ``(a + b) / 2``. In the binary
+        square cell this places A over B across a net edge.
 
         For ``hcb`` and ``kgm``, the shift corresponds to the symmetry-equivalent
         fractional lattice vector ``(a + 2b) / 3``. Its length and angle are
@@ -337,7 +338,7 @@ def default_shift_from_cif(
 
     Args:
         input_file: CIF structure path.
-        topo: Topology selector: ``"sql"`, ``"hcb"`, or ``"kgm"``.
+        topo: Topology selector: ``"sql"``, ``"sql_ab"``, ``"hcb"``, or ``"kgm"``.
         print_shift: Whether to print the calculated default shift.
             Defaults to ``False``.
 
@@ -348,8 +349,8 @@ def default_shift_from_cif(
     Raises:
         ValueError: If ``topo`` is unsupported.
     """
-    if topo not in ("sql", "hcb", "kgm"):
-        raise ValueError("topo must be 'sql', 'hcb', or 'kgm'")
+    if topo not in ("sql", "sql_ab", "hcb", "kgm"):
+        raise ValueError("topo must be 'sql', 'sql_ab', 'hcb', or 'kgm'")
     struct = Structure.from_file(input_file)
     a_vec, b_vec, _ = struct.lattice.matrix
 

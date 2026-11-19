@@ -37,6 +37,7 @@ DEFAULT_X_SCALE = 0.8
 TOPOLOGY_INPUT_COUNTS = {
     "hcb": {"nodes": 1, "linkers": 1},
     "sql": {"nodes": 1, "linkers": 1},
+    "sql_ab": {"nodes": 2, "linkers": 0},
     "hcb_ab": {"nodes": 2, "linkers": 0},
     "kgm": {"nodes": 1, "linkers": 1},
 }
@@ -730,7 +731,28 @@ def _build_cof(
     topology = database.get_topo(topo)
     _sanitize_edge_types_inplace(topology.edge_types)
     builder = CofLandscaperBuilder()
-    if topo == "hcb_ab":
+    if topo == "sql_ab":
+        node_bbs = {
+            node_type: pm.BuildingBlock(path)
+            for node_type, path in enumerate(node_paths)
+        }
+        node_indices = np.asarray(topology.node_indices, dtype=int)
+        if (
+            len(node_indices) != 2
+            or set(np.asarray(topology.node_types)[node_indices]) != {0, 1}
+            or not np.all(np.asarray(topology.cn)[node_indices] == 4)
+        ):
+            raise ValueError(
+                "Invalid sql_ab scaffold: expected two 4-connected node types."
+            )
+        for node_type, block in node_bbs.items():
+            if len(block.connection_point_indices) != 4:
+                raise ValueError(
+                    f"Topology 'sql_ab' node {node_type + 1} requires exactly 4 "
+                    "connection markers (He)."
+                )
+        cof = builder.build_by_type(topology=topology, node_bbs=node_bbs)
+    elif topo == "hcb_ab":
         node_a = pm.BuildingBlock(node_paths[0])
         node_b = pm.BuildingBlock(node_paths[1])
         bbs: list[BuildingBlock | None] = [None] * topology.n_slots
@@ -791,14 +813,19 @@ class BuildCOF2D:
     converted into PORMAKE-compatible connection sites and connectivity information
     is generated automatically.
 
-    Supported topologies are ``"hcb"``, ``"sql"``, ``"kgm"``, and ``"hcb_ab"``.
+    Supported topologies are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"kgm"``,
+    and ``"hcb_ab"``.
 
     Topology input requirements are:
 
     - ``hcb``: one 3-connected node and one 2-connected linker;
     - ``sql``: one 4-connected node and one 2-connected linker;
+    - ``sql_ab``: two 4-connected node types and no separate linker;
     - ``kgm``: one 4-connected node and one 2-connected linker;
     - ``hcb_ab``: two 3-connected node types and no separate linker.
+
+    For ``sql_ab``, the first node input is A and the second is B; folder
+    inputs use alphabetical filename order. Each must have four He markers.
 
     Unless explicit paths are supplied, node and linker inputs are read from
     ``0_node/`` and ``0_linker/``. The assembled framework is written to
@@ -841,7 +868,7 @@ class BuildCOF2D:
         is passed to the subsequent MACE preoptimization stage.
 
         Args:
-            topo: Topology selector: ``"hcb"``, ``"sql"``, ``"hcb_ab"``, or
+            topo: Topology selector: ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"hcb_ab"``, or
                 ``"kgm"``.
             cof_name: COF identifier used for workflow folder and file naming.
             input_nodes: Optional explicit node XYZ paths. Defaults to ``None``, which
@@ -858,29 +885,34 @@ class BuildCOF2D:
 
         Raises:
             ValueError: If ``topo`` is unsupported or the resolved number of node or
-                linker files does not match the topology requirements.
+                linker files does not match the topology requirements, or a ``sql_ab``
+                node does not have four connection markers.
             FileNotFoundError: If explicitly supplied input XYZ files cannot be read.
         """
         _disable_pormake_file_logging()
         if topo not in TOPOLOGY_INPUT_COUNTS:
-            raise ValueError("topo must be 'hcb', 'sql', 'hcb_ab', or 'kgm'")
+            raise ValueError(
+                "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', or 'kgm'"
+            )
 
         required_nodes = TOPOLOGY_INPUT_COUNTS[topo]["nodes"]
         required_linkers = TOPOLOGY_INPUT_COUNTS[topo]["linkers"]
 
         with ExitStack() as stack:
-            nodes_dir_used = stack.enter_context(tempfile.TemporaryDirectory())
             if input_nodes is not None:
-                node_inputs = [os.fspath(path) for path in input_nodes]
-                _prepare_xyz_files(node_inputs, nodes_dir_used)
-                nodes = [
-                    (
-                        Path(path).stem,
-                        str(Path(nodes_dir_used) / f"{Path(path).stem}.xyz"),
+                # A and B can have the same filename in different directories.
+                nodes = []
+                for path in input_nodes:
+                    node_dir = stack.enter_context(
+                        tempfile.TemporaryDirectory()
                     )
-                    for path in node_inputs
-                ]
+                    _prepare_xyz_files([os.fspath(path)], node_dir)
+                    stem = Path(path).stem
+                    nodes.append((stem, str(Path(node_dir) / f"{stem}.xyz")))
             else:
+                nodes_dir_used = stack.enter_context(
+                    tempfile.TemporaryDirectory()
+                )
                 _prepare_xyz("0_node", nodes_dir_used)
                 nodes = self._list_xyz(nodes_dir_used)
 
@@ -908,7 +940,7 @@ class BuildCOF2D:
                 extra_linkers = sorted(Path("0_linker").glob("*.xyz"))
                 if extra_linkers:
                     warnings.warn(
-                        "Topology 'hcb_ab' ignores linker files in 0_linker/.",
+                        f"Topology '{topo}' ignores linker files in 0_linker/.",
                         stacklevel=2,
                     )
 
