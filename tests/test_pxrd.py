@@ -767,3 +767,95 @@ def test_extract_peaks_postopt_uses_postanalysis_folder(
         / "incl"
         / "sample_all.csv"
     ).exists()
+
+
+@pytest.mark.unit
+def test_pxrd3d_flat_default_and_custom_routing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """3D diffraction keeps a single input/output route without mode folders."""
+    calls: list[tuple[Path, Path]] = []
+
+    def fake_produce_xy(_self, input_folder, output_folder=None) -> str:
+        assert output_folder is not None
+        calls.append((Path(input_folder), Path(output_folder)))
+        return str(output_folder)
+
+    monkeypatch.setattr(cl.PXRD, "produce_xy", fake_produce_xy)
+    pxrd = cl.PXRD3D()
+    assert pxrd.run("cof-a") == "cof-a/3_cof-a_analysis/pxrd_xy"
+    assert (
+        pxrd.run(
+            "cof-a", input_folder="custom-cifs", output_folder="custom-xy"
+        )
+        == "custom-xy"
+    )
+    assert calls == [
+        (
+            Path("cof-a/2_cof-a_optimization"),
+            Path("cof-a/3_cof-a_analysis/pxrd_xy"),
+        ),
+        (Path("custom-cifs"), Path("custom-xy")),
+    ]
+
+
+@pytest.mark.unit
+def test_pxrd3d_extracts_flat_peak_tables(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Peak normalization, ranking, and CSV export use the framework layout."""
+    monkeypatch.chdir(tmp_path)
+    xy_folder = Path("cof-a/3_cof-a_analysis/pxrd_xy")
+    xy_folder.mkdir(parents=True)
+    np.savetxt(
+        xy_folder / "cof-a_opt.xy",
+        np.array([[4, 2], [8, 8], [12, 0.01]], dtype=float),
+    )
+    peaks = cl.PXRD3D().extract_peaks("cof-a", max_peaks=1)
+    assert list(peaks.columns) == [
+        "structure",
+        "rank",
+        "two_theta_deg",
+        "relative_intensity",
+    ]
+    assert peaks.to_dict("records") == [
+        {
+            "structure": "cof-a_opt",
+            "rank": 1,
+            "two_theta_deg": 8.0,
+            "relative_intensity": 100.0,
+        }
+    ]
+    csv_path = Path("cof-a/3_cof-a_analysis/pxrd_peaks/cof-a_opt_all.csv")
+    assert csv_path.is_file()
+    assert "Stacking" not in csv_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.unit
+def test_pxrd3d_plots_without_stacking_annotations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both plot types export PDFs without attempting layer metric lookup."""
+    monkeypatch.chdir(tmp_path)
+    xy_folder = Path("cof-a/3_cof-a_analysis/pxrd_xy")
+    xy_folder.mkdir(parents=True)
+    np.savetxt(xy_folder / "cof-a_opt.xy", [[4, 2], [8, 8], [12, 1]])
+    exp_folder = Path("experimental_pxrd")
+    exp_folder.mkdir()
+    np.savetxt(exp_folder / "sample.xy", [[4, 1], [8, 5], [12, 2]])
+
+    def fail_stacking_lookup(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("3D plotting must not request ILD or ILS")
+
+    monkeypatch.setattr(cl.PXRD, "_load_stacking_values", fail_stacking_lookup)
+    pxrd = cl.PXRD3D()
+    simulated = pxrd.plot_sim("cof-a", show=False)
+    compared = pxrd.plot_sim_vs_exp("cof-a", show=False)
+    assert simulated == [
+        "cof-a/3_cof-a_analysis/pxrd_plots/simulated/cof-a_opt.pdf"
+    ]
+    assert compared == ["cof-a/3_cof-a_analysis/pxrd_plots/cof-a_opt.pdf"]
+    assert all(
+        Path(path).is_file() and Path(path).stat().st_size > 0
+        for path in simulated + compared
+    )

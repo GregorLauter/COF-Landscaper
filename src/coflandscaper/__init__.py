@@ -7,6 +7,7 @@ from coflandscaper._internal.analyze import (
     VisualizeCOF,
 )
 from coflandscaper._internal.build_cof_2d import BuildCOF2D
+from coflandscaper._internal.build_cof_3d import BuildCOF3D
 from coflandscaper._internal.dft import (
     Crystal,
     CrystalOpt,
@@ -40,15 +41,18 @@ from coflandscaper._internal.landscape import (
 from coflandscaper._internal.mace import (
     Mace,
     MaceOpt,
+    MaceOpt3D,
     MaceSP,
     calculator_settings_for_head,
 )
-from coflandscaper._internal.pxrd import PXRD
+from coflandscaper._internal.pxrd import PXRD, PXRD3D
 
 __all__ = [
     "PXRD",
+    "PXRD3D",
     "AnalyzeStacking",
     "BuildCOF2D",
+    "BuildCOF3D",
     "ChangeIld",
     "CreateMatrix",
     "Crystal",
@@ -59,6 +63,7 @@ __all__ = [
     "Landscape",
     "Mace",
     "MaceOpt",
+    "MaceOpt3D",
     "MaceSP",
     "SelectCofs",
     "Supercell",
