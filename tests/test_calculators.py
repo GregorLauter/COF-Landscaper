@@ -909,7 +909,7 @@ def test_factory_and_instance_reused_for_both_modes(
             "energy_eV",
             "energy_rel_eV",
         ]
-    assert GeometryOpt(calculator=sp.calc).single_point.calc is backend
+    assert not hasattr(GeometryOpt(calculator=backend), "single_point")
     with pytest.raises(ValueError, match="existing calculator"):
         SinglePoint(calculator=backend, calculator_kwargs={"bad": 1})
 

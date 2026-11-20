@@ -21,7 +21,6 @@ import numpy as np
 import pandas as pd
 
 from .ild_ils_utils import get_mode_folders
-from .utilities import _in_notebook
 
 
 class Landscape:
@@ -345,7 +344,7 @@ class Landscape:
         minima_mode: str = "global",
         show_header: bool = True,
         show_title_block: bool = False,
-        show: bool | None = None,
+        show: bool = False,
         input_folder: str | None = None,
         output_folder: str | None = None,
         method_label: str | None = None,
@@ -379,8 +378,7 @@ class Landscape:
                 ``True``.
             show_title_block: Whether to display the title, stacking mode, and level
                 of theory above the plot. Defaults to ``False``.
-            show: Display figures interactively. By default, display in a notebook
-                kernel and save without displaying in a batch run.
+            show: If True, display each figure after saving it. Defaults to False.
             input_folder: Optional base folder containing the mode-specific energy CSV
                 files and ``serr``/``incl`` subfolders. Defaults to
                 ``{cof_name}/3_{cof_name}_landscape``.
@@ -393,8 +391,6 @@ class Landscape:
             FileNotFoundError: If the input folder or required energy CSV files are
                 missing.
         """
-        if show is None:
-            show = _in_notebook()
         mode_norm = (mode or "").strip().lower()
         mode_tags = (
             ["serr", "incl"]

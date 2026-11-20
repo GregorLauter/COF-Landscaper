@@ -405,11 +405,6 @@ class GeometryOpt:
         self._fix_z = fix_z
         self._max_steps = max_steps
 
-    @property
-    def single_point(self) -> SinglePoint:
-        """A single-point workflow sharing this optimizer's calculator instance."""
-        return SinglePoint(calculator=self.calc)
-
     def _apply_constraints(self, atoms: Atoms) -> None:
         """Apply optional Cartesian z-axis constraints to all atoms.
 
