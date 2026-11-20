@@ -262,6 +262,9 @@ notebook = [
     { name = "ipykernel" },
     { name = "jupyter" },
 ]
+porosity = [
+    { name = "pyzeo", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -287,9 +290,10 @@ requires-dist = [
     { name = "pormake", specifier = ">=0.2.3" },
     { name = "py3dmol", specifier = ">=2.5.4" },
     { name = "pymatgen", specifier = ">=2024.4.12" },
+    { name = "pyzeo", marker = "(sys_platform == 'darwin' and extra == 'porosity') or (sys_platform == 'linux' and extra == 'porosity')", specifier = "~=0.2.0" },
     { name = "torch-dftd", specifier = ">=0.5.2" },
 ]
-provides-extras = ["notebook"]
+provides-extras = ["porosity", "notebook"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2155,6 +2159,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/74/93/7baea19427dcfbe1e5a372d81473250b379f04b1bd3c4c5ff825e2327202/pyyaml-6.0.3-cp312-cp312-win32.whl", hash = "sha256:96b533f0e99f6579b3d4d4995707cf36df9100d67e0c8303a0c55b27b5f99bc5", size = 137658, upload-time = "2025-09-25T21:32:20.209Z" },
     { url = "https://files.pythonhosted.org/packages/86/bf/899e81e4cce32febab4fb42bb97dcdf66bc135272882d1987881a4b519e9/pyyaml-6.0.3-cp312-cp312-win_amd64.whl", hash = "sha256:5fcd34e47f6e0b794d17de1b4ff496c00986e1c83f7ab2fb8fcfe9616ff7477b", size = 154003, upload-time = "2025-09-25T21:32:21.167Z" },
     { url = "https://files.pythonhosted.org/packages/1a/08/67bd04656199bbb51dbed1439b7f27601dfb576fb864099c7ef0c3e55531/pyyaml-6.0.3-cp312-cp312-win_arm64.whl", hash = "sha256:64386e5e707d03a7e172c0701abfb7e10f0fb753ee1d773128192742712a98fd", size = 140344, upload-time = "2025-09-25T21:32:22.617Z" },
+]
+
+[[package]]
+name = "pyzeo"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/be/8b16a05c3c70ad2b24d1561ae32cc1e2ad1ef08818b97e721951fa9c323b/pyzeo-0.2.0.tar.gz", hash = "sha256:f838283f2c4c17d9afca5d7c5c282d5af7a218db1ea8c1f566efa224fe4a9795", size = 1091896, upload-time = "2026-06-25T07:29:28.501Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/63/710072715784d2a94fff4ab0c66966d2f43f2facbf732d3ddb0e43726039/pyzeo-0.2.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:035ee508a5b5ebfc4bed44b9b86721ba3208dd1a9edc3b9bb6ed1284ada7dd39", size = 2026910, upload-time = "2026-06-25T07:28:36.822Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/ea/c242d22f88deeffcfefa9afc51907701f7a723c48f2b2a29350226bb2d6f/pyzeo-0.2.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f23f7dbfab2f23af17133355d5791232412f8c541ee005293701844b1346f68f", size = 1920889, upload-time = "2026-06-25T07:28:39.053Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/42/7ec0cba644a424085926a66d4937eef988ca0bb72fcb40d59966c0ff01cb/pyzeo-0.2.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:961d081c44813b41e1e1ed3bb1aaa417603e4654d5a1ebd718cd9e4efcb5514c", size = 12844305, upload-time = "2026-06-25T07:28:44.272Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/22/83eb230c25412afa22369f8f5bc28fa03b81ac28fe0b03fc3c810e459648/pyzeo-0.2.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:d90fe148cd4f4b242125a6b669085ae882f815dfbbf7bcb5142f81acd6697c57", size = 13598924, upload-time = "2026-06-25T07:28:50.686Z" },
 ]
 
 [[package]]

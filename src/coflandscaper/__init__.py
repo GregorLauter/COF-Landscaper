@@ -43,6 +43,7 @@ from coflandscaper._internal.landscape import (
     Landscape,
     SelectCofs,
 )
+from coflandscaper._internal.porosity import Porosity
 from coflandscaper._internal.pxrd import PXRD, PXRD3D
 
 __all__ = [
@@ -61,6 +62,7 @@ __all__ = [
     "IlsIncl",
     "IlsSerr",
     "Landscape",
+    "Porosity",
     "SelectCofs",
     "SinglePoint",
     "Supercell",
