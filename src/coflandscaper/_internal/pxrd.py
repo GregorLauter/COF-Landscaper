@@ -157,6 +157,14 @@ class PXRD:
                 continue
         raise ValueError(f"Could not parse XY data from {file_path}")
 
+    def _read_simulated_profile(
+        self, path: Path
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Load the simulated XY samples in angle order, including the baseline."""
+        x, y = self._read_xy(path)
+        order = np.argsort(x, kind="stable")
+        return x[order], y[order]
+
     @staticmethod
     def _resolve_exp_xy_file(exp_xy_file: str | Path | None) -> Path:
         """Return an explicit or automatically discovered experimental file.
@@ -437,9 +445,9 @@ class PXRD:
         calculator = XRDCalculator(wavelength=self._wavelength)
         for cif_path in cifs:
             pattern = self._simulate_pattern(calculator, cif_path)
-            self._write_xy(
-                xy_dir / f"{cif_path.stem}.xy",
+            self._continuous_xy(
                 np.column_stack((pattern.x, pattern.y)),
+                output_path=xy_dir / f"{cif_path.stem}.xy",
             )
             if export_hkl:
                 self._write_hkl_csv(
@@ -477,8 +485,10 @@ class PXRD:
                 for i in ordered
             )
 
-    def _write_xy(self, path: Path, xy: np.ndarray) -> None:
-        """Write exact reflections and zero-intensity points for continuous plotting."""
+    def _continuous_xy(
+        self, xy: np.ndarray, *, output_path: Path | None = None
+    ) -> np.ndarray:
+        """Build the sorted XY trace from reflections and optionally save it."""
         angles = xy[:, 0]
         lower, upper = self._two_theta_range
         grid = np.arange(np.floor(lower * 100), np.ceil(upper * 100) + 1) / 100
@@ -496,11 +506,10 @@ class PXRD:
         zeros = np.setdiff1d(np.concatenate((grid[keep], left, right)), angles)
         baseline = np.column_stack((zeros, np.zeros_like(zeros)))
         profile = np.concatenate((xy, baseline))
-        np.savetxt(
-            path,
-            profile[np.argsort(profile[:, 0], kind="stable")],
-            fmt="%.17g",
-        )
+        profile = profile[np.argsort(profile[:, 0], kind="stable")]
+        if output_path is not None:
+            np.savetxt(output_path, profile, fmt="%.17g")
+        return profile
 
     def _read_reflections(self, path: Path) -> tuple[np.ndarray, np.ndarray]:
         """Read positive-intensity reflections from continuous or peak-only XY files."""
@@ -542,7 +551,9 @@ class PXRD:
 
         Read CIFs from ``{cof_name}/2_{cof_name}_matrix/{mode}``. Within each
         report, panels run left to right in order of increasing ILS, then ILD.
-        The configured wavelength and two-theta range apply to all panels.
+        Each panel plots the continuous XY trace with peak heights scaled
+        to the experimental pattern. The configured wavelength and two-theta
+        range apply to all panels.
         This optional screening step can run directly after matrix generation.
 
         Args:
@@ -612,15 +623,25 @@ class PXRD:
                             axes.flat, page, strict=False
                         ):
                             pattern = self._simulate_pattern(calculator, cif)
-                            x, y = pattern.x, pattern.y
-                            if export_xy:
-                                self._write_xy(
-                                    staging / f"{cif.stem}.xy",
-                                    np.column_stack((x, y)),
-                                )
-                            heights = self._scale_simulated(
-                                x, y, xlim, exp_max, keep_flat_peaks=True
+                            profile = self._continuous_xy(
+                                np.column_stack((pattern.x, pattern.y)),
+                                output_path=staging / f"{cif.stem}.xy"
+                                if export_xy
+                                else None,
                             )
+                            x = profile[:, 0]
+                            heights = np.zeros_like(x)
+                            if len(pattern.x):
+                                # Screening normalises the reflections before adding the zero baseline.
+                                heights[x.searchsorted(pattern.x)] = (
+                                    self._scale_simulated(
+                                        pattern.x,
+                                        pattern.y,
+                                        xlim,
+                                        exp_max,
+                                        keep_flat_peaks=True,
+                                    )
+                                )
                             ax.plot(
                                 x_exp,
                                 y_exp,
@@ -628,7 +649,7 @@ class PXRD:
                                 lw=0.8,
                                 rasterized=True,
                             )
-                            ax.vlines(x, 0, heights, color="black", lw=0.8)
+                            ax.plot(x, heights, color="black", lw=0.8)
                             ax.set(
                                 xlim=xlim,
                                 ylim=(0, 1.12 * exp_max),
@@ -669,7 +690,7 @@ class PXRD:
         show: bool = True,
         save: bool = True,
     ) -> str:
-        """Plot all .xy files in one stacked figure and save it.
+        """Plot simulated XY files as continuous traces in one stacked figure.
 
         Args:
             xy_folder: Folder containing simulated .xy files.
@@ -713,14 +734,9 @@ class PXRD:
         axes_list = [axes] if nrows == 1 else list(axes)
 
         for ax, xy_file in zip(axes_list, xy_files, strict=True):
-            data = np.loadtxt(xy_file)
-            data_2d = np.atleast_2d(data)
-            x_vals = data_2d[:, 0]
-            y_vals = data_2d[:, 1]
-
-            ax.vlines(
+            x_vals, y_vals = self._read_simulated_profile(xy_file)
+            ax.plot(
                 x_vals,
-                0.0,
                 y_vals,
                 color=line_color,
                 linewidth=line_width,
@@ -1639,7 +1655,7 @@ class PXRD:
         save: bool = True,
         show_stacking_values: bool = True,
     ) -> list[str]:
-        """Plot simulated PXRD patterns without experimental data.
+        """Plot the continuous simulated PXRD profiles without experimental data.
 
         This simulation-only plotting utility generates one PDF per simulated structure
         and is useful when experimental PXRD data are unavailable. The normal
@@ -1735,19 +1751,13 @@ class PXRD:
         outputs: list[str] = []
 
         for sim_file, output_path in plot_files:
-            x_sim, y_sim = self._read_xy(sim_file)
-            x_sim = np.asarray(x_sim, dtype=float)
-            y_sim = np.asarray(y_sim, dtype=float)
-            order = np.argsort(x_sim)
-            x_sim = x_sim[order]
-            y_sim = y_sim[order]
+            x_sim, y_sim = self._read_simulated_profile(sim_file)
             sim_shifted = y_sim - np.nanmin(y_sim)
             y_max = self._visible_y_max(x_sim, sim_shifted, xlim)
 
             fig, ax = plt.subplots(figsize=(figure_width, figure_height))
-            ax.vlines(
+            ax.plot(
                 x_sim,
-                0.0,
                 sim_shifted,
                 color="black",
                 linewidth=1.5,
@@ -1865,9 +1875,8 @@ class PXRD:
     ) -> list[str]:
         """Compare experimental PXRD data with each simulated structure.
 
-        The experimental pattern is plotted as a continuous profile and the simulated
-        pattern as vertical diffraction reflections. Simulated intensities are rescaled
-        within the displayed 2-theta window for visual comparison.
+        Both patterns are plotted as continuous XY profiles. Simulated intensities
+        are rescaled within the displayed 2-theta window for visual comparison.
 
         If peak-region data have previously been generated with
         ``extract_peak_regions()``, fitted experimental peak positions can be displayed
@@ -2068,12 +2077,7 @@ class PXRD:
                 plot_xlim = (x_min - padding, x_max + padding)
             else:
                 plot_xlim = xlim
-            x_sim, y_sim = self._read_xy(sim_file)
-            x_sim = np.asarray(x_sim, dtype=float)
-            y_sim = np.asarray(y_sim, dtype=float)
-            order = np.argsort(x_sim)
-            x_sim = x_sim[order]
-            y_sim = y_sim[order]
+            x_sim, y_sim = self._read_simulated_profile(sim_file)
 
             exp_max = self._visible_y_max(x_exp, exp_shifted, plot_xlim)
             y_sim_scaled = self._scale_simulated(
@@ -2088,9 +2092,8 @@ class PXRD:
                 linewidth=1.6,
                 alpha=0.95,
             )
-            ax.vlines(
+            ax.plot(
                 x_sim,
-                0.0,
                 y_sim_scaled,
                 color="black",
                 linewidth=1.5,
@@ -2344,7 +2347,7 @@ class PXRD3D:
         show: bool = True,
         save: bool = True,
     ) -> list[str]:
-        """Plot one simulated PXRD pattern per 3D framework.
+        """Plot one continuous simulated PXRD profile per 3D framework.
 
         Args:
             cof_name: COF name used for default path construction.
@@ -2398,8 +2401,8 @@ class PXRD3D:
     ) -> list[str]:
         """Compare experimental PXRD data with each simulated 3D framework.
 
-        Experimental intensities are plotted as a continuous profile. Simulated
-        reflections are rescaled within the visible range for comparison.
+        Both patterns are plotted as continuous XY profiles. Simulated intensities
+        are rescaled within the visible range for comparison.
 
         Args:
             cof_name: COF name used for default path construction.

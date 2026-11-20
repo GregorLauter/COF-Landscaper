@@ -5,11 +5,13 @@ import warnings
 from pathlib import Path
 from typing import cast
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
 from ase import Atoms
 from ase.io import read, write
+from matplotlib.figure import Figure
 
 import coflandscaper as cl
 
@@ -149,39 +151,79 @@ def test_run_single_mode_uses_mode_output_subfolder(
     ]
 
 
+@pytest.fixture
+def exported_xy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> np.ndarray:
+    """Read back an SW-08 export made from three known reflections."""
+    (tmp_path / "pattern.cif").touch()
+    monkeypatch.setattr(
+        cl.PXRD, "_simulate_pattern", lambda *_args: _FakePattern()
+    )
+    folder = Path(cl.PXRD().produce_xy(tmp_path))
+    return np.loadtxt(folder / "pattern.xy")
+
+
+@pytest.fixture
+def shown_figures(monkeypatch: pytest.MonkeyPatch) -> list[Figure]:
+    figures: list[Figure] = []
+    monkeypatch.setattr(plt, "show", lambda: figures.append(plt.gcf()))
+    return figures
+
+
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    ("source", "stage", "dft"),
+    [
+        ("opt", "5_cof-b_analysis", False),
+        ("postopt", "7_cof-b_postanalysis", True),
+    ],
+)
 def test_plot_sim_default_routing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    exported_xy: np.ndarray,
+    shown_figures: list[Figure],
+    source: str,
+    stage: str,
+    *,
+    dft: bool,
 ) -> None:
-    """This test ensures PXRD plot_sim routes each mode to structure PDFs."""
+    """Plot each mode's complete exported profile at the requested limits."""
     monkeypatch.chdir(tmp_path)
     pxrd = cl.PXRD()
+    root = Path("cof-b") / stage
+    suffix = "_dft" if dft else ""
     for selected_mode in ("serr", "incl"):
-        xy_dir = (
-            Path("cof-b") / "5_cof-b_analysis" / "pxrd_xy_dft" / selected_mode
-        )
+        xy_dir = root / f"pxrd_xy{suffix}" / selected_mode
         xy_dir.mkdir(parents=True)
-        np.savetxt(xy_dir / "structure-a.xy", [[5.0, 1.0], [10.0, 3.0]])
+        np.savetxt(xy_dir / "structure-a.xy", exported_xy)
 
     outputs = pxrd.plot_sim(
         cof_name="cof-b",
-        mode="both",
-        dft=True,
+        source=source,
+        dft=dft,
+        xlim=(4, 6),
         show_stacking_values=False,
-        show=False,
     )
 
     assert outputs == [
-        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/serr/structure-a_dft.pdf",
-        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/incl/structure-a_dft.pdf",
+        str(root / "pxrd_plots/simulated" / mode / f"structure-a{suffix}.pdf")
+        for mode in ("serr", "incl")
     ]
+    for figure, output in zip(shown_figures, outputs, strict=True):
+        ax = figure.axes[0]
+        (line,) = ax.lines
+        np.testing.assert_array_equal(line.get_xydata(), exported_xy)
+        assert not ax.collections
+        assert ax.get_xlim() == (4, 6)
+        assert Path(output).is_file()
 
 
 @pytest.mark.unit
 def test_plot_sim_vs_exp_default_routing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    exported_xy: np.ndarray,
+    shown_figures: list[Figure],
 ) -> None:
     """This test ensures plot_sim_vs_exp uses the default exp and simulated folder layout."""
     monkeypatch.chdir(tmp_path)
@@ -197,19 +239,13 @@ def test_plot_sim_vs_exp_default_routing(
     sim_incl_dir = tmp_path / "cof-c" / "5_cof-c_analysis" / "pxrd_xy" / "incl"
     sim_serr_dir.mkdir(parents=True)
     sim_incl_dir.mkdir(parents=True)
-    np.savetxt(
-        sim_serr_dir / "sim_1.xy",
-        np.array([[5.0, 2.0], [10.0, 5.0], [15.0, 1.0]]),
-    )
-    np.savetxt(
-        sim_incl_dir / "sim_2.xy",
-        np.array([[5.0, 1.0], [10.0, 4.0], [15.0, 3.0]]),
-    )
+    np.savetxt(sim_serr_dir / "sim_1.xy", exported_xy)
+    np.savetxt(sim_incl_dir / "sim_2.xy", exported_xy)
 
     pxrd = cl.PXRD()
     output = pxrd.plot_sim_vs_exp(
         cof_name="cof-c",
-        show=False,
+        xlim=(4, 6),
         save=False,
     )
 
@@ -217,6 +253,26 @@ def test_plot_sim_vs_exp_default_routing(
         "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_1.pdf",
         "cof-c/5_cof-c_analysis/pxrd_plots/incl/sim_2.pdf",
     ]
+    for figure, path in zip(shown_figures, output, strict=True):
+        ax = figure.axes[0]
+        exp_line, sim_line = ax.lines
+        np.testing.assert_array_equal(
+            exp_line.get_xydata(), [[5, 4], [10, 12], [15, 0]]
+        )
+        np.testing.assert_array_equal(sim_line.get_xdata(), exported_xy[:, 0])
+        # Only the first reflection (10) and experimental point (4) are visible.
+        np.testing.assert_allclose(
+            np.asarray(sim_line.get_ydata()), exported_xy[:, 1] * 4 / 10
+        )
+        assert not ax.collections
+        assert ax.get_xlim() == (4, 6)
+        legend = ax.get_legend()
+        assert legend is not None
+        assert [text.get_text() for text in legend.get_texts()] == [
+            "Experimental",
+            "Simulated",
+        ]
+        assert not Path(path).exists()
 
 
 @pytest.mark.unit
@@ -361,7 +417,9 @@ def test_continuous_xy_preserves_exact_reflections(tmp_path: Path) -> None:
         ]
     )
     xy_file = tmp_path / "sample.xy"
-    cl.PXRD(two_theta_range=(5.08, 5.14))._write_xy(xy_file, peaks)
+    cl.PXRD(two_theta_range=(5.08, 5.14))._continuous_xy(
+        peaks, output_path=xy_file
+    )
     xy = np.loadtxt(xy_file)
     assert xy.shape[1] == 2
     assert np.all(np.diff(xy[:, 0]) > 0)
@@ -400,23 +458,25 @@ def test_produce_xy_raises_for_empty_folder(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_plot_xy_creates_output(tmp_path: Path) -> None:
+def test_plot_xy_creates_output(
+    tmp_path: Path, exported_xy: np.ndarray, shown_figures: list[Figure]
+) -> None:
     """This test ensures plot_xy writes a non-empty stacked image from XY inputs."""
     xy_dir = tmp_path / "xy"
     xy_dir.mkdir()
-    np.savetxt(
-        xy_dir / "first.xy",
-        np.array([[5.0, 10.0], [10.0, 20.0], [15.0, 5.0]]),
-    )
-    np.savetxt(
-        xy_dir / "second.xy",
-        np.array([[5.0, 6.0], [10.0, 9.0], [15.0, 4.0]]),
-    )
+    for name in ("first", "second"):
+        np.savetxt(xy_dir / f"{name}.xy", exported_xy)
     output = tmp_path / "plots" / "stacked.png"
 
     pxrd = cl.PXRD()
-    out_path = pxrd.plot_xy(xy_folder=xy_dir, output_path=output, show=False)
+    out_path = pxrd.plot_xy(xy_folder=xy_dir, output_path=output)
 
+    (figure,) = shown_figures
+    for ax, name in zip(figure.axes, ("first", "second"), strict=True):
+        (line,) = ax.lines
+        np.testing.assert_array_equal(line.get_xydata(), exported_xy)
+        assert not ax.collections
+        assert ax.texts[0].get_text() == name
     assert out_path == str(output)
     assert output.exists()
     assert output.stat().st_size > 0
@@ -561,8 +621,9 @@ def test_peak_extraction_ignores_zero_baseline(tmp_path: Path) -> None:
     folder = tmp_path / "incl"
     folder.mkdir()
     pxrd = cl.PXRD(two_theta_range=(3.8, 4.2))
-    pxrd._write_xy(
-        folder / "sample.xy", np.array([[4.0, 70.0], [4.05, 0.001]])
+    pxrd._continuous_xy(
+        np.array([[4.0, 70.0], [4.05, 0.001]]),
+        output_path=folder / "sample.xy",
     )
     peaks = cl.PXRD3D().extract_peaks(
         "sample",
@@ -1129,13 +1190,16 @@ def test_pxrd3d_extracts_flat_peak_tables(
 
 @pytest.mark.unit
 def test_pxrd3d_plots_without_stacking_annotations(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    exported_xy: np.ndarray,
+    shown_figures: list[Figure],
 ) -> None:
     """Both plot types export PDFs without attempting layer metric lookup."""
     monkeypatch.chdir(tmp_path)
     xy_folder = Path("cof-a/3_cof-a_analysis/pxrd_xy")
     xy_folder.mkdir(parents=True)
-    np.savetxt(xy_folder / "cof-a_opt.xy", [[4, 2], [8, 8], [12, 1]])
+    np.savetxt(xy_folder / "cof-a_opt.xy", exported_xy)
     exp_folder = Path("experimental_pxrd")
     exp_folder.mkdir()
     np.savetxt(exp_folder / "sample.xy", [[4, 1], [8, 5], [12, 2]])
@@ -1145,8 +1209,19 @@ def test_pxrd3d_plots_without_stacking_annotations(
 
     monkeypatch.setattr(cl.PXRD, "_load_stacking_values", fail_stacking_lookup)
     pxrd = cl.PXRD3D()
-    simulated = pxrd.plot_sim("cof-a", show=False)
-    compared = pxrd.plot_sim_vs_exp("cof-a", show=False)
+    simulated = pxrd.plot_sim("cof-a")
+    compared = pxrd.plot_sim_vs_exp("cof-a")
+    sim_figure, comparison_figure = shown_figures
+    (sim_line,) = sim_figure.axes[0].lines
+    np.testing.assert_array_equal(sim_line.get_xydata(), exported_xy)
+    exp_line, comparison_line = comparison_figure.axes[0].lines
+    np.testing.assert_array_equal(exp_line.get_ydata(), [0, 4, 1])
+    np.testing.assert_array_equal(
+        comparison_line.get_xdata(), exported_xy[:, 0]
+    )
+    np.testing.assert_allclose(
+        np.asarray(comparison_line.get_ydata()), exported_xy[:, 1] * 4 / 25
+    )
     assert simulated == [
         "cof-a/3_cof-a_analysis/pxrd_plots/simulated/cof-a_opt.pdf"
     ]
@@ -1192,6 +1267,13 @@ def test_screen_landscape(
             _FakeCalculator, "get_pattern", lambda *_args, **_kwargs: pattern
         )
 
+    reference = tmp_path / "reference"
+    reference.mkdir()
+    (reference / "sample.cif").touch()
+    xy_dir = cl.PXRD().produce_xy(reference)
+    xy = np.loadtxt(Path(xy_dir) / "sample.xy")
+    heights = np.zeros(len(xy))
+    heights[xy[:, 1] > 0] = [15] if mode == "incl" else [3.75, 15, 0]
     pages = []
     save = module.PdfPages.savefig
 
@@ -1200,12 +1282,12 @@ def test_screen_landscape(
         panels = [ax for ax in fig.axes if ax.get_visible()]
         pages.append([ax.get_title() for ax in panels])
         for ax in panels:
-            np.testing.assert_allclose(ax.lines[0].get_ydata(), [5, 15, 0])
-            sticks = ax.collections[0].get_segments()
-            np.testing.assert_allclose(
-                [s[1, 1] for s in sticks],
-                [15] if mode == "incl" else [3.75, 15, 0],
-            )
+            experimental, simulated = ax.lines
+            assert not ax.collections
+            np.testing.assert_array_equal(experimental.get_ydata(), [5, 15, 0])
+            np.testing.assert_array_equal(simulated.get_xdata(), xy[:, 0])
+            np.testing.assert_allclose(simulated.get_ydata(), heights)
+            assert ax.get_xlim() == (1.5, 30.0)
         save(pdf, fig, **kwargs)
 
     monkeypatch.setattr(module.PdfPages, "savefig", capture_page)
@@ -1233,7 +1315,7 @@ def test_screen_landscape(
         files = sorted(folder.rglob("*.xy"))
         if export_xy:
             assert len(files) == len(configurations)
-            xy = np.loadtxt(files[0], ndmin=2)
+            np.testing.assert_array_equal(np.loadtxt(files[0], ndmin=2), xy)
             np.testing.assert_array_equal(
                 xy[xy[:, 1] > 0], np.column_stack((pattern.x, pattern.y))
             )
@@ -1263,7 +1345,9 @@ def test_screen_landscape_requires_labelled_matrix(
 
 @pytest.mark.unit
 def test_shared_stems_and_scaling_provenance(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    shown_figures: list[Figure],
 ) -> None:
     monkeypatch.chdir(tmp_path)
     pxrd = cl.PXRD()
@@ -1337,6 +1421,7 @@ def test_shared_stems_and_scaling_provenance(
         show=False,
         show_stacking_values=False,
     )
+    assert not shown_figures
     for tag in ("incl", "serr"):
         out = Path("plots") / tag / "same_dft_region1.pdf"
         assert str(out) in plots
