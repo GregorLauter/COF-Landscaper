@@ -63,10 +63,18 @@ def test_single_point_run_routes_both_modes(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    ("configured_fmax", "override_fmax", "expected_preopt"),
+    [(None, None, 0.03), (0.01, None, 0.01), (0.02, 0.04, 0.04)],
+)
 def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    configured_fmax: float | None,
+    override_fmax: float | None,
+    expected_preopt: float,
 ) -> None:
-    """This test ensures max step limit is forwarded and non-convergence does not abort writing."""
+    """Forward the selected limits to ASE and report them on nonconvergence."""
     input_cif = tmp_path / "a.cif"
     output_cif = tmp_path / "a_opt.cif"
     input_cif.write_text("data_dummy\n", encoding="utf-8")
@@ -89,34 +97,39 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
     monkeypatch.setattr(calc_mod, "FrechetCellFilter", lambda atoms: atoms)
     monkeypatch.setattr(calc_mod, "LBFGS", _DummyLBFGS)
 
-    opt = GeometryOpt(fmax=0.01, max_steps=500, fix_z=False, calculator=EMT())
+    opt = GeometryOpt(fmax=configured_fmax, max_steps=500, calculator=EMT())
 
-    with pytest.warns(UserWarning, match="did not converge within 500 steps"):
-        converged = opt.optimize_cof(str(input_cif), str(output_cif))
-
-    assert converged is False
-    assert _DummyLBFGS.last_fmax == 0.01
-    assert _DummyLBFGS.last_steps == 500
-    assert dummy_atoms.written_to == str(output_cif)
-
-    dummy_atoms.written_to = None
     with pytest.raises(RuntimeError) as failure:
         opt.run_preopt(
             "cof",
             input_path=str(input_cif),
             output_path=str(output_cif),
             fix_z=False,
+            fmax=override_fmax,
         )
     message = str(failure.value)
     assert (
         "Single-layer preoptimisation of cof did not converge within 500 steps"
         in message
     )
-    assert "fmax=0.01 eV/Å" in message
+    assert _DummyLBFGS.last_fmax == expected_preopt
+    assert _DummyLBFGS.last_steps == 500
+    assert f"fmax={expected_preopt:g} eV/Å" in message
     assert "unconverged intermediate" in message
     assert str(output_cif) in message
     assert dummy_atoms.written_to == str(output_cif)
     assert "strict" not in inspect.signature(opt.run_preopt).parameters
+
+    dummy_atoms.written_to = None
+    with pytest.warns(UserWarning, match="did not converge within 500 steps"):
+        converged = opt.optimize_cof(str(input_cif), str(output_cif))
+
+    assert converged is False
+    assert _DummyLBFGS.last_fmax == (
+        0.01 if configured_fmax is None else configured_fmax
+    )
+    assert _DummyLBFGS.last_steps == 500
+    assert dummy_atoms.written_to == str(output_cif)
 
 
 @pytest.mark.unit
@@ -621,6 +634,7 @@ def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
     original_bytes = source.read_bytes()
     original_lengths = preopt_atoms.cell.lengths()[:2].copy()
     targets = []
+    limits = []
     initial_z: np.ndarray | None = None
 
     class RecordingOptimizer:
@@ -628,8 +642,9 @@ def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
             self.target = target
             targets.append(target)
 
-        def run(self, **_kwargs: object) -> bool:
+        def run(self, fmax: float, steps: int) -> bool:
             nonlocal initial_z
+            limits.append((fmax, steps))
             positions = self.target.get_positions()
             if isinstance(self.target, calc_mod._FixedAngleCellFilter):
                 initial_z = self.target.atoms.positions[:, 2].copy()
@@ -664,6 +679,7 @@ def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
     output = tmp_path / "full_opt.cif"
     assert opt.optimize_cof(str(folder / "cof_preopt.cif"), str(output))
     assert isinstance(targets[1], calc_mod.FrechetCellFilter)
+    assert limits == [(0.03, 2000), (0.01, 2000)]
     assert not targets[1].atoms.constraints
     relaxed = read(output)
     assert isinstance(relaxed, Atoms)

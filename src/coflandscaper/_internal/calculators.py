@@ -391,18 +391,22 @@ class GeometryOpt:
         *,
         calculator: _CalculatorSpec = None,
         calculator_kwargs: Mapping[str, Any] | None = None,
-        fmax: float = 0.01,
+        fmax: float | None = None,
         fix_z: bool = False,
         max_steps: int = 2000,
     ) -> None:
         """Configure LBFGS and select a reusable ASE calculator.
 
-        calculator and calculator_kwargs follow SinglePoint. fmax is the force
-        threshold in eV/Å and max_steps limits each optimisation. fix_z
-        optionally constrains Cartesian atomic z motion.
+        calculator and calculator_kwargs follow SinglePoint. By default, the
+        force threshold is 0.03 eV/Å for single-layer preoptimisation and
+        0.01 eV/Å for full-cell and fixed-cell optimisation. An explicit fmax
+        sets the threshold for all three stages. max_steps limits each
+        optimisation to 2000 steps by default. fix_z optionally constrains
+        Cartesian atomic z motion.
         """
         self.calc = _resolve_calculator(calculator, calculator_kwargs)
-        self._fmax = fmax
+        self._fmax = 0.01 if fmax is None else fmax
+        self._preopt_fmax = 0.03 if fmax is None else fmax
         self._fix_z = fix_z
         self._max_steps = max_steps
 
@@ -430,6 +434,7 @@ class GeometryOpt:
         preopt_topo: str | None = None,
         *,
         preopt_name: str | None = None,
+        fmax: float | None = None,
     ) -> bool:
         """Optimize one CIF structure and write the resulting structure.
 
@@ -445,6 +450,8 @@ class GeometryOpt:
                 Cannot be combined with ``fixed_cell=True``.
             preopt_name: COF name for a single-layer preoptimisation. This stage
                 requires convergence before stacking.
+            fmax: Force threshold in eV/Å for this run. Defaults to the
+                configured full-cell and fixed-cell optimisation threshold.
 
         Returns:
             ``True`` if the optimization converged within ``max_steps``; otherwise
@@ -482,8 +489,10 @@ class GeometryOpt:
         else:
             fcf = FrechetCellFilter(atoms)
             dyn = LBFGS(cast("Any", fcf))
+        if fmax is None:
+            fmax = self._fmax
         try:
-            converged = dyn.run(fmax=self._fmax, steps=self._max_steps)
+            converged = dyn.run(fmax=fmax, steps=self._max_steps)
         except PropertyNotImplementedError as exc:
             raise PropertyNotImplementedError(
                 f"{operation} requires {', '.join(required)} from {type(self.calc).__name__}: {exc}"
@@ -497,7 +506,7 @@ class GeometryOpt:
             )
             message = (
                 f"{stage} did not converge within {self._max_steps} steps "
-                f"(fmax={self._fmax:g} eV/Å) for {input_path}. "
+                f"(fmax={fmax:g} eV/Å) for {input_path}. "
                 f"Saved an unconverged intermediate structure to {output_path}."
             )
             if preopt_name is not None:
@@ -534,6 +543,7 @@ class GeometryOpt:
         fix_z: bool = True,
         *,
         topo: str | None = None,
+        fmax: float | None = None,
     ) -> bool:
         """Pre-optimize the assembled single-layer COF structure.
 
@@ -558,6 +568,8 @@ class GeometryOpt:
                 the legacy preoptimization with unrestricted cell angles and
                 height. This option affects only this call; subsequent full-cell
                 optimization is unchanged.
+            fmax: Force threshold in eV/Å for this preoptimisation only.
+                Defaults to 0.03 unless a threshold was set on GeometryOpt.
 
         Returns:
             ``True`` on convergence.
@@ -589,6 +601,7 @@ class GeometryOpt:
                 str(resolved_output),
                 preopt_topo=topo,
                 preopt_name=cof_name,
+                fmax=self._preopt_fmax if fmax is None else fmax,
             )
             print("Converged")
             return converged
