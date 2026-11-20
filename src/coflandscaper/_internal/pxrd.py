@@ -1,4 +1,4 @@
-"""Simulate, compare, and refine COF structures using PXRD data.
+"""Simulate and compare PXRD patterns and optionally adjust in-plane lattice dimensions.
 
 This module provides utilities to simulate PXRD patterns from optimized COF
 structures, compare simulated and experimental diffraction data, extract
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import re
+import warnings
 from itertools import batched
 from numbers import Integral
 from pathlib import Path
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
 
 
 class PXRD:
-    """Simulate PXRD patterns and perform PXRD-guided structure refinement.
+    """Simulate and compare PXRD patterns, with optional PXRD-guided lattice scaling.
 
     The class provides the PXRD workflow used after COF structure optimization:
 
@@ -888,7 +889,7 @@ class PXRD:
 
         The experimental data inside ``peak_range`` are fitted with a pseudo-Voigt
         profile and linear baseline. The fitted peak centre is used as the experimental
-        reference position during PXRD-guided refinement.
+        reference position for optional PXRD-guided scaling.
 
         Args:
             cof_name: COF name retained for API consistency.
@@ -1144,9 +1145,10 @@ class PXRD:
         Simulated reflections are then renormalized within that region and reflections
         below 10% of the region maximum are discarded.
 
-        The extracted data are retained internally for subsequent plotting and
-        PXRD-guided scaling and are also written as structure-specific
-        ``<structure>_regions.csv`` files.
+        Results are stored on this instance and written to structure-specific
+        ``<structure>_regions.csv`` files. Call ``peak_position_diagnostics()``
+        to inspect the signed differences. In-plane scaling is a separate,
+        optional step.
 
         Args:
             cof_name: COF name used for default path construction.
@@ -1282,6 +1284,66 @@ class PXRD:
         self._peak_data_source = source
         return peak_data_by_structure
 
+    def peak_position_diagnostics(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Compare stored peak positions for all manually assigned regions.
+
+        Call after ``extract_peak_regions()`` on the same instance. Each offset
+        is the intensity-weighted centroid of retained simulated reflections
+        minus the fitted experimental centre, in degrees 2θ. Positive offsets
+        indicate a higher simulated angle. Interlayer regions are included.
+
+        Returns:
+            A pair of DataFrames. The first contains one row per structure and
+            region, with region bounds, peak positions, signed offset and
+            reflection count. Unmatched regions retain their experimental centre
+            and have a missing offset. The second gives each comparable region
+            equal weight in the count, mean, minimum and maximum per structure.
+            With zero comparable regions the three statistics are missing.
+
+        Raises:
+            ValueError: If there are no stored peak regions to inspect.
+        """
+        if not self._peak_data_by_structure:
+            raise ValueError(
+                "Run extract_peak_regions() before inspecting peak positions."
+            )
+        rows = []
+        for structure, data in sorted(self._peak_data_by_structure.items()):
+            for region, group in data.groupby("region", sort=True):
+                exp = group.loc[group["source"] == "exp"].iloc[0]
+                sim = group.loc[group["source"] == "sim"]
+                centroid = (
+                    self._sim_peak_centroid(
+                        sim.rename(columns={"two_theta": "two_theta_deg"})
+                    )
+                    if not sim.empty
+                    else np.nan
+                )
+                rows.append(
+                    {
+                        "structure": structure,
+                        "region": region,
+                        "region_min": exp["region_min"],
+                        "region_max": exp["region_max"],
+                        "experimental_two_theta_deg": exp["two_theta"],
+                        "simulated_centroid_deg": centroid,
+                        "delta_two_theta_deg": centroid - exp["two_theta"],
+                        "n_reflections": len(sim),
+                    }
+                )
+        regions = pd.DataFrame(rows)
+        summary = (
+            regions.groupby("structure")["delta_two_theta_deg"]
+            .agg(
+                n_comparable="count",
+                mean_delta_deg="mean",
+                min_delta_deg="min",
+                max_delta_deg="max",
+            )
+            .reset_index()
+        )
+        return regions, summary
+
     def generate_scaled_cif(
         self,
         cof_name: str,
@@ -1290,7 +1352,7 @@ class PXRD:
         scale_regions: list[int] | None = None,
         print_scale_factor: bool = False,
     ) -> dict[str, str]:
-        """Generate PXRD-guided in-plane scaled CIF structures.
+        """Apply an optional PXRD-guided adjustment to the in-plane lattice dimensions.
 
         This method uses peak-region data previously generated by
         ``extract_peak_regions()``. A Bragg-law scale factor is calculated for each
@@ -1301,6 +1363,13 @@ class PXRD:
         By default, all extracted regions are used. ``scale_regions`` can be supplied
         to restrict the scaling to selected region IDs when some experimental features
         are broad, overlapping, or otherwise unsuitable for reliable comparison.
+        Exclude reflections dominated by interlayer spacing (e.g. an assigned
+        00l peak) when selecting regions for in-plane scaling.
+
+        Corrections exceeding 3% in either direction trigger a warning, with a
+        stronger warning above 10%. These are practical guidelines whose relevance
+        depends on the material, rather than universal scientific limits.
+        Visually inspect the scaled structure for bond distortion and layer buckling.
 
         The resulting structure is written to the mode-specific scaling folder and is
         intended to undergo subsequent fixed-cell relaxation with ``GeometryOpt.run_fixed``.
@@ -1313,7 +1382,7 @@ class PXRD:
                 the stored peak-region data.
             scale_regions: Optional list of region IDs to use for determining the final
                 scale factor. ``None`` uses all extracted regions. Defaults to ``None``.
-            print_scale_factor: If ``True``, print the final in-plane scale factor
+            print_scale_factor: If ``True``, print the final in-plane scale factor and percentage change
                 applied to each generated CIF. Defaults to ``False``.
 
         Returns:
@@ -1331,6 +1400,18 @@ class PXRD:
             raise ValueError(
                 "No peak-region data available. Run extract_peak_regions() first."
             )
+        selection_note = (
+            " All extracted regions are selected."
+            if scale_regions is None
+            else ""
+        )
+        warnings.warn(
+            "In-plane scaling adjusts a and b while keeping c fixed. "
+            "Use scale_regions to exclude reflections dominated by interlayer "
+            f"spacing (e.g. an assigned 00l peak).{selection_note}",
+            UserWarning,
+            stacklevel=2,
+        )
         outputs: dict[str, str] = {}
         for selected_mode in modes:
             optimization_dir = Path(
@@ -1411,13 +1492,28 @@ class PXRD:
                 cell[0] *= final_scale_factor
                 cell[1] *= final_scale_factor
                 atoms.set_cell(cell, scale_atoms=True)
+                change = (final_scale_factor - 1.0) * 100
+                report = f"{final_scale_factor} ({change:+.2f}%)"
+                # Compare factors directly to keep the exact 3% and 10% boundaries inclusive.
+                if not 0.97 <= final_scale_factor <= 1.03:
+                    caution = (
+                        "Large correction exceeding 10%. The geometry may be severely distorted."
+                        if not 0.90 <= final_scale_factor <= 1.10
+                        else "Correction exceeds 3%."
+                    )
+                    warnings.warn(
+                        f"{structure} ({selected_mode}): in-plane scale factor {report}. "
+                        f"{caution} Visually inspect the scaled structure for bond "
+                        "distortion and layer buckling.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
                 if print_scale_factor:
                     mode_label = (
                         f" ({selected_mode})" if len(modes) > 1 else ""
                     )
                     print(
-                        "Recommended in-plane scale factor"
-                        f"{mode_label}: {final_scale_factor:.4f}"
+                        f"Applied in-plane scale factor{mode_label}: {report}"
                     )
                 output_dir = Path(
                     f"{cof_name}/6_{cof_name}_scaling/scaling/{selected_mode}"
@@ -1675,7 +1771,7 @@ class PXRD:
         on one stored peak region.
 
         This method is the main visual comparison step used before selecting peak
-        regions for PXRD-guided lattice refinement.
+        regions for optional PXRD-guided lattice scaling.
 
         Args:
             cof_name: COF name used for default path construction.
@@ -1980,7 +2076,7 @@ class PXRD3D:
     """Simulate and plot PXRD patterns for optimized 3D COF frameworks.
 
     The class reuses the PXRD simulation, peak extraction, and plotting routines
-    without layer-stacking modes or in-plane refinement. Default input CIFs are
+    without layer-stacking modes or in-plane scaling. Default input CIFs are
     read from ``{cof_name}/2_{cof_name}_optimization``. Simulated patterns, peak
     tables, and plots are written under ``{cof_name}/3_{cof_name}_analysis``.
     """

@@ -1,5 +1,6 @@
 import csv
 import importlib
+import warnings
 from pathlib import Path
 from typing import cast
 
@@ -676,6 +677,61 @@ def test_extract_peak_regions_normalizes_per_region_and_tracks_source(
 
 
 @pytest.mark.unit
+def test_peak_position_diagnostics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Use extracted regions, including blends and structures with no matches."""
+    monkeypatch.chdir(tmp_path)
+    pxrd = cl.PXRD()
+    with pytest.raises(ValueError, match="extract_peak_regions"):
+        pxrd.peak_position_diagnostics()
+
+    folder = Path("patterns/incl")
+    folder.mkdir(parents=True)
+    np.savetxt(folder / "layer.xy", [[4.0, 10.0], [4.4, 30.0], [9.8, 20.0]])
+    np.savetxt(folder / "unmatched.xy", [[2, 100]])
+    bounds = [(3.0, 5.0), (9.0, 11.0), (24.0, 26.0)]
+    monkeypatch.setattr(
+        pxrd,
+        "_fit_exp_peak",
+        lambda *, peak_range, **_kw: {"two_theta": np.mean(peak_range)},
+    )
+    stored = pxrd.extract_peak_regions(
+        "cof", "incl", bounds, xy_folder="patterns"
+    )
+    original = {name: frame.copy() for name, frame in stored.items()}
+    monkeypatch.setattr(
+        pxrd, "_fit_exp_peak", lambda **_kw: pytest.fail("unexpected refit")
+    )
+    regions, summary = pxrd.peak_position_diagnostics()
+    layer = regions[regions["structure"] == "layer"]
+    assert layer["region"].tolist() == [1, 2, 3]
+    np.testing.assert_array_equal(layer[["region_min", "region_max"]], bounds)
+    np.testing.assert_allclose(
+        layer["experimental_two_theta_deg"], [4, 10, 25]
+    )
+    np.testing.assert_allclose(
+        layer["simulated_centroid_deg"], [4.3, 9.8, np.nan]
+    )
+    np.testing.assert_allclose(
+        layer["delta_two_theta_deg"], [0.3, -0.2, np.nan]
+    )
+    assert layer["n_reflections"].tolist() == [2, 1, 0]
+    unmatched = regions[regions["structure"] == "unmatched"]
+    assert unmatched["region"].tolist() == [1, 2, 3]
+    assert unmatched["delta_two_theta_deg"].isna().all()
+    summary = summary.set_index("structure")
+    assert summary.loc["layer", "n_comparable"] == 2
+    assert summary.loc["unmatched", "n_comparable"] == 0
+    stats = ["mean_delta_deg", "min_delta_deg", "max_delta_deg"]
+    np.testing.assert_allclose(summary.loc["layer", stats], [0.05, -0.2, 0.3])
+    assert summary.loc["unmatched", stats].isna().all()
+    for name, frame in original.items():
+        pd.testing.assert_frame_equal(stored[name], frame)
+    assert not list(tmp_path.rglob("*.cif"))
+
+
+@pytest.mark.unit
 def test_sim_peak_centroid_and_median_scale_factor() -> None:
     """This test ensures PXRD centroids and Bragg-law median scaling remain deterministic."""
     pxrd = cl.PXRD()
@@ -753,9 +809,10 @@ def test_generate_scaled_cif_scales_in_plane_vectors(
         )
     }
     monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: 1.0237)
-    output = Path(
-        pxrd.generate_scaled_cif("cof-a", "serr")["original_structure"]
-    )
+    with pytest.warns(UserWarning, match="interlayer spacing"):
+        output = Path(
+            pxrd.generate_scaled_cif("cof-a", "serr")["original_structure"]
+        )
     scaled = cast("Atoms", read(output))
     assert output == Path(
         "cof-a/6_cof-a_scaling/scaling/serr/original_structure_1.0237.cif"
@@ -763,10 +820,59 @@ def test_generate_scaled_cif_scales_in_plane_vectors(
     assert scaled.cell.lengths() == pytest.approx([10.237, 20.474, 30.0])
     assert scaled.positions[0] == pytest.approx([1.0237, 2.0474, 3.0])
     assert capsys.readouterr().out == ""
-    pxrd.generate_scaled_cif("cof-a", "serr", print_scale_factor=True)
+    with pytest.warns(UserWarning, match="interlayer spacing"):
+        pxrd.generate_scaled_cif("cof-a", "serr", print_scale_factor=True)
     assert capsys.readouterr().out == (
-        "Recommended in-plane scale factor: 1.0237\n"
+        "Applied in-plane scale factor: 1.0237 (+2.37%)\n"
     )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("factor", "level"),
+    [
+        (0.8999, "exceeding 10%"),
+        (0.90, "exceeds 3%"),
+        (0.9699, "exceeds 3%"),
+        (0.97, None),
+        (1.03, None),
+        (1.0301, "exceeds 3%"),
+        (1.10, "exceeds 3%"),
+        (1.1001, "exceeding 10%"),
+    ],
+)
+def test_scaling_warnings(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    factor: float,
+    level: str | None,
+) -> None:
+    """Both warning levels are advisory and use strict percentage thresholds."""
+    monkeypatch.chdir(tmp_path)
+    folder = Path("cof/4_cof_optimization/incl")
+    folder.mkdir(parents=True)
+    write(folder / "sample.cif", Atoms("C", cell=[10, 10, 15], pbc=True))
+    pxrd = cl.PXRD()
+    pxrd._peak_data_by_structure = {"sample": pd.DataFrame({"region": [1]})}
+    monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: factor)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        output = pxrd.generate_scaled_cif("cof", "incl")["sample"]
+    assert Path(output).is_file()
+    advisory, *corrections = caught
+    assert "scale_regions" in str(advisory.message)
+    assert "keeping c fixed" in str(advisory.message)
+    assert "interlayer spacing" in str(advisory.message)
+    assert "All extracted regions" in str(advisory.message)
+    if level is None:
+        assert not corrections
+    else:
+        (warning,) = corrections
+        message = str(warning.message)
+        assert level in message
+        assert f"{factor} ({(factor - 1) * 100:+.2f}%)" in message
+        assert "Visually inspect" in message
+        assert "bond distortion and layer buckling" in message
 
 
 @pytest.mark.unit
@@ -781,17 +887,23 @@ def test_generate_scaled_cif_requires_peak_data_and_explicit_source(
     pxrd._peak_data_by_structure = {
         "b": pd.DataFrame({"region": [1]}),
     }
-    with pytest.raises(FileNotFoundError, match="No CIF files"):
+    with (
+        pytest.warns(UserWarning, match="interlayer spacing"),
+        pytest.raises(FileNotFoundError, match="No CIF files"),
+    ):
         pxrd.generate_scaled_cif("cof-a", "serr")
     for name in ["a.cif", "b.cif"]:
         write(source_dir / name, Atoms("C", cell=[5, 5, 5], pbc=True))
     monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: 1.0)
-    assert (
-        Path(
-            pxrd.generate_scaled_cif("cof-a", "serr", source_cif="b.cif")["b"]
-        ).name
-        == "b_1.0000.cif"
-    )
+    with pytest.warns(UserWarning, match="interlayer spacing"):
+        assert (
+            Path(
+                pxrd.generate_scaled_cif("cof-a", "serr", source_cif="b.cif")[
+                    "b"
+                ]
+            ).name
+            == "b_1.0000.cif"
+        )
 
 
 @pytest.mark.unit
@@ -821,7 +933,10 @@ def test_generate_scaled_cif_uses_selected_scale_regions(
     source_dir.mkdir(parents=True)
     write(source_dir / "structure.cif", Atoms("C", cell=[1, 1, 1], pbc=True))
     monkeypatch.chdir(tmp_path)
-    pxrd.generate_scaled_cif("cof-a", "serr", scale_regions=[2])
+    with pytest.warns(UserWarning, match="interlayer spacing") as caught:
+        pxrd.generate_scaled_cif("cof-a", "serr", scale_regions=[2])
+    assert len(caught) == 1
+    assert "All extracted regions" not in str(caught[0].message)
     assert captured[0]["region"].unique().tolist() == [2]
 
 
