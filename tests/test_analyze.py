@@ -290,3 +290,24 @@ def test_visualize_cof_source_routing(
     assert seen == [Path("cof-a") / expected_base / "serr"]
     with pytest.raises(ValueError, match="source must be"):
         visualizer.visualize_cof("cof-a", source="invalid")
+
+
+def test_flat_dft_cif_and_named_single_layer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    folder = Path("dftrun")
+    nested = folder / "sample/sample.cif"
+    nested.parent.mkdir(parents=True)
+    nested.touch()
+    flat = folder / "sample.cif"
+    flat.touch()
+    assert AnalyzeStacking()._collect_cifs(folder) == [str(flat)]
+    viz = VisualizeCOF()
+    named = Path("sample/1_sample_single_layer")
+    named.mkdir(parents=True)
+    with pytest.raises(
+        FileNotFoundError,
+        match=r"No \.cif files found in: sample/1_sample_single_layer",
+    ):
+        viz.visualize_single_layer(cof_name="sample")

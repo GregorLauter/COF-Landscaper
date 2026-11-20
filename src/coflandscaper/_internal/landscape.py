@@ -658,7 +658,6 @@ class SelectCofs:
                 continue
             for z_sel, L_sel in list(remaining):
                 if z == z_sel and L_sel == L:
-                    shutil.copy2(cif_path, out_path / cif_path.name)
                     selected_rows.append(
                         {
                             "structure": cif_path.name,
@@ -672,6 +671,15 @@ class SelectCofs:
         if remaining:
             missing = ", ".join([f"(z={z}, L={L})" for z, L in remaining])
             raise FileNotFoundError(f"No matching CIFs found for: {missing}")
+
+        selected_names = {str(row["structure"]) for row in selected_rows}
+        stale = {p.name for p in out_path.glob("*.cif")} - selected_names
+        if stale:
+            raise ValueError(
+                f"Selection contains stale CIFs: {sorted(stale)}. Use a separate selection folder."
+            )
+        for name in sorted(selected_names):
+            shutil.copy2(in_path / name, out_path / name)
 
         if selected_rows:
             df = pd.DataFrame(selected_rows)
@@ -695,6 +703,9 @@ class SelectCofs:
         output_base: str | None = None,
         input_folder: str | None = None,
         output_folder: str | None = None,
+        *,
+        dft: bool = False,
+        energy_csv: str | Path | None = None,
     ) -> None:
         """Select candidate CIF structures for full geometry optimization.
 
@@ -726,6 +737,8 @@ class SelectCofs:
             autoselect_minima: Automatic selection mode: ``"global"`` selects the
                 global minimum, while ``"local"`` selects detected local minima.
                 Defaults to ``"global"``.
+            dft: Select the DFT energy table instead of the default ASE table.
+            energy_csv: Exact energy CSV for a single mode, overriding dft.
             input_base: Optional matrix input base folder. Defaults to
                 ``{cof_name}/2_{cof_name}_matrix``.
             output_base: Optional selection output base folder. Defaults to
@@ -746,19 +759,24 @@ class SelectCofs:
         if autoselect_mode not in {"global", "local"}:
             raise ValueError("autoselect_minima must be 'global' or 'local'.")
 
+        if (
+            energy_csv is not None
+            and mode.lower() == "both"
+            and not input_folder
+        ):
+            raise ValueError("An explicit energy_csv requires a single mode.")
+
         def _build_mode_selections(mode_tag: str) -> list[tuple[float, float]]:
             mode_selections: list[tuple[float, float]] = []
             if include_autoselect:
                 csv_dir = Path(f"{cof_name}/3_{cof_name}_landscape")
-                matches = list(
-                    csv_dir.glob(f"{cof_name}_sp_energies_{mode_tag}_*.csv")
+                suffix = "_dft" if dft else ""
+                csv_path = (
+                    Path(energy_csv)
+                    if energy_csv is not None
+                    else csv_dir
+                    / f"{cof_name}_sp_energies_{mode_tag}{suffix}.csv"
                 )
-                if matches:
-                    csv_path = max(matches, key=lambda p: p.stat().st_mtime)
-                else:
-                    csv_path = (
-                        csv_dir / f"{cof_name}_sp_energies_{mode_tag}.csv"
-                    )
                 if autoselect_mode == "global":
                     mode_selections.extend(
                         self._global_minima_from_csv(csv_path)
@@ -781,9 +799,16 @@ class SelectCofs:
 
         if input_folder:
             mode_tag = Path(input_folder).name.replace("dft_", "")
-            if mode_tag not in {"serr", "incl"}:
+            requested_mode = mode.lower()
+            if requested_mode in {"serr", "incl"}:
+                if mode_tag in {"serr", "incl"} and requested_mode != mode_tag:
+                    raise ValueError(
+                        f"Input folder mode {mode_tag} conflicts with {requested_mode}."
+                    )
+                mode_tag = requested_mode
+            elif requested_mode != "both" or mode_tag not in {"serr", "incl"}:
                 raise ValueError(
-                    "input_folder must point to a serr or incl mode folder."
+                    "Select one stacking mode for a custom matrix folder."
                 )
 
             target_output = output_folder

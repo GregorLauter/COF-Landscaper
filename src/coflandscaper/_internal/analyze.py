@@ -112,7 +112,10 @@ class AnalyzeStacking:
                 files.append(str(entry))
             elif entry.is_dir():
                 candidate = entry / f"{entry.name}.cif"
-                if candidate.exists():
+                if (
+                    candidate.is_file()
+                    and not (folder / candidate.name).is_file()
+                ):
                     files.append(str(candidate))
 
         if not files:
@@ -724,9 +727,11 @@ class VisualizeCOF:
 
     def visualize_single_layer(
         self,
-        input_folder: str | Path = "1_ILCOF-1_single_layer",
+        input_folder: str | Path | None = None,
         add_unit_cell: bool = True,
         supercell_size: tuple[int, int, int] = (2, 2, 1),
+        *,
+        cof_name: str | None = None,
     ):
         """Visualize all single-layer CIF structures in one folder.
 
@@ -735,7 +740,8 @@ class VisualizeCOF:
 
         Args:
             input_folder: Folder containing single-layer CIF structures. Defaults to
-                ``"1_ILCOF-1_single_layer"``.
+                ``C/1_C_single_layer``.
+            cof_name: Workflow name when input_folder is omitted.
             add_unit_cell: Whether to display the crystallographic unit cell.
                 Defaults to ``True``.
             supercell_size: Supercell replication applied before visualization.
@@ -748,6 +754,10 @@ class VisualizeCOF:
             FileNotFoundError: If the folder is missing or contains no CIF structures.
             ValueError: If ``input_folder`` is not a directory.
         """
+        if input_folder is None:
+            if not cof_name:
+                raise ValueError("Supply cof_name or input_folder.")
+            input_folder = Path(cof_name) / f"1_{cof_name}_single_layer"
         folder = Path(input_folder)
         if not folder.exists():
             raise FileNotFoundError(f"Input folder not found: {folder}")

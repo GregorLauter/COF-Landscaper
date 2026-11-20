@@ -13,6 +13,7 @@ workflow for benchmarking or calculations requiring an explicit DFT treatment.
 from __future__ import annotations
 
 import re
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -438,7 +439,10 @@ class Crystal:
                 subdir.mkdir(parents=True, exist_ok=True)
                 target = subdir / (cif.stem + ".d12")
                 self._convert_one(cif, output_path=target)
-            except Exception:
+            except Exception as exc:
+                warnings.warn(
+                    f"CRYSTAL conversion failed for {cif}: {exc}", stacklevel=2
+                )
                 continue
 
     def generate_input(
@@ -562,7 +566,9 @@ END"""
         self,
         input_folder: str,
         output_csv_dir: str | None = None,
-        output_filename_suffix: str = "",
+        output_filename_suffix: str = "_dft",
+        *,
+        cof_name: str | None = None,
     ) -> Path:
         """Extract converged CRYSTAL single-point energies from one folder.
 
@@ -574,8 +580,9 @@ END"""
             input_folder: Folder containing CRYSTAL output files.
             output_csv_dir: Optional output directory for the generated energy CSV.
                 Defaults to ``{cof_name}/3_{cof_name}_landscape``.
+            cof_name: Explicit workflow name for nonstandard input locations.
             output_filename_suffix: Optional suffix appended to the generated CSV
-                filename before ``.csv``. Defaults to an empty string.
+                filename before ``.csv``. Defaults to "_dft".
 
         Returns:
             Path to the generated single-point energy CSV.
@@ -591,11 +598,12 @@ END"""
             else folder_tag
         )
 
-        cof_name = folder_tag
-        if input_path.parent.name.endswith("_matrix"):
-            cof_name = input_path.parents[1].name
-        elif input_path.parent.name:
-            cof_name = input_path.parent.name
+        if cof_name is None:
+            cof_name = folder_tag
+            if input_path.parent.name.endswith("_matrix"):
+                cof_name = input_path.parents[1].name
+            elif input_path.parent.name:
+                cof_name = input_path.parent.name
 
         out_files: list[Path] = []
         for out_path in sorted(input_path.rglob("*.out")):
@@ -641,10 +649,18 @@ END"""
             except Exception as exc:
                 failed.append((str(out_path), repr(exc)))
 
+        if not rows:
+            raise RuntimeError(
+                f"No successful CRYSTAL energies in {input_path}; first failure: {failed[0]}"
+            )
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         if not df.empty:
             min_e = float(df["energy_eV"].min())
             df["energy_rel_eV"] = df["energy_eV"] - min_e
+        if failed and energies_csv_path.exists():
+            raise RuntimeError(
+                f"Incomplete CRYSTAL results; keeping existing {energies_csv_path}. First failure: {failed[0]}"
+            )
         df.to_csv(energies_csv_path, index=False)
 
         if failed:
@@ -693,6 +709,7 @@ END"""
                     input_folder=f"{input_base_used}/dft_{mode_tag}",
                     output_csv_dir=output_base_folder,
                     output_filename_suffix="_dft",
+                    cof_name=cof_name,
                 )
             )
         return csv_paths
@@ -892,12 +909,13 @@ END"""
             except Exception as exc:
                 failed.append((str(out_path), repr(exc)))
 
-        df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
-        if not df.empty:
-            min_e = float(df["energy_eV_per_layer"].min())
-            df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
-        df.to_csv(energies_csv_path, index=False)
-
+        if not rows:
+            raise RuntimeError(
+                f"No successful CRYSTAL energies in {input_path}; first failure: {failed[0]}"
+            )
+        self._write_energy_table(
+            energies_csv_path, pd.DataFrame(rows), [mode_tag], failed
+        )
         if failed:
             print("\nFailed files (first 10):")
             for p, err in failed[:10]:
@@ -967,11 +985,14 @@ END"""
             Path(f"{input_base_folder}/dft_{mode_tag}")
             for mode_tag in mode_tags
         ]
-        out_files = self._collect_out_files(input_paths)
-        if not out_files:
-            raise FileNotFoundError(
-                f"No valid .out files found in: {input_base_folder} (expected system_name.out)"
-            )
+        jobs: list[tuple[str, Path]] = []
+        for mode_tag, folder in zip(mode_tags, input_paths, strict=True):
+            files = self._collect_out_files([folder])
+            if not files:
+                raise FileNotFoundError(
+                    f"No valid .out files found in: {folder}"
+                )
+            jobs.extend((mode_tag, file) for file in files)
 
         csv_dir = Path(
             output_base_folder or f"{cof_name}/4_{cof_name}_optimization"
@@ -983,70 +1004,33 @@ END"""
 
         rows: list[dict[str, str | float]] = []
         failed = []
-        for out_path in out_files:
+        for mode_tag, out_path in jobs:
             try:
                 text = out_path.read_text(errors="ignore")
                 energy_au = self._extract_energy_au(text)
                 if energy_au is None:
                     raise ValueError("Energy not found or not converged")
                 energy_ev = energy_au * HARTREE_TO_EV
-                mode_from_parent = out_path.parent.name
-                if mode_from_parent.startswith("dft_"):
-                    mode_from_parent = mode_from_parent.replace("dft_", "")
-                if mode_from_parent not in {"serr", "incl"}:
-                    mode_from_parent = (
-                        "serr" if out_path.stem.endswith("_serr") else "incl"
-                    )
-
                 energy_ev_per_layer = (
-                    energy_ev / 2.0
-                    if mode_from_parent == "serr"
-                    else energy_ev
+                    energy_ev / 2.0 if mode_tag == "serr" else energy_ev
                 )
                 rows.append(
                     {
                         "structure": out_path.stem,
-                        "stacking_mode": mode_from_parent,
+                        "stacking_mode": mode_tag,
                         "energy_eV_per_layer": energy_ev_per_layer,
                     }
                 )
             except Exception as exc:
                 failed.append((str(out_path), repr(exc)))
 
-        df_new = pd.DataFrame(rows)
-
-        # Merge with existing CSV so rerunning a single mode updates only that
-        # mode and preserves rows for other modes.
-        if energies_csv_path.exists():
-            try:
-                df_existing = pd.read_csv(energies_csv_path)
-            except Exception:
-                df_existing = pd.DataFrame()
-        else:
-            df_existing = pd.DataFrame()
-
-        if not df_existing.empty and "stacking_mode" in df_existing.columns:
-            df_existing = df_existing[
-                ~df_existing["stacking_mode"].isin(mode_tags)
-            ]
-
-        if df_existing.empty:
-            df = df_new
-        elif df_new.empty:
-            df = df_existing
-        else:
-            df = pd.concat([df_existing, df_new], ignore_index=True)
-
-        if not df.empty and {"stacking_mode", "structure"}.issubset(
-            df.columns
-        ):
-            df = df.sort_values(["stacking_mode", "structure"]).reset_index(
-                drop=True
+        if not rows:
+            raise RuntimeError(
+                f"No successful CRYSTAL energies in {input_base_folder}; first failure: {failed[0]}"
             )
-        if not df.empty:
-            min_e = float(df["energy_eV_per_layer"].min())
-            df["energy_rel_eV_per_layer"] = df["energy_eV_per_layer"] - min_e
-        df.to_csv(energies_csv_path, index=False)
+        self._write_energy_table(
+            energies_csv_path, pd.DataFrame(rows), mode_tags, failed
+        )
 
         if failed:
             print("\nFailed files (first 10):")
@@ -1056,6 +1040,28 @@ END"""
             print("Total failed:", len(failed))
 
         return [energies_csv_path]
+
+    @staticmethod
+    def _write_energy_table(
+        path: Path,
+        new: pd.DataFrame,
+        modes: list[str],
+        failed: list[tuple[str, str]],
+    ) -> None:
+        """Refresh requested modes and keep the previous table on partial failure."""
+        if path.exists():
+            if failed:
+                raise RuntimeError(
+                    f"Incomplete CRYSTAL results; keeping existing {path}. First failure: {failed[0]}"
+                )
+            previous = pd.read_csv(path)
+            preserved = previous[~previous["stacking_mode"].isin(modes)]
+            if not preserved.empty:
+                new = pd.concat([new, preserved], ignore_index=True)
+        new = new.sort_values(["stacking_mode", "structure"])
+        energies = new["energy_eV_per_layer"]
+        new["energy_rel_eV_per_layer"] = energies - energies.min()
+        new.to_csv(path, index=False)
 
     def extract_structures(
         self,

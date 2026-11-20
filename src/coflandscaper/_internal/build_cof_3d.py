@@ -9,13 +9,11 @@ from typing import Any, cast
 
 import ase.io
 import numpy as np
-import pormake as pm
 from ase.atoms import Atoms
-from pormake.building_block import BuildingBlock
-from pormake.topology import Topology
 from pymatgen.core import Structure
 
 from . import build_cof_2d as preparation
+from ._pormake import BuildingBlock, Topology, pm
 
 
 def _periodic_dimension(topology: Topology) -> int:
@@ -196,7 +194,6 @@ class BuildCOF3D:
             RuntimeError: If CIF export fails validation. Existing output is
                 replaced only after the new export succeeds.
         """
-        preparation._disable_pormake_file_logging()
         if (
             not cof_name
             or cof_name in (".", "..")

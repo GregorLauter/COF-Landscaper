@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import importlib
 import warnings
 from pathlib import Path
@@ -172,8 +173,8 @@ def test_plot_sim_default_routing(
     )
 
     assert outputs == [
-        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/serr/structure-a.pdf",
-        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/incl/structure-a.pdf",
+        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/serr/structure-a_dft.pdf",
+        "cof-b/5_cof-b_analysis/pxrd_plots/simulated/incl/structure-a_dft.pdf",
     ]
 
 
@@ -319,6 +320,9 @@ def test_optional_hkl_csv(
     assert indices == [
         "(8 1 0) | (-1 2 -1 0)" if i == 8 else f"({i} 1 0)" for i in expected
     ]
+    with pytest.warns(UserWarning, match="HKL files"):
+        cl.PXRD().produce_xy(tmp_path, folder)
+    assert (folder / "sample_hkl.csv").exists()
     xy = np.loadtxt(folder / "sample.xy")
     np.testing.assert_array_equal(xy[xy[:, 1] > 0, 0], angles)
 
@@ -642,8 +646,10 @@ def test_extract_peak_regions_normalizes_per_region_and_tracks_source(
         peak_regions=[(2.5, 4.0), (7.5, 8.5)],
         source="postopt",
     )
-    assert peak_data is pxrd._peak_data_by_structure
-    assert pxrd._peak_data_source == "postopt"
+    assert (
+        peak_data["sample"] is pxrd._peak_data_by_structure["serr", "sample"]
+    )
+    assert pxrd._peak_workflow == (Path("cof-a").resolve(), "postopt", False)
     structure_data = peak_data["sample"]
     assert list(structure_data.columns) == [
         "region",
@@ -782,6 +788,19 @@ def test_sim_peak_centroid_and_median_scale_factor() -> None:
         )
 
 
+def _record_scaling_inputs(
+    pxrd: cl.PXRD, root: Path, tag: str, stem: str
+) -> None:
+    cif = root / f"4_{root.name}_optimization" / tag / f"{stem}.cif"
+    xy = root / f"5_{root.name}_analysis" / "pxrd_xy" / tag / f"{stem}.xy"
+    xy.parent.mkdir(parents=True, exist_ok=True)
+    xy.write_text("4 100")
+    pxrd._scaling_inputs[tag, stem] = (
+        hashlib.sha256(cif.read_bytes()).digest(),
+        hashlib.sha256(xy.read_bytes()).digest(),
+    )
+
+
 @pytest.mark.unit
 def test_generate_scaled_cif_scales_in_plane_vectors(
     tmp_path: Path,
@@ -798,8 +817,9 @@ def test_generate_scaled_cif_scales_in_plane_vectors(
     )
     write(source_path, original)
     pxrd = cl.PXRD()
+    pxrd._peak_workflow = (tmp_path / "cof-a", "opt", False)
     pxrd._peak_data_by_structure = {
-        "original_structure": pd.DataFrame(
+        ("serr", "original_structure"): pd.DataFrame(
             {
                 "region": [1],
                 "source": ["exp"],
@@ -808,6 +828,9 @@ def test_generate_scaled_cif_scales_in_plane_vectors(
             }
         )
     }
+    _record_scaling_inputs(
+        pxrd, tmp_path / "cof-a", "serr", "original_structure"
+    )
     monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: 1.0237)
     with pytest.warns(UserWarning, match="interlayer spacing"):
         output = Path(
@@ -853,7 +876,11 @@ def test_scaling_warnings(
     folder.mkdir(parents=True)
     write(folder / "sample.cif", Atoms("C", cell=[10, 10, 15], pbc=True))
     pxrd = cl.PXRD()
-    pxrd._peak_data_by_structure = {"sample": pd.DataFrame({"region": [1]})}
+    pxrd._peak_workflow = (tmp_path / "cof", "opt", False)
+    pxrd._peak_data_by_structure = {
+        ("incl", "sample"): pd.DataFrame({"region": [1]})
+    }
+    _record_scaling_inputs(pxrd, tmp_path / "cof", "incl", "sample")
     monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: factor)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -884,8 +911,9 @@ def test_generate_scaled_cif_requires_peak_data_and_explicit_source(
     source_dir = tmp_path / "cof-a" / "4_cof-a_optimization" / "serr"
     source_dir.mkdir(parents=True)
     pxrd = cl.PXRD()
+    pxrd._peak_workflow = (tmp_path / "cof-a", "opt", False)
     pxrd._peak_data_by_structure = {
-        "b": pd.DataFrame({"region": [1]}),
+        ("serr", "b"): pd.DataFrame({"region": [1]}),
     }
     with (
         pytest.warns(UserWarning, match="interlayer spacing"),
@@ -894,6 +922,7 @@ def test_generate_scaled_cif_requires_peak_data_and_explicit_source(
         pxrd.generate_scaled_cif("cof-a", "serr")
     for name in ["a.cif", "b.cif"]:
         write(source_dir / name, Atoms("C", cell=[5, 5, 5], pbc=True))
+    _record_scaling_inputs(pxrd, tmp_path / "cof-a", "serr", "b")
     monkeypatch.setattr(pxrd, "_median_scale_factor", lambda _data: 1.0)
     with pytest.warns(UserWarning, match="interlayer spacing"):
         assert (
@@ -921,7 +950,8 @@ def test_generate_scaled_cif_uses_selected_scale_regions(
             "relative_intensity": [np.nan, np.nan],
         }
     )
-    pxrd._peak_data_by_structure = {"structure": peak_data}
+    pxrd._peak_workflow = (tmp_path / "cof-a", "opt", False)
+    pxrd._peak_data_by_structure = {("serr", "structure"): peak_data}
     captured: list[pd.DataFrame] = []
 
     def capture_scale_factor(data: pd.DataFrame) -> float:
@@ -933,6 +963,7 @@ def test_generate_scaled_cif_uses_selected_scale_regions(
     source_dir.mkdir(parents=True)
     write(source_dir / "structure.cif", Atoms("C", cell=[1, 1, 1], pbc=True))
     monkeypatch.chdir(tmp_path)
+    _record_scaling_inputs(pxrd, tmp_path / "cof-a", "serr", "structure")
     with pytest.warns(UserWarning, match="interlayer spacing") as caught:
         pxrd.generate_scaled_cif("cof-a", "serr", scale_regions=[2])
     assert len(caught) == 1
@@ -944,9 +975,11 @@ def test_generate_scaled_cif_uses_selected_scale_regions(
 def test_plot_sim_vs_exp_rejects_stale_peak_data_source() -> None:
     """This test ensures postopt plots never annotate peak data extracted from opt."""
     pxrd = cl.PXRD()
-    pxrd._peak_data_by_structure = {"sample": pd.DataFrame({"region": [1]})}
-    pxrd._peak_data_source = "opt"
-    with pytest.raises(ValueError, match="belongs to source 'opt'"):
+    pxrd._peak_data_by_structure = {
+        ("serr", "sample"): pd.DataFrame({"region": [1]})
+    }
+    pxrd._peak_workflow = (Path("cof-a").resolve(), "opt", False)
+    with pytest.raises(ValueError, match="different COF, source"):
         pxrd.plot_sim_vs_exp(
             "cof-a", mode="serr", source="postopt", show=False
         )
@@ -969,11 +1002,11 @@ def test_plot_region_selector_requires_current_peak_data(
     np.savetxt(exp_file, [[3.0, 1.0]])
     monkeypatch.chdir(tmp_path)
     pxrd._peak_data_by_structure = {
-        "sample": pd.DataFrame(
+        ("serr", "sample"): pd.DataFrame(
             {"region": [1], "region_min": [3.0], "region_max": [5.0]}
         )
     }
-    pxrd._peak_data_source = "opt"
+    pxrd._peak_workflow = (Path("cof-a").resolve(), "opt", False)
     with pytest.raises(ValueError, match="does not exist"):
         pxrd.plot_sim_vs_exp(
             "cof-a",
@@ -1154,7 +1187,16 @@ def test_screen_landscape(
         save(pdf, fig, **kwargs)
 
     monkeypatch.setattr(module.PdfPages, "savefig", capture_page)
-    results = cl.PXRD().screen_landscape("cof", mode, export_xy=export_xy)
+    if export_xy:
+        results = cl.PXRD().screen_landscape("cof", mode, export_xy=True)
+    else:
+        stale = Path("cof/3_cof_landscape/pxrd") / tags[0] / "xy/old.xy"
+        stale.parent.mkdir(parents=True)
+        stale.write_text("old data")
+        with pytest.warns(UserWarning, match="landscape XY"):
+            results = cl.PXRD().screen_landscape("cof", mode)
+        assert stale.read_text() == "old data"
+
     labels = [
         f"ILS {s / 10:g} Å   ILD {h / 10:g} Å"
         for s, h in sorted(configurations)
@@ -1177,7 +1219,7 @@ def test_screen_landscape(
                 xy[[0, -1]], [[1.5, 0.0], [30.0, 0.0]]
             )
         else:
-            assert not files
+            assert files == ([stale] if tag == tags[0] else [])
 
 
 @pytest.mark.unit
@@ -1195,3 +1237,85 @@ def test_screen_landscape_requires_labelled_matrix(
     (folder / "unknown.cif").touch()
     with pytest.raises(ValueError, match=r"unknown\.cif"):
         pxrd.screen_landscape("sample", "incl", exp_xy_file=exp)
+
+
+@pytest.mark.unit
+def test_shared_stems_and_scaling_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    pxrd = cl.PXRD()
+    root = Path("sample/5_sample_analysis")
+    exp = tmp_path / "exp.xy"
+    np.savetxt(exp, [[4, 1], [5, 3], [6, 1]])
+    monkeypatch.setattr(
+        pxrd, "_fit_exp_peak", lambda **_kwargs: {"two_theta": 5.0}
+    )
+    for tag, theta in [("serr", 4.9), ("incl", 5.1)]:
+        folder = root / "pxrd_xy" / tag
+        folder.mkdir(parents=True)
+        np.savetxt(
+            folder / "same.xy", np.array([[4, 0], [theta, 100], [6, 0]])
+        )
+        np.savetxt(
+            folder / f"{tag}only.xy", np.array([[4, 0], [theta, 100], [6, 0]])
+        )
+        cif = Path("sample/4_sample_optimization") / tag / "same.cif"
+        cif.parent.mkdir(parents=True)
+        write(cif, Atoms("C", cell=[5, 5, 6], pbc=True))
+
+    def extract(*, source: str = "opt", dft: bool = False) -> None:
+        result = pxrd.extract_peak_regions(
+            "sample",
+            "both",
+            [(4, 6)],
+            xy_folder=root / "pxrd_xy",
+            source=source,
+            dft=dft,
+        )
+        assert {"serr/same", "incl/same"} <= result.keys()
+
+    extract()
+    regions, summary = pxrd.peak_position_diagnostics()
+    assert len(summary) == 4
+    offsets = regions[regions["structure"] == "same"].set_index("mode")
+    assert offsets.loc["serr", "delta_two_theta_deg"] == pytest.approx(-0.1)
+    assert offsets.loc["incl", "delta_two_theta_deg"] == pytest.approx(0.1)
+    assert not (root / "pxrd_peaks/incl/serronly_regions.csv").exists()
+    with pytest.raises(ValueError, match="this COF"):
+        pxrd.generate_scaled_cif("other", "both")
+    with pytest.warns(UserWarning, match="interlayer spacing"):
+        outputs = pxrd.generate_scaled_cif(
+            "sample", "both", source_cif="same.cif"
+        )
+    assert set(outputs) == {"serr/same", "incl/same"}
+    with pytest.raises(ValueError, match="must name"):
+        pxrd.generate_scaled_cif(
+            "sample", "incl", source_cif="../serr/same.cif"
+        )
+    with (Path("sample/4_sample_optimization/incl/same.cif")).open("a") as f:
+        f.write("\n# replaced\n")
+    with (
+        pytest.warns(UserWarning, match="interlayer spacing"),
+        pytest.raises(ValueError, match="provenance"),
+    ):
+        pxrd.generate_scaled_cif("sample", "incl")
+    for source, dft in [("postopt", False), ("opt", True)]:
+        extract(source=source, dft=dft)
+        with pytest.raises(ValueError, match="this COF"):
+            pxrd.generate_scaled_cif("sample", "incl")
+    plots = pxrd.plot_sim_vs_exp(
+        "sample",
+        "both",
+        dft=True,
+        exp_xy_file=exp,
+        simulated_xy_folder=root / "pxrd_xy",
+        output_folder="plots",
+        xlim="region[1]",
+        show=False,
+        show_stacking_values=False,
+    )
+    for tag in ("incl", "serr"):
+        out = Path("plots") / tag / "same_dft_region1.pdf"
+        assert str(out) in plots
+        assert out.is_file()

@@ -235,6 +235,9 @@ class SinglePoint:
         self,
         input_folder: str,
         output_csv_dir: str | None = None,
+        *,
+        cof_name: str,
+        mode_tag: str,
     ) -> Path:
         """Run single-point evaluation for all CIF files in one folder.
 
@@ -250,15 +253,6 @@ class SinglePoint:
             FileNotFoundError: If no `.cif` files are found in `input_folder`.
         """
         input_path = Path(input_folder)
-        folder_tag = input_path.name
-        mode_tag = folder_tag
-
-        cof_name = folder_tag
-        if input_path.parent.name.endswith("_matrix"):
-            cof_name = input_path.parents[1].name
-        elif input_path.parent.name:
-            cof_name = input_path.parent.name
-
         cif_files = sorted(input_path.glob("*.cif"))
         if not cif_files:
             raise FileNotFoundError(
@@ -302,6 +296,10 @@ class SinglePoint:
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         min_e = float(df["energy_eV"].min())
         df["energy_rel_eV"] = df["energy_eV"] - min_e
+        if failed and energies_csv_path.exists():
+            raise RuntimeError(
+                f"Incomplete single-point results; keeping existing {energies_csv_path}. First failure: {failed[0]}"
+            )
         df.to_csv(energies_csv_path, index=False)
 
         if failed:
@@ -340,14 +338,28 @@ class SinglePoint:
         from .ild_ils_utils import get_mode_folders
 
         if input_folder:
+            folder_tag = Path(input_folder).name
+            mode_tag = folder_tag if mode.lower() == "both" else mode.lower()
+            if mode_tag not in {"incl", "serr"} or (
+                folder_tag in {"incl", "serr"} and folder_tag != mode_tag
+            ):
+                raise ValueError(
+                    "Choose the matching single stacking mode for a custom matrix folder."
+                )
             self._run_folder(
-                input_folder=input_folder, output_csv_dir=output_csv_dir
+                input_folder=input_folder,
+                output_csv_dir=output_csv_dir,
+                cof_name=cof_name,
+                mode_tag=mode_tag,
             )
             return
 
         for folder in get_mode_folders(cof_name, mode):
             self._run_folder(
-                input_folder=folder, output_csv_dir=output_csv_dir
+                input_folder=folder,
+                output_csv_dir=output_csv_dir,
+                cof_name=cof_name,
+                mode_tag=Path(folder).name,
             )
 
 
@@ -578,6 +590,13 @@ class GeometryOpt:
         Returns:
             Mapping from structure stem to convergence status.
         """
+        stale = {p.name for p in Path(output_folder).glob("*.cif")} - {
+            p.name for p in Path(input_folder).glob("*.cif")
+        }
+        if stale:
+            raise ValueError(
+                f"Optimisation contains stale CIFs: {sorted(stale)}. Use a separate workflow root for different selections or calculators."
+            )
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         convergence_by_structure: dict[str, bool] = {}
         for file_name in os.listdir(input_folder):
@@ -778,6 +797,11 @@ class GeometryOpt:
         for mode_tag, folder in mode_output_folders.items():
             cif_files = sorted(folder.glob("*.cif"))
             for cif_path in cif_files:
+                if (
+                    convergence_map is not None
+                    and (mode_tag, cif_path.stem) not in convergence_map
+                ):
+                    continue
                 try:
                     atoms = cast("Atoms", read(str(cif_path)))
                     atoms.calc = self.calc
@@ -816,6 +840,10 @@ class GeometryOpt:
 
         output_base_path.mkdir(parents=True, exist_ok=True)
         csv_path = output_base_path / f"{cof_name}_opt_energies_per_layer.csv"
+        if failed and csv_path.exists():
+            raise RuntimeError(
+                f"Incomplete optimized energies; keeping existing {csv_path}. First failure: {failed[0]}"
+            )
         df = self._merge_with_existing_energy_csv(
             new_df=new_df, csv_path=csv_path
         )

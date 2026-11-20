@@ -1,5 +1,8 @@
 import importlib
+import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -386,3 +389,22 @@ def test_sql_ab_rejects_input_counts(
             input_nodes=nodes,
             input_linkers=linkers,
         )
+
+
+@pytest.mark.unit
+def test_import_preserves_working_directory(tmp_path: Path) -> None:
+    sentinel = tmp_path / "runtime.log"
+    sentinel.write_bytes(b"unrelated prior calculation\n")
+    stamp = sentinel.stat().st_mtime_ns
+    subprocess.run(  # noqa: S603
+        [sys.executable, "-c", "import coflandscaper"],
+        cwd=tmp_path,
+        check=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+        },
+    )
+    assert list(tmp_path.iterdir()) == [sentinel]
+    assert sentinel.read_bytes() == b"unrelated prior calculation\n"
+    assert sentinel.stat().st_mtime_ns == stamp

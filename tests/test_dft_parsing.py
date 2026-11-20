@@ -127,6 +127,12 @@ def test_crystal_sp_read_writes_sorted_csv_with_relative_energy(
 
     monkeypatch.chdir(tmp_path)
     csv_path = cl.CrystalSP().read(str(in_dir))
+    assert csv_path.name.endswith("_dft.csv")
+    previous = csv_path.read_bytes()
+    s1_out.write_text("incomplete")
+    with pytest.raises(RuntimeError, match="keeping existing"):
+        cl.CrystalSP().read(str(in_dir))
+    assert csv_path.read_bytes() == previous
     df = pd.read_csv(csv_path)
 
     assert list(df.columns) == [
@@ -200,7 +206,10 @@ def test_crystal_sp_read_output_appends_dft_suffix_to_default_csv_names(
         input_folder: str,
         output_csv_dir: str | None = None,
         output_filename_suffix: str = "",
+        *,
+        cof_name: str | None = None,
     ) -> Path:
+        assert cof_name == "cof-a"
         calls.append((input_folder, output_csv_dir, output_filename_suffix))
         out_dir = output_csv_dir or "cof-a/3_cof-a_landscape"
         mode_tag = Path(input_folder).name.replace("dft_", "")
@@ -236,3 +245,30 @@ def test_crystal_sp_read_does_not_create_default_output_dir_on_missing_input(
         cl.CrystalSP().read(str(in_dir))
 
     assert not (tmp_path / "cof-x" / "3_cof-x_landscape").exists()
+
+
+def test_dft_optimization_routes_nested_jobs_by_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    base = Path("c/4_c_optimization")
+    for mode in ("incl", "serr"):
+        job = base / f"dft_{mode}" / "same"
+        job.mkdir(parents=True)
+        (job / "same.out").write_text(
+            "TOTAL ENERGY + DISP + GCP (AU) -4.0\n TELAPSE 0:01\nfinal"
+        )
+    reader = cl.CrystalOpt()
+    (table,) = reader.read_output("c", "both")
+    expected = pd.read_csv(table)
+    assert expected["stacking_mode"].tolist() == ["incl", "serr"]
+    assert expected.loc[0, "energy_eV_per_layer"] == pytest.approx(
+        2 * expected.loc[1, "energy_eV_per_layer"]
+    )
+    assert reader.read(str(base / "dft_incl")) == table
+    pd.testing.assert_frame_equal(pd.read_csv(table), expected)
+    saved = table.read_bytes()
+    (base / "dft_serr/same/same.out").write_text("incomplete")
+    with pytest.raises(RuntimeError, match="keeping existing"):
+        reader.read_output("c", "both")
+    assert table.read_bytes() == saved

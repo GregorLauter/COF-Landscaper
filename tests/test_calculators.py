@@ -43,6 +43,7 @@ def test_single_point_run_routes_both_modes(
         _self: SinglePoint,
         input_folder: str,
         output_csv_dir: str | None = None,
+        **_kwargs: str,
     ) -> None:
         calls.append((input_folder, output_csv_dir))
 
@@ -890,3 +891,29 @@ def test_json_settings_and_invalid_selections() -> None:
         cl.utilities.get_calculator_options({"MACE_HEAD": "omol"})
     with pytest.raises(TypeError, match="factory must return"):
         SinglePoint(calculator="builtins:object")
+
+
+def test_partial_sp_and_stale_optimisation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    folder = Path("custom")
+    folder.mkdir()
+    write(
+        folder / "c_z30_L000_incl.cif", Atoms("Cu", cell=[5, 5, 5], pbc=True)
+    )
+    sp = SinglePoint(calculator=EMT())
+    sp.run("named", "incl", input_folder=str(folder))
+    table = Path("named/3_named_landscape/named_sp_energies_incl.csv")
+    original = table.read_bytes()
+    (folder / "bad.cif").write_text("incomplete")
+    with pytest.raises(RuntimeError, match="keeping existing"):
+        sp.run("named", "incl", input_folder=str(folder))
+    assert table.read_bytes() == original
+    out = Path("optimised")
+    out.mkdir()
+    stale = out / "previous.cif"
+    stale.write_text("previous run")
+    with pytest.raises(ValueError, match="stale CIFs"):
+        GeometryOpt(calculator=EMT()).process_cifs(str(folder), str(out))
+    assert stale.read_text() == "previous run"

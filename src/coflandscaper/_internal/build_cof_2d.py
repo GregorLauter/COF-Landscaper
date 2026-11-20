@@ -16,20 +16,17 @@ import shutil
 import tempfile
 import warnings
 from collections.abc import Mapping, Sequence
-from contextlib import ExitStack, suppress
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, cast
 
 import ase.io
 import numpy as np
-import pormake as pm
 from ase.atoms import Atoms
 from ase.neighborlist import NeighborList, natural_cutoffs
-from pormake.building_block import BuildingBlock
-from pormake.framework import Framework
-from pormake.topology import Topology
 from pymatgen.core import Structure
 
+from ._pormake import BuildingBlock, Framework, Topology, pm
 from .ild_ils_matrix import ChangeIld
 from .ild_ils_utils import _unwrap_fractional_z
 
@@ -425,28 +422,6 @@ class CofLandscaperBuilder(pm.Builder):
             )
 
         framework.atoms.positions[:] = updated_atoms.positions
-
-
-def _disable_pormake_file_logging() -> None:
-    """Disable pormake file logging and remove `runtime.log` when present."""
-    try:
-        from pormake import log as pmlog
-
-        with suppress(Exception):
-            pmlog.logger.removeHandler(pmlog.file_log_handler)
-        with suppress(Exception):
-            pmlog.file_log_handler.close()
-    except Exception:
-        return
-
-    try:
-        if os.path.exists("runtime.log"):
-            os.remove("runtime.log")
-    except Exception:
-        pass
-
-
-_disable_pormake_file_logging()
 
 
 def _replace_atoms(
@@ -889,7 +864,6 @@ class BuildCOF2D:
                 node does not have four connection markers.
             FileNotFoundError: If explicitly supplied input XYZ files cannot be read.
         """
-        _disable_pormake_file_logging()
         if topo not in TOPOLOGY_INPUT_COUNTS:
             raise ValueError(
                 "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', or 'kgm'"

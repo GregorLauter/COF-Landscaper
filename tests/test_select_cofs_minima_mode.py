@@ -219,3 +219,41 @@ def test_run_both_routes_serr_and_incl_selections(
     assert incl_label == "Inclined"
     assert incl_input.endswith("/incl")
     assert incl_output.endswith("/incl")
+
+
+@pytest.mark.unit
+def test_energy_source_and_stale_selection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    matrix = Path("custom-matrix")
+    matrix.mkdir()
+    root = Path("c/3_c_landscape")
+    root.mkdir(parents=True)
+    for z in (30, 34):
+        (matrix / f"c_z{z}_L000_incl.cif").touch()
+    ase = root / "c_sp_energies_incl.csv"
+    dft = root / "c_sp_energies_incl_dft.csv"
+    ase.write_text("z,L,energy_eV\n3.0,0,-2\n3.4,0,-1")
+    dft.write_text("z,L,energy_eV\n3.0,0,-1\n3.4,0,-2")
+    selector = cl.SelectCofs()
+
+    def select(
+        output: str, *, use_dft: bool = False, explicit: Path | None = None
+    ) -> list[str]:
+        selector.run(
+            "c",
+            "incl",
+            input_folder=str(matrix),
+            output_folder=output,
+            dft=use_dft,
+            energy_csv=explicit,
+        )
+        return [p.name for p in Path(output).glob("*.cif")]
+
+    assert select("a") == ["c_z30_L000_incl.cif"]
+    assert select("b", use_dft=True) == ["c_z34_L000_incl.cif"]
+    assert select("b", explicit=dft) == ["c_z34_L000_incl.cif"]
+    with pytest.raises(ValueError, match="stale CIFs"):
+        select("a", explicit=dft)
+    assert [p.name for p in Path("a").iterdir()] == ["c_z30_L000_incl.cif"]

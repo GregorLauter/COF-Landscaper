@@ -12,6 +12,7 @@ after PXRD-guided scaling and fixed-cell postoptimization.
 from __future__ import annotations
 
 import csv
+import hashlib
 import re
 import warnings
 from itertools import batched
@@ -34,6 +35,12 @@ from scipy.optimize import curve_fit
 if TYPE_CHECKING:
     from ase.atoms import Atoms
     from pymatgen.analysis.diffraction.core import DiffractionPattern
+
+
+def _fingerprint(path: Path) -> bytes:
+    """Identify the exact input used for an in-memory scaling calculation."""
+    with path.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").digest()
 
 
 class PXRD:
@@ -94,9 +101,10 @@ class PXRD:
         """
         self._wavelength = wavelength
         self._two_theta_range = two_theta_range
-        self._peak_data_by_structure: dict[str, pd.DataFrame] = {}
-        self._peak_data_source: str | None = None
-        self._simulated_structures: set[str] = set()
+        self._peak_data_by_structure: dict[tuple[str, str], pd.DataFrame] = {}
+        self._peak_workflow: tuple[Path, str, bool] | None = None
+        self._scaling_inputs: dict[tuple[str, str], tuple[bytes, bytes]] = {}
+        self._simulated_structures: set[tuple[str, str]] = set()
 
     def _resolve_modes(self, mode: str) -> list[str]:
         """Normalize mode selector to one or two concrete mode tags.
@@ -418,6 +426,14 @@ class PXRD:
         )
         xy_dir.mkdir(parents=True, exist_ok=True)
 
+        expected_hkl: set[str] = (
+            {f"{p.stem}_hkl.csv" for p in cifs} if export_hkl else set()
+        )
+        if any(p.name not in expected_hkl for p in xy_dir.glob("*_hkl.csv")):
+            warnings.warn(
+                f"Existing HKL files in {xy_dir} will not be refreshed by this run.",
+                stacklevel=2,
+            )
         calculator = XRDCalculator(wavelength=self._wavelength)
         for cif_path in cifs:
             pattern = self._simulate_pattern(calculator, cif_path)
@@ -573,6 +589,18 @@ class PXRD:
 
             folder = root / f"3_{cof_name}_landscape" / "pxrd" / tag
             folder.mkdir(parents=True, exist_ok=True)
+            expected_xy = (
+                {f"{cif.stem}.xy" for _, _, cif in configs}
+                if export_xy
+                else set()
+            )
+            if any(
+                p.name not in expected_xy for p in (folder / "xy").glob("*.xy")
+            ):
+                warnings.warn(
+                    f"Existing landscape XY files in {folder / 'xy'} will not be refreshed by this run.",
+                    stacklevel=2,
+                )
             report = folder / f"{cof_name}_{tag}.pdf"
             with TemporaryDirectory(dir=folder) as temporary:
                 staging = Path(temporary)
@@ -1026,7 +1054,7 @@ class PXRD:
                 raise FileNotFoundError(f"No .xy files found in: {xy_dir}")
 
             for xy_file in xy_files:
-                self._simulated_structures.add(xy_file.stem)
+                self._simulated_structures.add((selected_mode, xy_file.stem))
                 two_theta, intensity = self._read_reflections(xy_file)
                 max_intensity = (
                     float(np.max(intensity)) if intensity.size else 0.0
@@ -1037,6 +1065,7 @@ class PXRD:
                 ):
                     rows.append(
                         {
+                            "mode": selected_mode,
                             "structure": xy_file.stem,
                             "two_theta_deg": float(theta),
                             "intensity": float(value),
@@ -1051,6 +1080,7 @@ class PXRD:
         return pd.DataFrame(
             rows,
             columns=[
+                "mode",
                 "structure",
                 "two_theta_deg",
                 "intensity",
@@ -1162,7 +1192,7 @@ class PXRD:
             xy_folder: Optional root folder for simulated XY files.
 
         Returns:
-            Mapping from simulated structure identifier to a DataFrame containing
+            Mapping from stem (mode/stem for both modes) to a DataFrame containing
             region limits, source (experimental or simulated), 2-theta position, raw
             simulated intensity where applicable, and region-normalized simulated
             relative intensity.
@@ -1173,7 +1203,9 @@ class PXRD:
         if not peak_regions:
             raise ValueError("peak_regions must contain at least one region.")
 
-        structure_rows: dict[str, list[dict[str, float | int | str]]] = {}
+        structure_rows: dict[
+            tuple[str, str], list[dict[str, float | int | str]]
+        ] = {}
         experimental_rows: dict[int, dict[str, float | int | str]] = {}
         for region_index, peak_range in enumerate(peak_regions, start=1):
             lower, upper = self._validate_peak_range(peak_range)
@@ -1201,10 +1233,11 @@ class PXRD:
             )
             for structure in self._simulated_structures:
                 structure_rows.setdefault(structure, [])
-            for structure, structure_peaks in sim_peaks.groupby(
-                "structure", sort=True
+            for (tag, stem), structure_peaks in sim_peaks.groupby(
+                ["mode", "structure"], sort=True
             ):
-                structure_rows.setdefault(str(structure), []).append(
+                structure = (str(tag), str(stem))
+                structure_rows.setdefault(structure, []).append(
                     {
                         "region": region_index,
                         "region_min": lower,
@@ -1231,7 +1264,7 @@ class PXRD:
                 else:
                     filtered_peaks = structure_peaks.iloc[0:0]
                 for _, peak in filtered_peaks.iterrows():
-                    structure_rows[str(structure)].append(
+                    structure_rows[structure].append(
                         {
                             "region": region_index,
                             "region_min": lower,
@@ -1273,16 +1306,35 @@ class PXRD:
             f"{cof_name}/{analysis_root_template.format(cof_name=cof_name)}/"
             f"{'pxrd_peaks_dft' if dft else 'pxrd_peaks'}"
         )
-        for selected_mode in self._resolve_modes(mode):
-            mode_output = output_root / selected_mode
+        for (tag, stem), data in peak_data_by_structure.items():
+            mode_output = output_root / tag
             mode_output.mkdir(parents=True, exist_ok=True)
-            for structure, structure_data in peak_data_by_structure.items():
-                structure_data.to_csv(
-                    mode_output / f"{structure}_regions.csv", index=False
-                )
+            data.to_csv(mode_output / f"{stem}_regions.csv", index=False)
         self._peak_data_by_structure = peak_data_by_structure
-        self._peak_data_source = source
-        return peak_data_by_structure
+        self._peak_workflow = (Path(cof_name).resolve(), source, dft)
+        self._scaling_inputs = {}
+        if source == "opt" and not dft:
+            xy_root = (
+                Path(xy_folder)
+                if xy_folder is not None
+                else output_root.parent / "pxrd_xy"
+            )
+            for tag, stem in peak_data_by_structure:
+                cif = (
+                    Path(cof_name)
+                    / f"4_{cof_name}_optimization"
+                    / tag
+                    / f"{stem}.cif"
+                )
+                if cif.is_file():
+                    self._scaling_inputs[tag, stem] = (
+                        _fingerprint(cif),
+                        _fingerprint(xy_root / tag / f"{stem}.xy"),
+                    )
+        return {
+            (f"{tag}/{stem}" if mode.lower() == "both" else stem): data
+            for (tag, stem), data in peak_data_by_structure.items()
+        }
 
     def peak_position_diagnostics(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Compare stored peak positions for all manually assigned regions.
@@ -1308,7 +1360,9 @@ class PXRD:
                 "Run extract_peak_regions() before inspecting peak positions."
             )
         rows = []
-        for structure, data in sorted(self._peak_data_by_structure.items()):
+        for (mode, structure), data in sorted(
+            self._peak_data_by_structure.items()
+        ):
             for region, group in data.groupby("region", sort=True):
                 exp = group.loc[group["source"] == "exp"].iloc[0]
                 sim = group.loc[group["source"] == "sim"]
@@ -1321,6 +1375,7 @@ class PXRD:
                 )
                 rows.append(
                     {
+                        "mode": mode,
                         "structure": structure,
                         "region": region,
                         "region_min": exp["region_min"],
@@ -1333,7 +1388,7 @@ class PXRD:
                 )
         regions = pd.DataFrame(rows)
         summary = (
-            regions.groupby("structure")["delta_two_theta_deg"]
+            regions.groupby(["mode", "structure"])["delta_two_theta_deg"]
             .agg(
                 n_comparable="count",
                 mean_delta_deg="mean",
@@ -1377,7 +1432,7 @@ class PXRD:
         Args:
             cof_name: COF name used for default path construction.
             mode: Stacking mode selector: ``"serr"``, ``"incl"``, or ``"both"``.
-            source_cif: Optional source CIF filename in the normal optimization mode
+            source_cif: Optional source CIF basename in the normal optimization mode
                 folder. If omitted, the available CIF must be matched unambiguously to
                 the stored peak-region data.
             scale_regions: Optional list of region IDs to use for determining the final
@@ -1386,7 +1441,10 @@ class PXRD:
                 applied to each generated CIF. Defaults to ``False``.
 
         Returns:
-            Mapping from structure identifier to generated scaled CIF path.
+            Mapping from stem (mode/stem for both modes) to generated scaled CIF path.
+
+        The optimized CIF must exist at region extraction. Its contents and the
+        matching standard XY must agree with the inputs recorded at extraction.
 
         Raises:
             FileNotFoundError: If the optimization folder or requested source CIF is
@@ -1400,6 +1458,24 @@ class PXRD:
             raise ValueError(
                 "No peak-region data available. Run extract_peak_regions() first."
             )
+        if self._peak_workflow != (Path(cof_name).resolve(), "opt", False):
+            raise ValueError(
+                "Scaling requires peak regions from this COF's optimized ASE workflow (source='opt', dft=False)."
+            )
+        if source_cif is not None and (
+            Path(source_cif).name != source_cif
+            or Path(source_cif).suffix != ".cif"
+        ):
+            raise ValueError(
+                "source_cif must name a CIF in the selected optimisation directory."
+            )
+        for tag in modes:
+            if not any(
+                key_mode == tag for key_mode, _ in self._peak_data_by_structure
+            ):
+                raise ValueError(
+                    f"No peak-region data for requested mode {tag}."
+                )
         selection_note = (
             " All extracted regions are selected."
             if scale_regions is None
@@ -1413,6 +1489,7 @@ class PXRD:
             stacklevel=2,
         )
         outputs: dict[str, str] = {}
+        pending: dict[Path, Atoms] = {}
         for selected_mode in modes:
             optimization_dir = Path(
                 f"{cof_name}/4_{cof_name}_optimization/{selected_mode}"
@@ -1435,8 +1512,12 @@ class PXRD:
 
             structure_items = [
                 (structure, peak_data)
-                for structure, peak_data in self._peak_data_by_structure.items()
-                if structure in {path.stem for path in cif_files}
+                for (
+                    tag,
+                    structure,
+                ), peak_data in self._peak_data_by_structure.items()
+                if tag == selected_mode
+                and structure in {path.stem for path in cif_files}
             ]
             if not structure_items:
                 raise ValueError(
@@ -1458,6 +1539,19 @@ class PXRD:
                     raise ValueError(
                         f"Could not unambiguously match peak data for '{structure}' "
                         f"to a CIF in {optimization_dir}."
+                    )
+                xy = (
+                    Path(cof_name)
+                    / f"5_{cof_name}_analysis"
+                    / "pxrd_xy"
+                    / selected_mode
+                    / f"{structure}.xy"
+                )
+                if not xy.is_file() or self._scaling_inputs.get(
+                    (selected_mode, structure)
+                ) != (_fingerprint(source_path), _fingerprint(xy)):
+                    raise ValueError(
+                        f"Cannot verify scaling provenance for {selected_mode}/{structure}: the optimized CIF or corresponding XY is missing, different or has changed since extraction."
                     )
                 structure_regions = {
                     int(region) for region in peak_data["region"].dropna()
@@ -1518,12 +1612,18 @@ class PXRD:
                 output_dir = Path(
                     f"{cof_name}/6_{cof_name}_scaling/scaling/{selected_mode}"
                 )
-                output_dir.mkdir(parents=True, exist_ok=True)
                 output_path = output_dir / (
                     f"{source_path.stem}_{final_scale_factor:.4f}.cif"
                 )
-                write(output_path, atoms)
-                outputs[structure] = str(output_path)
+                pending[output_path] = atoms
+                outputs[
+                    f"{selected_mode}/{structure}"
+                    if len(modes) > 1
+                    else structure
+                ] = str(output_path)
+        for output_path, atoms in pending.items():
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            write(output_path, atoms)
         return outputs
 
     def plot_sim(
@@ -1591,8 +1691,12 @@ class PXRD:
                 )
             sim_files.extend((selected_mode, path) for path in mode_files)
 
+        suffix = "_dft" if dft else ""
         plot_files = [
-            (sim_file, output_root / selected_mode / f"{sim_file.stem}.pdf")
+            (
+                sim_file,
+                output_root / selected_mode / f"{sim_file.stem}{suffix}.pdf",
+            )
             for selected_mode, sim_file in sim_files
         ]
         stacking_by_file: dict[Path, tuple[float, float]] = {}
@@ -1781,7 +1885,7 @@ class PXRD:
             exp_xy_file: Optional experimental ``.xy`` file. If omitted, exactly one
                 ``.xy`` file must exist in ``experimental_pxrd/``.
             simulated_xy_folder: Optional simulated XY folder override.
-            output_folder: Optional output folder for generated PDFs.
+            output_folder: Optional output root; each mode writes to its own subfolder. DFT plots append _dft and region comparisons append _regionN.
             xlim: Plotted 2-theta interval, or ``"region[N]"`` to display a previously
                 extracted peak region with 5% padding. Defaults to ``(1.5, 30.0)``.
             source: PXRD source: ``"opt"`` or ``"postopt"``. Defaults to ``"opt"``.
@@ -1804,11 +1908,13 @@ class PXRD:
         if mode_lower not in {"incl", "serr", "both"}:
             raise ValueError("mode must be 'incl', 'serr', or 'both'.")
         _, analysis_root_template = self._resolve_source(source)
-        if self._peak_data_by_structure and self._peak_data_source != source:
+        if self._peak_data_by_structure and self._peak_workflow != (
+            Path(cof_name).resolve(),
+            source,
+            dft,
+        ):
             raise ValueError(
-                f"Stored peak-region data belongs to source "
-                f"'{self._peak_data_source}', not '{source}'. "
-                "Run extract_peak_regions() for the requested source."
+                "Stored peak-region data belongs to a different COF, source or DFT setting. Run extract_peak_regions() for this workflow."
             )
 
         region_selector: int | None = None
@@ -1865,36 +1971,42 @@ class PXRD:
                     )
                 sim_files.extend(mode_files)
 
-        default_output = output_folder is None
         output_root = (
             Path(output_folder)
             if output_folder is not None
-            else Path(
-                f"{cof_name}/{analysis_root_template.format(cof_name=cof_name)}"
-                "/pxrd_plots"
-            )
+            else Path(cof_name)
+            / analysis_root_template.format(cof_name=cof_name)
+            / "pxrd_plots"
         )
-
-        plot_files = [
-            (
-                sim_file,
-                output_root / sim_file.parent.name / f"{sim_file.stem}.pdf"
-                if default_output
-                else output_root / f"{sim_file.stem}.pdf",
+        suffix = "_dft" if dft else ""
+        if region_selector is not None:
+            suffix += f"_region{region_selector}"
+        plot_files = []
+        region_data = {}
+        mode_by_file = {}
+        for sim_file in sim_files:
+            tag = mode_lower if mode_lower != "both" else sim_file.parent.name
+            if tag not in {"serr", "incl"}:
+                tag = sim_file.stem.rsplit("_", 1)[-1]
+                if tag not in {"serr", "incl"}:
+                    raise ValueError(
+                        "Ambiguous flat XY folder for mode='both'. Supply mode subfolders or select a single mode."
+                    )
+            mode_by_file[sim_file] = tag
+            destination = output_root / tag
+            plot_files.append(
+                (sim_file, destination / f"{sim_file.stem}{suffix}.pdf")
             )
-            for sim_file in sim_files
-        ]
+            key = (tag, sim_file.stem)
+            if key in self._peak_data_by_structure:
+                region_data[sim_file] = self._peak_data_by_structure[key]
         stacking_by_file: dict[Path, tuple[float, float]] = {}
         if show_stacking_values:
             for sim_file in sim_files:
                 values = self._load_stacking_values(
                     cof_name=cof_name,
                     source=source,
-                    mode=(
-                        mode_lower
-                        if mode_lower != "both"
-                        else sim_file.parent.name
-                    ),
+                    mode=mode_by_file[sim_file],
                     structure_filename=f"{sim_file.stem}.cif",
                     dft=dft,
                 )
@@ -1905,6 +2017,7 @@ class PXRD:
             exp_path=exp_path,
             xlim=(1.5, 30.0) if isinstance(xlim, str) else xlim,
             region_selector=region_selector,
+            region_data=region_data,
             show_color_legend=show_color_legend,
             show=show,
             save=save,
@@ -1920,6 +2033,7 @@ class PXRD:
         show: bool,
         save: bool,
         region_selector: int | None = None,
+        region_data: dict[Path, pd.DataFrame] | None = None,
         stacking_by_file: dict[Path, tuple[float, float]] | None = None,
     ) -> list[str]:
         """Compare explicit simulated files with a shared experimental profile."""
@@ -1931,8 +2045,8 @@ class PXRD:
         outputs: list[str] = []
 
         for sim_file, output_path in plot_files:
-            structure_peak_data = self._peak_data_by_structure.get(
-                sim_file.stem
+            structure_peak_data = (
+                region_data.get(sim_file) if region_data is not None else None
             )
             if region_selector is not None:
                 if structure_peak_data is None:

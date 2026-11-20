@@ -388,3 +388,43 @@ def test_sql_ab_shift_and_stacking(
                 assert delta - np.round(delta) == pytest.approx(
                     np.zeros(2), abs=1e-7
                 )
+
+
+@pytest.mark.unit
+def test_matrix_preflight_preserves_existing_runs(tmp_path: Path) -> None:
+    from pymatgen.core import Lattice, Structure
+
+    source = tmp_path / "sheet.cif"
+    Structure(Lattice.orthorhombic(5, 8, 15), ["C"], [[0, 0, 0.5]]).to(
+        filename=source
+    )
+    output = tmp_path / "matrix"
+
+    def generate(
+        path: str = "a/2", ild_step: float = 0.1, ils_step: float = 1.0
+    ) -> None:
+        cl.CreateMatrix(
+            ild_start=3.4,
+            ild_end=3.5,
+            ild_step=ild_step,
+            ils_length_end=1,
+            ils_length_step=ils_step,
+            slip_path=path,
+        ).run(
+            "sheet",
+            "sql",
+            "both",
+            input_cif=str(source),
+            output_base_folder=str(output),
+        )
+
+    for ild, ils in [(0.04, 1.0), (0.1, 0.04)]:
+        with pytest.raises(ValueError, match="Duplicate target"):
+            generate(ild_step=ild, ils_step=ils)
+        assert not output.exists()
+    generate()
+    before = {p: p.read_bytes() for p in output.rglob("*.cif")}
+    generate()
+    with pytest.raises(ValueError, match="Incompatible existing"):
+        generate("b/2")
+    assert before == {p: p.read_bytes() for p in output.rglob("*.cif")}
