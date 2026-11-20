@@ -1,7 +1,7 @@
 from pathlib import Path
 
-import pandas as pd
 import pytest
+from matplotlib.figure import Figure
 
 import coflandscaper as cl
 
@@ -141,18 +141,45 @@ def test_landscape_run_uses_dft_csv_when_enabled(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("column", "expected"),
+    ("dft", "method_label", "expected"),
     [
-        (["EMT"] * 3, "EMT"),
-        (None, "ASE calculator"),
-        (["EMT", None, "EMT"], "ASE calculator"),
-        (["EMT", "LJ", "LJ"], "ASE calculator"),
+        (False, None, []),
+        (False, "EMT", ["Level of Theory: EMT"]),
+        (True, "unused", ["Level of Theory: DFT"]),
     ],
 )
-def test_landscape_labels_from_energy_table(
-    column: list[str | None] | None, expected: str
+def test_landscape_level_of_theory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    dft: bool,
+    method_label: str | None,
+    expected: list[str],
 ) -> None:
-    table = pd.DataFrame({"energy_eV": [0, 1, 2]})
-    if column is not None:
-        table["calculator"] = column
-    assert cl.Landscape._calculator_label(table) == expected
+    """The title block uses DFT or an explicit ASE label, even for older CSVs."""
+    monkeypatch.chdir(tmp_path)
+    base = Path("cof/3_cof_landscape")
+    (base / "incl").mkdir(parents=True)
+    suffix = "_dft" if dft else ""
+    (base / f"cof_sp_energies_incl{suffix}.csv").write_text(
+        "z,L,energy_eV,calculator\n3,0,1,old\n4,0,2,old\n4,1,3,old\n",
+        encoding="utf-8",
+    )
+    labels: list[str] = []
+
+    def capture(figure: Figure, *_args: object, **_kwargs: object) -> None:
+        labels.extend(
+            text.get_text()
+            for text in figure.axes[0].texts
+            if text.get_text().startswith("Level of Theory:")
+        )
+
+    monkeypatch.setattr(Figure, "savefig", capture)
+    cl.Landscape().run(
+        "cof",
+        mode="incl",
+        dft=dft,
+        method_label=method_label,
+        show_title_block=True,
+        show=False,
+    )
+    assert labels == expected

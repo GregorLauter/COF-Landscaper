@@ -85,11 +85,6 @@ def _default_mace(**kwargs: Any):
                     break
 
         effective_head = getattr(metadata_source, "head", "unknown")
-        if settings["model"] == "mh-1" and effective_head != "unknown":
-            dispersion = " + D3" if settings["dispersion"] else ""
-            calc._coflandscaper_method_label = (
-                f"MACE-MH-1 ({effective_head}){dispersion}"
-            )
         available_heads = getattr(metadata_source, "available_heads", None)
         effective_device = getattr(metadata_source, "device", "unknown")
         d3_detected = "Using TorchDFTD3Calculator" in raw_mace_output

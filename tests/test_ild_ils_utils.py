@@ -431,9 +431,58 @@ def test_matrix_preflight_preserves_existing_runs(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("demo", [True, False], ids=["demo", "production"])
+@pytest.mark.parametrize(
+    ("endpoint", "explicit_end", "keep_regular"),
+    [
+        (12.0374, None, False),
+        (12.0999, None, False),
+        (12.1, None, True),
+        (12.1001, None, True),
+        (12.0999, 12.0999, True),
+    ],
+)
+def test_matrix_slip_endpoint_spacing(
+    tmp_path: Path,
+    endpoint: float,
+    explicit_end: float | None,
+    *,
+    keep_regular: bool,
+) -> None:
+    """Keep the physical AB endpoint and both slips at an exact 0.1 Å gap."""
+    from pymatgen.core import Lattice, Structure
+
+    source = tmp_path / "sheet.cif"
+    Structure(
+        Lattice.orthorhombic(2 * endpoint, 8, 15), ["C"], [[0, 0, 0.5]]
+    ).to(filename=source)
+    output = tmp_path / "matrix"
+    cl.CreateMatrix(
+        ild_start=3.5,
+        ild_end=3.5,
+        ils_length_step=12.0,
+        ils_length_end=explicit_end,
+    ).run(
+        "sheet", "sql", input_cif=str(source), output_base_folder=str(output)
+    )
+
+    expected = [0.0, 12.0, endpoint] if keep_regular else [0.0, endpoint]
+    for mode in ("incl", "serr"):
+        slips = []
+        for path in (output / mode).glob("*.cif"):
+            structure = Structure.from_file(path)
+            if mode == "incl":
+                a, _, c = structure.lattice.matrix
+                slip = np.dot(c, a) / np.linalg.norm(a)
+            else:
+                upper = max(structure, key=lambda site: site.frac_coords[2])
+                slip = upper.frac_coords[0] * structure.lattice.a
+            slips.append(slip)
+        assert sorted(slips) == pytest.approx(expected, abs=2e-6)
+
+
+@pytest.mark.integration
 def test_matrix_sampling_defaults(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, demo: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from pymatgen.core import Lattice, Structure
 
@@ -443,25 +492,20 @@ def test_matrix_sampling_defaults(
     Structure(Lattice.orthorhombic(5, 8, 15), ["C"], [[0, 0, 0.5]]).to(
         filename=layer / "sheet_preopt.cif"
     )
-    if demo:
-        cl.CreateMatrix.quick_start("sheet", "sql")
-        ild_tags, slip_tags = [34, 36], [0, 5, 10]
-    else:
-        cl.CreateMatrix().run("sheet", "sql")
-        ild_tags, slip_tags = list(range(30, 41)), [0, 10, 20, 25]
+    assert not hasattr(cl.CreateMatrix, "quick_start")
+    cl.CreateMatrix().run("sheet", "sql")
 
     matrix = Path("sheet/2_sheet_matrix")
     for mode in ("incl", "serr"):
         assert {p.name for p in (matrix / mode).glob("*.cif")} == {
             f"sheet_z{z}_L{slip:03d}_{mode}.cif"
-            for z in ild_tags
-            for slip in slip_tags
+            for z in range(30, 41)
+            for slip in (0, 10, 20, 25)
         }
-    # Both grids contain a 1 Å displacement. Only the diagonal has a b component.
-    cell = Structure.from_file(
-        matrix / "incl" / f"sheet_z{ild_tags[0]}_L010_incl.cif"
+    # The final 0.5 Å increment reaches a/2 exactly for this 5 Å cell.
+    a, b, c = Structure.from_file(
+        matrix / "incl" / "sheet_z40_L025_incl.cif"
     ).lattice.matrix
-    b_projection = np.dot(cell[2], cell[1]) / np.linalg.norm(cell[1])
-    assert b_projection == pytest.approx(
-        8 / np.hypot(5, 8) if demo else 0, abs=2e-6
-    )
+    assert np.dot(c, a) / np.linalg.norm(a) == pytest.approx(2.5, abs=2e-6)
+    assert np.dot(c, b) / np.linalg.norm(b) == pytest.approx(0.0, abs=2e-6)
+    assert np.linalg.norm(c - a / 2) == pytest.approx(4.0, abs=2e-6)

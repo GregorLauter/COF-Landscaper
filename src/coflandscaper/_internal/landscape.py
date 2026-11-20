@@ -75,15 +75,6 @@ class Landscape:
 
         return csv_dir, csv_path, folder_tag, cof_name
 
-    @staticmethod
-    def _calculator_label(data: pd.DataFrame) -> str:
-        """Use a calculator identity only when all plotted rows agree."""
-        if "calculator" in data:
-            labels = data["calculator"].drop_duplicates()
-            if len(labels) == 1 and isinstance(labels.iloc[0], str):
-                return labels.iloc[0].strip() or "ASE calculator"
-        return "ASE calculator"
-
     def _plot_single_mode(
         self,
         input_folder: str,
@@ -120,8 +111,7 @@ class Landscape:
             minima_mode: Minima marker mode: "global" (default) marks only the
                 single global minimum; "local" marks local minima as well.
                 Defaults to `"global"`.
-            method_label: Optional label overriding the calculator name recorded in
-                the ASE energy table. Missing or inconsistent names use "ASE calculator".
+            method_label: Optional level of theory for ASE energy data.
             show_header: If `True`, draw title and header text. Defaults to `True`.
             show_title_block: If True, draw title plus two header lines
                 (stacking mode and level of theory when available).
@@ -139,6 +129,7 @@ class Landscape:
         )
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
+        lot_label = "DFT" if dft else method_label
 
         use_mode_naming = (
             folder_tag in {"serr", "incl"} and cof_name is not None
@@ -171,10 +162,6 @@ class Landscape:
             raise ValueError(
                 "No entries with parsed z/L. Check naming like ..._z30_..._L020.cif"
             )
-
-        lot_label = (
-            "DFT" if dft else method_label or self._calculator_label(df2)
-        )
 
         abs_grid = df2.pivot_table(
             index="z", columns="L", values="energy_eV", aggfunc="last"
@@ -266,15 +253,16 @@ class Landscape:
                         va="bottom",
                         fontsize=10,
                     )
-                ax.text(
-                    0.5,
-                    1.02,
-                    f"Level of Theory: {lot_label}",
-                    transform=ax.transAxes,
-                    ha="center",
-                    va="bottom",
-                    fontsize=10,
-                )
+                if lot_label:
+                    ax.text(
+                        0.5,
+                        1.02,
+                        f"Level of Theory: {lot_label}",
+                        transform=ax.transAxes,
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                    )
 
         fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
         cf = ax.tricontourf(
@@ -386,8 +374,7 @@ class Landscape:
             minima_mode: Minima mode used for plotting: ``"global"`` marks only the
                 global minimum, while ``"local"`` also marks local minima. Defaults to
                 ``"global"``.
-            method_label: Optional label overriding the calculator name recorded in
-                the ASE energy table. Missing or inconsistent names use "ASE calculator".
+            method_label: Optional level of theory for ASE energy data.
             show_header: Whether plot header information is enabled. Defaults to
                 ``True``.
             show_title_block: Whether to display the title, stacking mode, and level

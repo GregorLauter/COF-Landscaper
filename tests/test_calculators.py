@@ -36,11 +36,15 @@ class _DummyAtoms:
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("options", [{}, {"output_csv_dir": "results"}])
 def test_single_point_run_routes_both_modes(
     monkeypatch: pytest.MonkeyPatch,
+    options: dict[str, str],
 ) -> None:
     """This test ensures the public SinglePoint.run API preserves mode routing."""
     calls: list[tuple[str, str | None]] = []
+    backend = EMT()
+    monkeypatch.setattr(calc_mod, "_default_mace", lambda: backend)
 
     def fake_run_folder(
         _self: SinglePoint,
@@ -48,17 +52,15 @@ def test_single_point_run_routes_both_modes(
         output_csv_dir: str | None = None,
         **_kwargs: str,
     ) -> None:
+        assert _self.calc is backend
         calls.append((input_folder, output_csv_dir))
 
     monkeypatch.setattr(SinglePoint, "_run_folder", fake_run_folder)
-    SinglePoint(calculator=EMT()).run(
-        cof_name="cof-a",
-        output_csv_dir="results",
-    )
+    SinglePoint().run("cof-a", **options)
 
     assert calls == [
-        ("cof-a/2_cof-a_matrix/serr", "results"),
-        ("cof-a/2_cof-a_matrix/incl", "results"),
+        ("cof-a/2_cof-a_matrix/serr", options.get("output_csv_dir")),
+        ("cof-a/2_cof-a_matrix/incl", options.get("output_csv_dir")),
     ]
 
 
@@ -158,17 +160,11 @@ def test_default_factory_preserves_head_presets(
 
     def fake_mace_mp(**kwargs):
         captured.update(kwargs)
-        calc = EMT()
-        calc.head = kwargs["head"]
-        return calc
+        return EMT()
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("mace.calculators.mace_mp", fake_mace_mp)
-    calc = cl.SinglePoint(calculator_kwargs=options).calc
-    d3 = " + D3" if captured["dispersion"] else ""
-    assert (
-        vars(calc)["_coflandscaper_method_label"] == f"MACE-MH-1 ({head}){d3}"
-    )
+    cl.SinglePoint(calculator_kwargs=options)
     assert captured["model"] == "mh-1"
     assert captured["default_dtype"] == "float64"
     assert captured["device"] == "cpu"
@@ -417,10 +413,7 @@ def test_geometry_opt_run_routes_both_modes(
         return {"candidate": Path(input_folder).name == "incl"}
 
     monkeypatch.setattr(opt, "process_cifs", record_process)
-    assert opt.run(cof_name="cof-a", save_opt_energies_csv=False) == {
-        "serr/candidate": False,
-        "incl/candidate": True,
-    }
+    assert opt.run(cof_name="cof-a", save_opt_energies_csv=False) is None  # type: ignore[func-returns-value]
 
     assert calls == [
         (
@@ -909,7 +902,13 @@ def test_factory_and_instance_reused_for_both_modes(
         data = pd.read_csv(f"cu/3_cu_landscape/cu_sp_energies_{csv}.csv")
         assert data.energy_eV.iloc[0] == pytest.approx(energy)
         assert data.energy_rel_eV.iloc[0] == 0
-        assert data.calculator.iloc[0] == backend.name
+        assert list(data.columns) == [
+            "structure",
+            "z",
+            "L",
+            "energy_eV",
+            "energy_rel_eV",
+        ]
     assert GeometryOpt(calculator=sp.calc).single_point.calc is backend
     with pytest.raises(ValueError, match="existing calculator"):
         SinglePoint(calculator=backend, calculator_kwargs={"bad": 1})

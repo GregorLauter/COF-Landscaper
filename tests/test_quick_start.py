@@ -14,30 +14,30 @@ _QUICK_START = (
 
 
 def test_quick_start_public_api() -> None:
-    """Compile the cells and bind their public calls without instantiating calculators."""
+    """Each cell needs only the setup names and calls the installed public API."""
     notebook = json.loads((_QUICK_START / "quick_start.ipynb").read_text())
-    owners = {
-        "opt": cl.GeometryOpt,
-        "opt.single_point": cl.SinglePoint,
-        "pxrd": cl.PXRD,
-    }
     for cell in notebook["cells"]:
         if cell["cell_type"] != "code":
             continue
         source = "".join(cell["source"])
         compile(source, cell["id"], "exec")
-        for call in ast.walk(ast.parse(source)):
+        tree = ast.parse(source)
+        names = {
+            node.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+        }
+        assert names <= {"cl", "COF_NAME", "TOPOLOGY"}, cell["id"]
+        for call in ast.walk(tree):
             if not isinstance(call, ast.Call):
                 continue
-            path = ast.unparse(call.func).removeprefix("cl.")
-            owner, _, name = path.rpartition(".")
-            if owner in owners:
-                member = getattr(owners[owner], name)
-            elif owner:
-                member = getattr(getattr(cl, owner.removesuffix("()")), name)
-            else:
-                member = getattr(cl, name)
-            signature = inspect.signature(member)
+            assert isinstance(call.func, ast.Attribute)
+            receiver = call.func.value
+            owner = cl
+            if isinstance(receiver, ast.Call):
+                assert isinstance(receiver.func, ast.Attribute)
+                owner = getattr(cl, receiver.func.attr)
+            signature = inspect.signature(getattr(owner, call.func.attr))
             args = [None] if "self" in signature.parameters else []
             signature.bind(
                 *args,

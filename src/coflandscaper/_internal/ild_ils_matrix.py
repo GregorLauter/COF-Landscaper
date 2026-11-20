@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 
 import numpy as np
@@ -35,6 +36,26 @@ from .ild_ils_utils import (
     default_shift_from_cif,
     list_cifs,
 )
+
+
+def _slip_lengths(
+    start: float, end: float, step: float, *, automatic_end: bool
+) -> list[float]:
+    """Sample ILS values, keeping the exact topology-derived endpoint."""
+    lengths = _generate_values(start, end, step)
+    if automatic_end and start <= end:
+        # The regular grid rounds its values; use the cell-derived length for AB.
+        lengths[-1] = end
+        if len(lengths) > 1:
+            # Decimal comparison keeps a gap such as 12.1 - 12.0 at the boundary.
+            gap = Decimal(str(end)) - Decimal(str(lengths[-2]))
+            if gap < Decimal("0.1"):
+                del lengths[-2]
+    if len({_slug(value) for value in lengths}) != len(lengths):
+        raise ValueError(
+            "Duplicate target filename: this grid has multiple values with the same 0.1 Å filename tag."
+        )
+    return lengths
 
 
 class ChangeIld:
@@ -175,7 +196,8 @@ class IlsSerr:
         ``ils_angle``.
 
         When ``ils_length_end`` or ``ils_angle`` is omitted, the corresponding
-            default ILS shift is derived automatically from the first input structure.
+        default is derived from the first input structure. An automatic endpoint
+        replaces the preceding grid point if their separation is below 0.1 Å.
 
         Args:
             input_folder: Folder containing ILD-modified CIF structures.
@@ -207,6 +229,7 @@ class IlsSerr:
         topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
+        automatic_end = ils_length_end is None
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
                 cif_files[0],
@@ -218,14 +241,12 @@ class IlsSerr:
                 ils_length_end = auto_len
             if ils_angle is None:
                 ils_angle = auto_ang
-        ils_lengths = _generate_values(
-            ils_length_start, ils_length_end, ils_length_step
+        ils_lengths = _slip_lengths(
+            ils_length_start,
+            ils_length_end,
+            ils_length_step,
+            automatic_end=automatic_end,
         )
-
-        if len({_slug(value) for value in ils_lengths}) != len(ils_lengths):
-            raise ValueError(
-                "Duplicate target filename: this grid has multiple values with the same 0.1 Å filename tag."
-            )
 
         for input_file in cif_files:
             base = os.path.splitext(os.path.basename(input_file))[0]
@@ -322,7 +343,8 @@ class IlsIncl:
         ``ils_angle``.
 
         When ``ils_length_end`` or ``ils_angle`` is omitted, the corresponding
-            default ILS shift is derived automatically from the first input structure.
+        default is derived from the first input structure. An automatic endpoint
+        replaces the preceding grid point if their separation is below 0.1 Å.
 
         Args:
             input_folder: Folder containing ILD-modified CIF structures.
@@ -354,6 +376,7 @@ class IlsIncl:
         topo_used = "hcb" if topo == "hcb_ab" else topo
         Path(output_folder).mkdir(parents=True, exist_ok=True)
         cif_files = list_cifs(input_folder)
+        automatic_end = ils_length_end is None
         if ils_length_end is None or ils_angle is None:
             auto_len, auto_ang = default_shift_from_cif(
                 cif_files[0],
@@ -365,14 +388,12 @@ class IlsIncl:
                 ils_length_end = auto_len
             if ils_angle is None:
                 ils_angle = auto_ang
-        incl_lengths = _generate_values(
-            ils_length_start, ils_length_end, ils_length_step
+        incl_lengths = _slip_lengths(
+            ils_length_start,
+            ils_length_end,
+            ils_length_step,
+            automatic_end=automatic_end,
         )
-
-        if len({_slug(value) for value in incl_lengths}) != len(incl_lengths):
-            raise ValueError(
-                "Duplicate target filename: this grid has multiple values with the same 0.1 Å filename tag."
-            )
 
         for input_file in cif_files:
             base = os.path.splitext(os.path.basename(input_file))[0]
@@ -447,7 +468,9 @@ class CreateMatrix:
 
     The default ILD scan spans 3.0–4.0 Å in 0.1 Å steps. The ILS scan begins at
     0 Å and, unless overridden, extends to the automatically determined default ILS
-    shift for the selected topology. For ``sql`` and ``sql_ab``, each run scans
+    shift for the selected topology. If this endpoint is less than 0.1 Å beyond
+    the preceding sample, only the endpoint is kept. At 0.1 Å both are kept.
+    For ``sql`` and ``sql_ab``, each run scans
     one ``slip_path``, defaulting to ``"a/2"``. Use separate working directories
     for independent screening runs with different paths.
 
@@ -495,24 +518,6 @@ class CreateMatrix:
         self._ils_angle = ils_angle
         self._print_shift = print_shift
         self._slip_path = slip_path
-
-    @classmethod
-    def quick_start(cls, cof_name: str, topo: str, mode: str = "both") -> None:
-        """Generate a six-configuration demonstration grid for each stacking mode.
-
-        Sample ILDs of 3.4 and 3.6 Å and slips of 0, 0.5 and 1 Å. Square nets
-        follow the (a+b)/2 diagonal, and other nets follow their usual direction.
-        This coarse grid illustrates screening and requires wider, finer sampling
-        for scientific conclusions. Inputs and output folders follow ``run``.
-        """
-        cls(
-            ild_start=3.4,
-            ild_end=3.6,
-            ild_step=0.2,
-            ils_length_end=1.0,
-            ils_length_step=0.5,
-            slip_path="(a+b)/2" if topo in {"sql", "sql_ab"} else "a/2",
-        ).run(cof_name, topo, mode)
 
     def run(
         self,

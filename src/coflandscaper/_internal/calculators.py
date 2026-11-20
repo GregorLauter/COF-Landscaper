@@ -296,11 +296,6 @@ class SinglePoint:
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         min_e = float(df["energy_eV"].min())
         df["energy_rel_eV"] = df["energy_eV"] - min_e
-        label = getattr(self.calc, "_coflandscaper_method_label", None)
-        if label is None:
-            label = getattr(self.calc, "name", None)
-        if isinstance(label, str) and label.strip():
-            df["calculator"] = label
         if failed and energies_csv_path.exists():
             raise RuntimeError(
                 f"Incomplete single-point results; keeping existing {energies_csv_path}. First failure: {failed[0]}"
@@ -328,8 +323,8 @@ class SinglePoint:
         By default, CIF structures are read from the mode-specific matrix folders
         under ``{cof_name}/2_{cof_name}_matrix``. The method supports ``"serr"``,
         ``"incl"``, and ``"both"`` and writes mode-specific single-point energy CSV
-        files for subsequent landscape analysis. Each table records the calculator
-        label when available. By default, both stacking modes are processed.
+        files for subsequent landscape analysis. By default, both stacking modes
+        are processed.
 
         When ``input_folder`` is provided, only that explicit folder is processed.
 
@@ -895,14 +890,14 @@ class GeometryOpt:
         output_base: str | None = None,
         input_base: str | None = None,
         save_opt_energies_csv: bool = True,
-    ) -> dict[str, bool]:
+    ) -> None:
         """Run the normal full-cell optimization workflow for selected structure(s).
 
         The method processes the selected serrated and/or inclined structures,
         relaxing both atomic coordinates and the complete unit cell using ASE and
         ``FrechetCellFilter``. Optimized structures are written to the standard
         optimization folders and, by default, a consolidated per-layer energy CSV
-        is generated.
+        records whether each structure reached the step limit without converging.
 
         Default folder behavior:
 
@@ -918,10 +913,6 @@ class GeometryOpt:
                 ``{cof_name}/3_{cof_name}_landscape/selection``.
             save_opt_energies_csv: Whether to write the consolidated per-layer
                 optimized-energy CSV. Defaults to ``True``.
-
-        Returns:
-            Mapping from ``"mode/structure"`` to convergence status for this run.
-            A false value marks an intermediate geometry saved at the step limit.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -957,11 +948,6 @@ class GeometryOpt:
                 convergence_map=convergence_map,
             )
             print(f"Saved relaxation energies: {csv_path}")
-
-        return {
-            f"{mode_tag}/{name}": converged
-            for (mode_tag, name), converged in convergence_map.items()
-        }
 
 
 class GeometryOpt3D(GeometryOpt):
