@@ -255,6 +255,43 @@ def test_produce_xy_writes_xy_for_each_cif(
     assert output == str(output_dir)
     assert (output_dir / "a.xy").exists()
     assert (output_dir / "b.xy").exists()
+    xy = np.loadtxt(output_dir / "a.xy")
+    np.testing.assert_array_equal(xy[[0, -1]], [[1.5, 0.0], [30.0, 0.0]])
+    np.testing.assert_array_equal(xy[xy[:, 1] > 0, 0], _FakePattern().x)
+
+
+@pytest.mark.unit
+def test_continuous_xy_preserves_exact_reflections(tmp_path: Path) -> None:
+    """Off-grid, grid-aligned and overlapping peaks survive a text round trip."""
+    off_grid = 5.102281234567891
+    peaks = np.array(
+        [
+            [5.14, 22.98765432109876],
+            [off_grid + 0.008, 1.234567891234567e-7],
+            [off_grid, 97.12345678901234],
+        ]
+    )
+    xy_file = tmp_path / "sample.xy"
+    cl.PXRD(two_theta_range=(5.08, 5.14))._write_xy(xy_file, peaks)
+    xy = np.loadtxt(xy_file)
+    assert xy.shape[1] == 2
+    assert np.all(np.diff(xy[:, 0]) > 0)
+    np.testing.assert_array_equal(xy[xy[:, 1] > 0], peaks[[2, 1, 0]])
+    np.testing.assert_allclose(
+        xy[xy[:, 1] == 0, 0],
+        [
+            5.08,
+            5.09,
+            off_grid - 0.008,
+            off_grid + 0.008 + 0.008,
+            5.12,
+            5.13,
+            5.14 - 0.008,
+            5.14 + 0.008,
+        ],
+        rtol=0,
+        atol=1e-14,
+    )
 
 
 @pytest.mark.unit
@@ -427,6 +464,30 @@ def test_extract_peaks_filters_and_ranks(
     assert 16.0 not in df["two_theta_deg"].tolist()
     assert df["relative_intensity"].iloc[0] == pytest.approx(100.0)
     assert df["relative_intensity"].iloc[-1] == pytest.approx(10.0)
+
+
+@pytest.mark.unit
+def test_peak_extraction_ignores_zero_baseline(tmp_path: Path) -> None:
+    """Whole-pattern and region extraction exclude zeros even with no cutoff."""
+    folder = tmp_path / "incl"
+    folder.mkdir()
+    pxrd = cl.PXRD(two_theta_range=(3.8, 4.2))
+    pxrd._write_xy(
+        folder / "sample.xy", np.array([[4.0, 70.0], [4.05, 0.001]])
+    )
+    peaks = cl.PXRD3D().extract_peaks(
+        "sample",
+        xy_folder=folder,
+        min_relative_intensity=0,
+        max_peaks=0,
+        save_csv=False,
+    )
+    np.testing.assert_array_equal(peaks["two_theta_deg"], [4, 4.05])
+    for bounds, expected in [((3.9, 4.1), [4, 4.05]), ((4.1, 4.2), [])]:
+        regional = pxrd._extract_sim_peaks(
+            "sample", "incl", bounds, xy_folder=tmp_path
+        )
+        np.testing.assert_array_equal(regional["two_theta_deg"], expected)
 
 
 @pytest.mark.unit
@@ -927,8 +988,12 @@ def test_screen_landscape(
         files = sorted(folder.rglob("*.xy"))
         if export_xy:
             assert len(files) == len(configurations)
-            np.testing.assert_allclose(
-                np.loadtxt(files[0], ndmin=2)[:, 1], pattern.y
+            xy = np.loadtxt(files[0], ndmin=2)
+            np.testing.assert_array_equal(
+                xy[xy[:, 1] > 0], np.column_stack((pattern.x, pattern.y))
+            )
+            np.testing.assert_array_equal(
+                xy[[0, -1]], [[1.5, 0.0], [30.0, 0.0]]
             )
         else:
             assert not files

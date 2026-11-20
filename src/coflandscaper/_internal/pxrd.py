@@ -358,9 +358,10 @@ class PXRD:
     ) -> str:
         """Simulate PXRD patterns for all CIF structures in one folder.
 
-        Each CIF is converted into one two-column ``.xy`` file containing simulated
-        2-theta positions and relative intensities over the range configured when
-        constructing ``PXRD``.
+        Each sorted, two-column file preserves the calculated reflection positions
+        and intensities. A zero-intensity grid spans the configured 2-theta range
+        in 0.01° steps. Zeros at ±0.008° from each reflection replace grid points
+        inside that interval, including both flanks for reflections at a range limit.
 
         Args:
             input_folder: Folder containing CIF files.
@@ -401,10 +402,36 @@ class PXRD:
         )
         return np.column_stack((pattern.x, pattern.y))
 
-    @staticmethod
-    def _write_xy(path: Path, xy: np.ndarray) -> None:
-        """Write simulated reflections in the standard PXRD format."""
-        np.savetxt(path, xy, fmt="%.5f %.3f")
+    def _write_xy(self, path: Path, xy: np.ndarray) -> None:
+        """Write exact reflections and zero-intensity points for continuous plotting."""
+        angles = xy[:, 0]
+        lower, upper = self._two_theta_range
+        grid = np.arange(np.floor(lower * 100), np.ceil(upper * 100) + 1) / 100
+        grid = grid[(grid >= lower) & (grid <= upper)]
+
+        left, right = angles - 0.008, angles + 0.008
+        keep = np.ones(grid.size, dtype=bool)
+        for start, stop in zip(
+            grid.searchsorted(left, side="right"),
+            grid.searchsorted(right),
+            strict=True,
+        ):
+            keep[start:stop] = False
+
+        zeros = np.setdiff1d(np.concatenate((grid[keep], left, right)), angles)
+        baseline = np.column_stack((zeros, np.zeros_like(zeros)))
+        profile = np.concatenate((xy, baseline))
+        np.savetxt(
+            path,
+            profile[np.argsort(profile[:, 0], kind="stable")],
+            fmt="%.17g",
+        )
+
+    def _read_reflections(self, path: Path) -> tuple[np.ndarray, np.ndarray]:
+        """Read positive-intensity reflections from continuous or peak-only XY files."""
+        angles, intensities = self._read_xy(path)
+        peaks = intensities > 0
+        return angles[peaks], intensities[peaks]
 
     def _experimental_profile(
         self, path: Path
@@ -448,8 +475,8 @@ class PXRD:
             mode: Inclined ("incl"), serrated ("serr"), or "both".
             exp_xy_file: Experimental XY path. Defaults to the single XY file
                 in the working directory's ``experimental_pxrd/`` folder.
-            export_xy: Also save individual simulated reflections in the mode's
-                ``xy/`` folder, at their original simulated intensities.
+            export_xy: Also save each continuous simulated XY profile in the mode's
+                ``xy/`` folder, with unscaled reflections and a zero baseline.
 
         Returns:
             Mapping from mode to PDF path under
@@ -655,6 +682,7 @@ class PXRD:
     ) -> dict[str, pd.DataFrame]:
         """Extract simulated PXRD peak tables for selected stacking mode(s).
 
+        Zero-intensity baseline points are excluded before filtering and ranking.
         For each simulated structure, intensities are normalized relative to the
         strongest reflection in the complete simulated pattern. Reflections below
         ``min_relative_intensity`` are discarded, the remaining reflections are ranked
@@ -741,7 +769,7 @@ class PXRD:
 
         rows: list[dict[str, object]] = []
         for xy_file in xy_files:
-            two_theta, intensity = self._read_xy(xy_file)
+            two_theta, intensity = self._read_reflections(xy_file)
             max_intensity = float(np.max(intensity)) if intensity.size else 0.0
             if max_intensity > 0.0:
                 rel_intensity = (intensity / max_intensity) * 100.0
@@ -901,7 +929,7 @@ class PXRD:
         source: str = "opt",
         xy_folder: str | Path | None = None,
     ) -> pd.DataFrame:
-        """Extract simulated reflections within one selected 2-theta region.
+        """Extract positive-intensity simulated reflections in one selected 2-theta region.
 
         Args:
             cof_name: COF name used for default path construction.
@@ -937,7 +965,7 @@ class PXRD:
 
             for xy_file in xy_files:
                 self._simulated_structures.add(xy_file.stem)
-                two_theta, intensity = self._read_xy(xy_file)
+                two_theta, intensity = self._read_reflections(xy_file)
                 max_intensity = (
                     float(np.max(intensity)) if intensity.size else 0.0
                 )
@@ -1938,7 +1966,10 @@ class PXRD3D:
         input_folder: str | Path | None = None,
         output_folder: str | Path | None = None,
     ) -> str:
-        """Simulate PXRD patterns for all optimized frameworks in one folder.
+        """Export continuous two-column PXRD patterns for optimized 3D frameworks.
+
+        Each file uses the same zero baseline and exact reflections as
+        :meth:`PXRD.produce_xy`.
 
         Args:
             cof_name: COF name used for default path construction.
