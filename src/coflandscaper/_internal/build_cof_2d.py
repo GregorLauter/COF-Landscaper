@@ -10,13 +10,11 @@ Connection points in the input XYZ fragments are marked with helium atoms
 sites during preprocessing.
 """
 
-import glob
 import os
 import shutil
 import tempfile
 import warnings
 from collections.abc import Mapping, Sequence
-from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, cast
 
@@ -29,14 +27,6 @@ from pymatgen.core import Structure
 from ._pormake import BuildingBlock, Framework, Topology, pm
 from .ild_ils_matrix import ChangeIld
 from .ild_ils_utils import _unwrap_fractional_z
-from .reactions import (
-    PrepareBuildingBlock,
-    _assembly_configuration,
-    _configuration,
-    _finish_imines,
-    _prepare_layer,
-    _read_imine_block,
-)
 
 DEFAULT_X_SCALE = 0.8
 TOPOLOGY_INPUT_COUNTS = {
@@ -523,31 +513,20 @@ def _write_xyz_with_bonds(
         )
 
 
-def _prepare_xyz(input_folder: str, output_folder: str) -> list[str]:
-    """Prepare all XYZ files in a folder for pormake input.
-
-    Args:
-        input_folder: Folder with raw XYZ files.
-        output_folder: Folder to write prepared XYZ files.
-
-    Returns:
-        List of input XYZ file paths processed.
-    """
-    Path(output_folder).mkdir(parents=True, exist_ok=True)
-    xyz_files = sorted(glob.glob(os.path.join(input_folder, "*.xyz")))
-
-    return _prepare_xyz_files(xyz_files, output_folder)
-
-
 def _prepare_xyz_files(
     xyz_files: list[str],
     output_folder: str,
+    *,
+    expected_markers: int | None = None,
+    label: str = "Building block",
 ) -> list[str]:
     """Prepare explicit XYZ file paths into pormake-compatible XYZ files.
 
     Args:
         xyz_files: Absolute or relative paths to input .xyz files.
         output_folder: Folder to write prepared XYZ files.
+        expected_markers: Required He marker count when known for this slot.
+        label: Slot name used in validation errors.
 
     Returns:
         The list of processed XYZ input file paths.
@@ -555,15 +534,22 @@ def _prepare_xyz_files(
     Path(output_folder).mkdir(parents=True, exist_ok=True)
 
     for path in xyz_files:
-        out_path = Path(output_folder) / f"{Path(path).stem}.xyz"
-        if _configuration(path) is not None:
-            shutil.copyfile(path, out_path)
-            continue
         atoms = cast("Atoms", ase.io.read(path))
         updated_atoms, x_indices = _replace_atoms(atoms, "He", "H")
+        if expected_markers is not None and len(x_indices) != expected_markers:
+            raise ValueError(
+                f"{label} requires exactly {expected_markers} connection markers (He); "
+                f"found {len(x_indices)} in {path}."
+            )
+        if not x_indices or "X" in atoms.get_chemical_symbols():
+            raise ValueError(
+                f"Use He atoms to mark connection sites in {path}."
+            )
         bonds = _infer_connectivity(updated_atoms)
 
-        _write_xyz_with_bonds(updated_atoms, x_indices, bonds, str(out_path))
+        base_filename = os.path.basename(os.path.splitext(path)[0] + ".xyz")
+        out_path = os.path.join(output_folder, base_filename)
+        _write_xyz_with_bonds(updated_atoms, x_indices, bonds, out_path)
 
     return xyz_files
 
@@ -712,20 +698,13 @@ def _build_cof(
     Returns:
         Path to the written CIF file.
     """
-    config = _assembly_configuration([*node_paths, *linker_paths])
     database = PackageDatabase()
     topology = database.get_topo(topo)
     _sanitize_edge_types_inplace(topology.edge_types)
     builder = CofLandscaperBuilder()
-
-    def load_block(path: str, coordination: int) -> BuildingBlock:
-        if config is not None:
-            return _read_imine_block(path, coordination)
-        return pm.BuildingBlock(path)
-
     if topo == "sql_ab":
         node_bbs = {
-            node_type: load_block(path, 4)
+            node_type: pm.BuildingBlock(path)
             for node_type, path in enumerate(node_paths)
         }
         node_indices = np.asarray(topology.node_indices, dtype=int)
@@ -737,16 +716,10 @@ def _build_cof(
             raise ValueError(
                 "Invalid sql_ab scaffold: expected two 4-connected node types."
             )
-        for node_type, block in node_bbs.items():
-            if len(block.connection_point_indices) != 4:
-                raise ValueError(
-                    f"Topology 'sql_ab' node {node_type + 1} requires exactly 4 "
-                    "connection markers (He)."
-                )
         cof = builder.build_by_type(topology=topology, node_bbs=node_bbs)
     elif topo == "hcb_ab":
-        node_a = load_block(node_paths[0], 3)
-        node_b = load_block(node_paths[1], 3)
+        node_a = pm.BuildingBlock(node_paths[0])
+        node_b = pm.BuildingBlock(node_paths[1])
         bbs: list[BuildingBlock | None] = [None] * topology.n_slots
         bbs[0] = node_a
         bbs[1] = node_b
@@ -762,10 +735,8 @@ def _build_cof(
                 unique_pairs.add(key)
                 edgetype_filtered.append(key)
 
-        node = load_block(
-            node_paths[0], int(topology.cn[topology.node_indices[0]])
-        )
-        linker = load_block(linker_paths[0], 2)
+        node = pm.BuildingBlock(node_paths[0])
+        linker = pm.BuildingBlock(linker_paths[0])
         node_types = np.array(topology.node_types, dtype=int).ravel()
         unique_node_types = sorted({int(t) for t in node_types if t >= 0})
         node_bbs = dict.fromkeys(unique_node_types, node)
@@ -789,14 +760,6 @@ def _build_cof(
         filename = f"{node_name_a}_{node_name_b}.cif"
 
     output_filename = os.path.join(output_folder, filename)
-    if config is not None:
-        _prepare_layer(cof.atoms)
-        _finish_imines(cof, config)
-        with tempfile.TemporaryDirectory(dir=output_folder) as temp:
-            trial = Path(temp) / filename
-            cof.write_cif(str(trial))
-            trial.replace(output_filename)
-        return output_filename
     cof.write_cif(output_filename)
     if topo == "sql":
         centered = _center_structure_slab_z(
@@ -804,109 +767,6 @@ def _build_cof(
         )
         centered.to(filename=output_filename)
     return output_filename
-
-
-def _check_generated_file(candidate: Path, target: Path) -> None:
-    """Allow publication only to a new path or alongside an identical regular file."""
-    if target.is_symlink() or (
-        target.exists()
-        and (
-            not target.is_file()
-            or target.read_bytes() != candidate.read_bytes()
-        )
-    ):
-        raise FileExistsError(
-            f"{target} differs from the generated file. Use a fresh working directory or COF name."
-        )
-
-
-def _build_from_smiles(
-    topo: str,
-    cof_name: str,
-    node_smiles: str | Sequence[str] | None,
-    linker_smiles: str | None,
-    output: Path,
-) -> str:
-    """Prepare a complementary pair, validate the assembly, then publish its inputs and CIF."""
-    if (
-        not cof_name
-        or Path(cof_name).name != cof_name
-        or cof_name in {".", ".."}
-    ):
-        raise ValueError(
-            "Use a COF name without directory components for SMILES construction."
-        )
-    nodes = (
-        [node_smiles]
-        if isinstance(node_smiles, str)
-        else list(node_smiles or ())
-    )
-    linkers = [] if linker_smiles is None else [linker_smiles]
-    required = TOPOLOGY_INPUT_COUNTS[topo]
-    if len(nodes) != required["nodes"] or len(linkers) != required["linkers"]:
-        raise ValueError(
-            f"Topology {topo!r} requires {required['nodes']} node SMILES "
-            f"and {required['linkers']} linker SMILES."
-        )
-    slots = [
-        (
-            smiles,
-            required["node_sites"],
-            Path("0_node") / cof_name / f"node_{i}.xyz",
-        )
-        for i, smiles in enumerate(nodes, start=1)
-    ]
-    if linker_smiles is not None:
-        slots.append(
-            (linker_smiles, 2, Path("0_linker") / cof_name / "linker.xyz")
-        )
-
-    with ExitStack() as stack:
-        prepared = []
-        roles = set()
-        for smiles, sites, target in slots:
-            if not isinstance(smiles, str) or not smiles.strip():
-                raise ValueError(
-                    f"Expected a nonempty SMILES string for {target.stem}."
-                )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            # Keep the candidate on the destination filesystem for exclusive publication.
-            scratch = stack.enter_context(
-                tempfile.TemporaryDirectory(dir=target.parent)
-            )
-            candidate = Path(scratch) / target.name
-            roles.add(
-                PrepareBuildingBlock._write_imine(
-                    candidate,
-                    smiles=smiles,
-                    expected_sites=sites,
-                    configuration="E",
-                )
-            )
-            _check_generated_file(candidate, target)
-            prepared.append((candidate, target))
-        if roles != {"aldehyde", "amine"}:
-            raise ValueError(
-                "An imine requires complementary aldehyde and primary-amine precursors."
-            )
-
-        output.mkdir(parents=True, exist_ok=True)
-        trial = stack.enter_context(tempfile.TemporaryDirectory(dir=output))
-        paths = [str(candidate) for candidate, _ in prepared]
-        cif = Path(
-            _build_cof(
-                topo, paths[: len(nodes)], paths[len(nodes) :], trial, cof_name
-            )
-        )
-        destination = output / cif.name
-        _check_generated_file(cif, destination)
-        prepared.append((cif, destination))
-        for candidate, target in prepared:
-            try:
-                os.link(candidate, target)
-            except FileExistsError:
-                _check_generated_file(candidate, target)
-        return str(destination)
 
 
 class BuildCOF2D:
@@ -917,10 +777,6 @@ class BuildCOF2D:
     marking the intended connection points. During preprocessing, these markers are
     converted into PORMAKE-compatible connection sites and connectivity information
     is generated automatically.
-
-    Supply node_smiles and linker_smiles to prepare complementary E-imine precursors
-    directly. Alternatively pass imine XYZs from PrepareBuildingBlock for all slots.
-    Their explicit bond orders are included in the unoptimised CIF.
 
     Supported topologies are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"kgm"``,
     and ``"hcb_ab"``.
@@ -934,25 +790,13 @@ class BuildCOF2D:
     - ``hcb_ab``: two 3-connected node types and no separate linker.
 
     For ``sql_ab``, the first node input is A and the second is B; folder
-    inputs use alphabetical filename order. Each must have four connection sites.
+    inputs use alphabetical filename order. Each must have four He markers.
 
     Unless explicit paths are supplied, node and linker inputs are read from
     ``0_node/`` and ``0_linker/``. The assembled framework is written to
     ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_unopt.cif`` and its
     interlayer distance is set to 15 Å for subsequent single-layer preoptimization.
     """
-
-    def _list_xyz(self, folder: str) -> list[tuple[str, str]]:
-        """List XYZ files in a directory as `(stem, path)` pairs.
-
-        Args:
-            folder: Directory to scan for `.xyz` files.
-
-        Returns:
-            Sorted list of `(basename_without_extension, absolute_or_relative_path)`.
-        """
-        files = sorted(glob.glob(os.path.join(folder, "*.xyz")))
-        return [(os.path.splitext(os.path.basename(p))[0], p) for p in files]
 
     def build(
         self,
@@ -961,25 +805,15 @@ class BuildCOF2D:
         input_nodes: Sequence[str | os.PathLike[str]] | None = None,
         input_linkers: Sequence[str | os.PathLike[str]] | None = None,
         output_folder: str | None = None,
-        *,
-        node_smiles: str | Sequence[str] | None = None,
-        linker_smiles: str | None = None,
     ) -> list[str]:
         """Build one unoptimized single-layer COF structure.
 
         The method resolves topology-specific node and linker inputs, preprocesses
-        manual He-marked fragments or accepts explicit-bond imine blocks from
-        PrepareBuildingBlock. It writes the assembled CIF to the single-layer
-        workflow directory. Prepared assemblies must satisfy the requested imine
-        stereochemistry and local bond and contact checks before export.
+        helium-marked XYZ fragments into PORMAKE-compatible building blocks, assembles
+        the framework, and writes the resulting CIF to the single-layer workflow
+        directory.
 
-        Direct SMILES inputs select E-imine preparation for two complementary
-        aldehyde/primary-amine precursors. Coordination follows the topology.
-        Generated inputs are stored in ``0_node/<cof_name>/`` and
-        ``0_linker/<cof_name>/``, preserving top-level manual XYZ discovery.
-        Matching inputs and CIFs are reused. Conflicting contents raise FileExistsError. The optional reactions extra is required.
-
-        When using the XYZ route without explicit input paths, files are read from ``0_node/`` and
+        When explicit input paths are not provided, files are read from ``0_node/`` and
         ``0_linker/``. Only the exact number of node and linker files required by the
         selected topology is accepted.
 
@@ -998,109 +832,73 @@ class BuildCOF2D:
             output_folder: Optional output-directory override. Defaults to
                 ``{cof_name}/1_{cof_name}_single_layer``.
 
-            node_smiles: One node SMILES, or an ordered pair for hcb_ab/sql_ab.
-                Supply SMILES separately from explicit XYZ inputs.
-            linker_smiles: One linker SMILES for hcb, kgm and sql.
-                Omit for the binary node-node topologies.
-
         Returns:
             List containing the path to the generated
             ``{cof_name}_unopt.cif`` structure.
 
         Raises:
             ValueError: If ``topo`` is unsupported or the resolved number of node or
-                linker files does not match the topology requirements, or a ``sql_ab``
-                node does not have four connection markers.
+                linker files or He connection markers does not match the topology requirements.
             FileNotFoundError: If explicitly supplied input XYZ files cannot be read.
-            FileExistsError: If direct SMILES input or output paths contain different data.
-            ImportError: If direct SMILES inputs require missing optional dependencies.
         """
         if topo not in TOPOLOGY_INPUT_COUNTS:
             raise ValueError(
                 "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', or 'kgm'"
             )
 
-        output_folder_used = output_folder or os.path.join(
-            cof_name, f"1_{cof_name}_single_layer"
-        )
-        if node_smiles is not None or linker_smiles is not None:
-            if input_nodes is not None or input_linkers is not None:
-                raise ValueError(
-                    "Choose direct SMILES or prepared XYZ inputs."
-                )
-            return [
-                _build_from_smiles(
-                    topo,
-                    cof_name,
-                    node_smiles,
-                    linker_smiles,
-                    Path(output_folder_used),
-                )
-            ]
-
         required_nodes = TOPOLOGY_INPUT_COUNTS[topo]["nodes"]
         required_linkers = TOPOLOGY_INPUT_COUNTS[topo]["linkers"]
 
-        with ExitStack() as stack:
-            if input_nodes is not None:
-                # A and B can have the same filename in different directories.
-                nodes = []
-                for path in input_nodes:
-                    node_dir = stack.enter_context(
-                        tempfile.TemporaryDirectory()
-                    )
-                    _prepare_xyz_files([os.fspath(path)], node_dir)
-                    stem = Path(path).stem
-                    nodes.append((stem, str(Path(node_dir) / f"{stem}.xyz")))
-            else:
-                nodes_dir_used = stack.enter_context(
-                    tempfile.TemporaryDirectory()
-                )
-                _prepare_xyz("0_node", nodes_dir_used)
-                nodes = self._list_xyz(nodes_dir_used)
+        def input_paths(
+            paths: Sequence[str | os.PathLike[str]] | None, folder: str
+        ) -> list[Path]:
+            if paths is not None:
+                return [Path(path) for path in paths]
+            return sorted(
+                path for path in Path(folder).glob("*.xyz") if path.is_file()
+            )
 
-            linkers: list[tuple[str, str]] = []
-            if input_linkers is not None:
-                linker_dir_used = stack.enter_context(
-                    tempfile.TemporaryDirectory()
-                )
-                linker_inputs = [os.fspath(path) for path in input_linkers]
-                _prepare_xyz_files(linker_inputs, linker_dir_used)
-                linkers = [
-                    (
-                        Path(path).stem,
-                        str(Path(linker_dir_used) / f"{Path(path).stem}.xyz"),
-                    )
-                    for path in linker_inputs
-                ]
-            elif required_linkers > 0:
-                linker_dir_used = stack.enter_context(
-                    tempfile.TemporaryDirectory()
-                )
-                _prepare_xyz("0_linker", linker_dir_used)
-                linkers = self._list_xyz(linker_dir_used)
-            else:
-                extra_linkers = sorted(Path("0_linker").glob("*.xyz"))
-                if extra_linkers:
-                    warnings.warn(
-                        f"Topology '{topo}' ignores linker files in 0_linker/.",
-                        stacklevel=2,
-                    )
+        nodes = input_paths(input_nodes, "0_node")
+        linkers = input_paths(input_linkers, "0_linker")
+        if input_linkers is None and not required_linkers and linkers:
+            warnings.warn(
+                f"Topology '{topo}' ignores linker files in 0_linker/.",
+                stacklevel=2,
+            )
+            linkers = []
+        if len(nodes) != required_nodes or len(linkers) != required_linkers:
+            raise ValueError(
+                f"Topology '{topo}' requires exactly {required_nodes} node file(s) "
+                f"and {required_linkers} linker file(s). Found {len(nodes)} node "
+                f"file(s) and {len(linkers)} linker file(s). Either keep only "
+                "the required files in 0_node/ and 0_linker/, or pass explicit "
+                "paths via input_nodes=[...] and input_linkers=[...]."
+            )
 
-            if (
-                len(nodes) != required_nodes
-                or len(linkers) != required_linkers
-            ):
-                raise ValueError(
-                    f"Topology '{topo}' requires exactly {required_nodes} node file(s) "
-                    f"and {required_linkers} linker file(s). Found {len(nodes)} node "
-                    f"file(s) and {len(linkers)} linker file(s). Either keep only "
-                    "the required files in 0_node/ and 0_linker/, or pass explicit "
-                    "paths via input_nodes=[...] and input_linkers=[...]."
+        with tempfile.TemporaryDirectory() as scratch:
+            prepared = []
+            for i, path in enumerate([*nodes, *linkers]):
+                # Preserve distinct fragments with the same filename.
+                slot = Path(scratch) / str(i)
+                slot.mkdir()
+                is_node = i < required_nodes
+                _prepare_xyz_files(
+                    [str(path)],
+                    str(slot),
+                    expected_markers=TOPOLOGY_INPUT_COUNTS[topo]["node_sites"]
+                    if is_node
+                    else 2,
+                    label=f"Topology '{topo}' node {i + 1}"
+                    if is_node
+                    else f"Topology '{topo}' linker",
                 )
+                prepared.append(str(slot / f"{path.stem}.xyz"))
+            node_paths = prepared[:required_nodes]
+            linker_paths = prepared[required_nodes:]
 
-            node_paths = [path for _, path in nodes]
-            linker_paths = [path for _, path in linkers]
+            output_folder_used = output_folder or os.path.join(
+                cof_name, f"1_{cof_name}_single_layer"
+            )
 
             Path(output_folder_used).mkdir(parents=True, exist_ok=True)
             output = _build_cof(
@@ -1110,11 +908,10 @@ class BuildCOF2D:
                 output_folder_used,
                 cof_name=cof_name,
             )
-            if _configuration(node_paths[0]) is None:
-                ChangeIld()._change_interlayer_distance(
-                    input_file=output,
-                    output_file=output,
-                    new_z=15.0,
-                )
+            ChangeIld()._change_interlayer_distance(
+                input_file=output,
+                output_file=output,
+                new_z=15.0,
+            )
 
             return [output]

@@ -429,7 +429,7 @@ class GeometryOpt:
         fixed_cell: bool = False,
         preopt_topo: str | None = None,
         *,
-        strict: bool = False,
+        preopt_name: str | None = None,
     ) -> bool:
         """Optimize one CIF structure and write the resulting structure.
 
@@ -443,7 +443,8 @@ class GeometryOpt:
             preopt_topo: Optional 2D topology. Sets its ideal angles and a 15
                 Angstrom height, then relaxes only atoms and the a/b lengths.
                 Cannot be combined with ``fixed_cell=True``.
-            strict: Raise after writing an unconverged intermediate CIF.
+            preopt_name: COF name for a single-layer preoptimisation. This stage
+                requires convergence before stacking.
 
         Returns:
             ``True`` if the optimization converged within ``max_steps``; otherwise
@@ -452,6 +453,7 @@ class GeometryOpt:
         Raises:
             ValueError: If both cell modes are requested, or the topology or
                 single-layer geometry is invalid.
+            RuntimeError: If the named single-layer preoptimisation fails to converge.
         """
         if fixed_cell and preopt_topo is not None:
             raise ValueError("fixed_cell and preopt_topo cannot be combined")
@@ -488,12 +490,17 @@ class GeometryOpt:
             ) from exc
         atoms.write(output_path)
         if not converged:
-            message = (
-                f"Geometry optimization did not converge within {self._max_steps} "
-                f"steps for {input_path}. Saved an unconverged intermediate "
-                f"structure to {output_path}."
+            stage = (
+                f"Single-layer preoptimisation of {preopt_name}"
+                if preopt_name is not None
+                else "Geometry optimization"
             )
-            if strict:
+            message = (
+                f"{stage} did not converge within {self._max_steps} steps "
+                f"(fmax={self._fmax:g} eV/Å) for {input_path}. "
+                f"Saved an unconverged intermediate structure to {output_path}."
+            )
+            if preopt_name is not None:
                 raise RuntimeError(message)
             warnings.warn(message, category=UserWarning, stacklevel=2)
         return bool(converged)
@@ -527,7 +534,6 @@ class GeometryOpt:
         fix_z: bool = True,
         *,
         topo: str | None = None,
-        strict: bool = False,
     ) -> bool:
         """Pre-optimize the assembled single-layer COF structure.
 
@@ -552,16 +558,14 @@ class GeometryOpt:
                 the legacy preoptimization with unrestricted cell angles and
                 height. This option affects only this call; subsequent full-cell
                 optimization is unchanged.
-            strict: Raise if convergence is missed so a sequential workflow stops
-                before stacking. The intermediate CIF is saved for inspection.
-                Defaults to a warning and a ``False`` return value.
 
         Returns:
-            ``True`` if the optimization converged; otherwise ``False``.
+            ``True`` on convergence.
 
         Raises:
             ValueError: If ``topo`` is unsupported or the input geometry is invalid.
-            RuntimeError: If the layer did not converge and ``strict=True``.
+            RuntimeError: If the layer did not reach the force threshold within
+                the step limit. The intermediate CIF is saved for inspection.
         """
         if topo is not None and topo not in _PREOPT_CELL_ANGLES:
             raise ValueError(
@@ -580,18 +584,13 @@ class GeometryOpt:
         prev_fix_z = self._fix_z
         self._fix_z = fix_z
         try:
-            if topo is None and not strict:
-                converged = self.optimize_cof(
-                    str(resolved_input), str(resolved_output)
-                )
-            else:
-                converged = self._optimize_cof(
-                    str(resolved_input),
-                    str(resolved_output),
-                    preopt_topo=topo,
-                    strict=strict,
-                )
-            print("Converged" if converged else "Not converged")
+            converged = self._optimize_cof(
+                str(resolved_input),
+                str(resolved_output),
+                preopt_topo=topo,
+                preopt_name=cof_name,
+            )
+            print("Converged")
             return converged
         finally:
             self._fix_z = prev_fix_z
@@ -944,7 +943,7 @@ class GeometryOpt:
                 output_base_path=output_base_path,
                 convergence_map=convergence_map,
             )
-            print(f"Saved optimized energies: {csv_path}")
+            print(f"Saved relaxation energies: {csv_path}")
 
         return {
             f"{mode_tag}/{name}": converged

@@ -25,7 +25,6 @@ readme = "README.md"
 description = "Python toolkit for building and analyzing 2D COF stacking-energy landscapes."
 
 [project.optional-dependencies]
-reactions = ["stk-lite==2026.10.13.2", "rdkit>=2024.3"]
 porosity = [
     "pyzeo~=0.2.0; sys_platform == 'darwin' or sys_platform == 'linux'",
 ]

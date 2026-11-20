@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import json
 import runpy
 import warnings
@@ -99,17 +100,23 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
     assert dummy_atoms.written_to == str(output_cif)
 
     dummy_atoms.written_to = None
-    with pytest.raises(
-        RuntimeError, match="Saved an unconverged intermediate"
-    ):
+    with pytest.raises(RuntimeError) as failure:
         opt.run_preopt(
             "cof",
             input_path=str(input_cif),
             output_path=str(output_cif),
             fix_z=False,
-            strict=True,
         )
+    message = str(failure.value)
+    assert (
+        "Single-layer preoptimisation of cof did not converge within 500 steps"
+        in message
+    )
+    assert "fmax=0.01 eV/Å" in message
+    assert "unconverged intermediate" in message
+    assert str(output_cif) in message
     assert dummy_atoms.written_to == str(output_cif)
+    assert "strict" not in inspect.signature(opt.run_preopt).parameters
 
 
 @pytest.mark.unit
@@ -255,14 +262,19 @@ def test_run_preopt_uses_default_paths_and_restores_fix_z(
 ) -> None:
     seen: dict[str, str | bool] = {}
 
-    def fake_optimize(self, input_path: str, output_path: str) -> bool:
+    def fake_optimize(
+        self, input_path: str, output_path: str, **kwargs
+    ) -> bool:
+        assert kwargs["preopt_name"] == "COF-1"
         seen["input_path"] = input_path
         seen["output_path"] = output_path
         seen["fix_z_during_call"] = self._fix_z
         return True
 
     opt = GeometryOpt(fix_z=False, calculator=EMT())
-    opt.optimize_cof = fake_optimize.__get__(opt, GeometryOpt)
+    monkeypatch.setattr(
+        opt, "_optimize_cof", fake_optimize.__get__(opt, GeometryOpt)
+    )
 
     monkeypatch.chdir(tmp_path)
 
@@ -281,12 +293,17 @@ def test_run_preopt_can_disable_fix_z_for_single_run(
 ) -> None:
     seen: dict[str, bool] = {}
 
-    def fake_optimize(self, _input_path: str, _output_path: str) -> bool:
+    def fake_optimize(
+        self, _input_path: str, _output_path: str, **kwargs
+    ) -> bool:
+        assert kwargs["preopt_name"] == "COF-1"
         seen["fix_z_during_call"] = self._fix_z
         return True
 
     opt = GeometryOpt(fix_z=True, calculator=EMT())
-    opt.optimize_cof = fake_optimize.__get__(opt, GeometryOpt)
+    monkeypatch.setattr(
+        opt, "_optimize_cof", fake_optimize.__get__(opt, GeometryOpt)
+    )
 
     monkeypatch.chdir(tmp_path)
 

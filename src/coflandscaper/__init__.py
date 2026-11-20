@@ -45,7 +45,6 @@ from coflandscaper._internal.landscape import (
 )
 from coflandscaper._internal.porosity import Porosity
 from coflandscaper._internal.pxrd import PXRD, PXRD3D
-from coflandscaper._internal.reactions import PrepareBuildingBlock
 
 __all__ = [
     "PXRD",
@@ -64,7 +63,6 @@ __all__ = [
     "IlsSerr",
     "Landscape",
     "Porosity",
-    "PrepareBuildingBlock",
     "SelectCofs",
     "SinglePoint",
     "Supercell",

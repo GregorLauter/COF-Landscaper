@@ -21,24 +21,12 @@ def test_buildcof2d_rejects_invalid_topology() -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("extra_folder", ["0_node", "0_linker"])
 def test_buildcof2d_requires_exactly_one_node_and_linker(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extra_folder: str
 ) -> None:
-    """This test ensures multiple node/linker inputs are rejected."""
+    """Report ambiguous inputs before attempting to read any of their contents."""
     monkeypatch.chdir(tmp_path)
-
-    module = importlib.import_module(cl.BuildCOF2D.__module__)
-
-    def fake_prepare_xyz_files(
-        xyz_files: list[str],
-        output_folder: str,
-    ) -> list[str]:
-        for path in xyz_files:
-            shutil.copy(path, output_folder)
-        return xyz_files
-
-    monkeypatch.setattr(module, "_prepare_xyz_files", fake_prepare_xyz_files)
-
     node_dir = tmp_path / "0_node"
     linker_dir = tmp_path / "0_linker"
     node_dir.mkdir()
@@ -48,10 +36,7 @@ def test_buildcof2d_requires_exactly_one_node_and_linker(
         "2\nnode\nC 0 0 0\nH 0 0 1\n",
         encoding="utf-8",
     )
-    (node_dir / "node_b.xyz").write_text(
-        "2\nnode\nC 0 0 0\nH 0 0 1\n",
-        encoding="utf-8",
-    )
+    (tmp_path / extra_folder / "extra.xyz").write_text("invalid XYZ")
     (linker_dir / "linker.xyz").write_text(
         "2\nlinker\nC 0 0 0\nH 0 0 1\n",
         encoding="utf-8",
@@ -94,6 +79,7 @@ def test_buildcof2d_binary_accepts_two_nodes_no_linkers(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
+        **_kwargs: object,
     ) -> list[str]:
         for path in xyz_files:
             shutil.copy(path, output_folder)
@@ -154,6 +140,7 @@ def test_buildcof2d_binary_rejects_wrong_node_counts(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
+        **_kwargs: object,
     ) -> list[str]:
         for path in xyz_files:
             shutil.copy(path, output_folder)
@@ -191,6 +178,7 @@ def test_buildcof2d_binary_warns_on_linkers_in_default_folder(
     def fake_prepare_xyz_files(
         xyz_files: list[str],
         output_folder: str,
+        **_kwargs: object,
     ) -> list[str]:
         for path in xyz_files:
             shutil.copy(path, output_folder)
@@ -338,6 +326,34 @@ def test_sql_ab_assigns_nodes_by_type(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    ("node_count", "linker_count", "slot", "expected"),
+    [
+        (3, 2, "node 1", 4),
+        (4, 1, "linker", 2),
+    ],
+)
+def test_sql_rejects_wrong_connectivity_before_assembly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    node_count: int,
+    linker_count: int,
+    slot: str,
+    expected: int,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    for folder, count in (("0_node", node_count), ("0_linker", linker_count)):
+        path = Path(folder) / "block.xyz"
+        path.parent.mkdir()
+        _write_sql_ab_node(path, "C", count)
+    with pytest.raises(
+        ValueError,
+        match=f"{slot} requires exactly {expected} connection markers",
+    ):
+        cl.BuildCOF2D().build("sql", "sample")
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("invalid_node", [0, 1])
 def test_sql_ab_rejects_marker_count(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid_node: int
@@ -397,7 +413,12 @@ def test_import_preserves_working_directory(tmp_path: Path) -> None:
     sentinel.write_bytes(b"unrelated prior calculation\n")
     stamp = sentinel.stat().st_mtime_ns
     subprocess.run(  # noqa: S603
-        [sys.executable, "-c", "import coflandscaper"],
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.modules.update(stk=None, rdkit=None); "
+            "import coflandscaper as cl; assert not hasattr(cl, 'PrepareBuildingBlock')",
+        ],
         cwd=tmp_path,
         check=True,
         env={
@@ -408,3 +429,38 @@ def test_import_preserves_working_directory(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == [sentinel]
     assert sentinel.read_bytes() == b"unrelated prior calculation\n"
     assert sentinel.stat().st_mtime_ns == stamp
+
+
+@pytest.mark.integration
+def test_manual_hcb_matches_reference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The original He-marked LZU-1 inputs still reproduce the published example cell."""
+    from pymatgen.core import Structure
+
+    example = Path(__file__).resolve().parents[1] / "example"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setitem(sys.modules, "stk", None)
+    monkeypatch.setitem(sys.modules, "rdkit", None)
+    for folder, filename in (
+        ("0_node", "example_node.xyz"),
+        ("0_linker", "example_linker.xyz"),
+    ):
+        target = Path(folder) / filename
+        target.parent.mkdir()
+        shutil.copyfile(example / target, target)
+        nested = target.parent / "old" / "ignored.xyz"
+        nested.parent.mkdir()
+        nested.write_text("old run")
+    [output] = cl.BuildCOF2D().build("hcb", "manual")
+    reference = Structure.from_file(
+        example / "COF-LZU-1/1_COF-LZU-1_single_layer/COF-LZU-1_unopt.cif"
+    )
+    assert reference.matches(
+        Structure.from_file(output),
+        ltol=0.001,
+        stol=0.01,
+        angle_tol=0.1,
+        scale=False,
+        primitive_cell=False,
+    )
