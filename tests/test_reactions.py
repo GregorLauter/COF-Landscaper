@@ -30,10 +30,16 @@ def test_optional_backend(
 ) -> None:
     import sys
 
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setitem(sys.modules, "stk", None)
     with pytest.raises(ImportError, match=r"cof-landscaper\[reactions\]"):
         PrepareBuildingBlock().run(
             tmp_path / "node.xyz", smiles=_TRIALDEHYDE, configuration="E"
+        )
+
+    with pytest.raises(ImportError, match=r"cof-landscaper\[reactions\]"):
+        BuildCOF2D().build(
+            "hcb", "sample", node_smiles=_TRIALDEHYDE, linker_smiles=_DIAMINE
         )
 
 
@@ -200,26 +206,36 @@ def test_periodic_imines(
     prepare, tmp_path, monkeypatch, topo, expected, links
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    node = prepare(
-        "0_node/n.xyz",
-        smiles={"dia": _TETRALDEHYDE, "sql": "O=Cc1c(C=O)cc(C=O)c(C=O)c1"}.get(
-            topo, _TRIALDEHYDE
-        ),
-        configuration="E",
-        expected_sites=4 if topo in {"dia", "sql"} else 3,
-    )
-    edge = prepare(
-        "0_linker/l.xyz",
-        smiles=_TRIAMINE if topo == "hcb_ab" else _DIAMINE,
-        configuration="E",
-        expected_sites=3 if topo == "hcb_ab" else 2,
-    )
-    if topo == "dia":
-        paths = BuildCOF3D().build(topo, "sample", {0: node}, {(0, 0): edge})
+    if topo == "sql":
+        paths = BuildCOF2D().build(
+            topo,
+            "sample",
+            node_smiles="O=Cc1c(C=O)cc(C=O)c(C=O)c1",
+            linker_smiles=_DIAMINE,
+        )
     elif topo == "hcb_ab":
-        paths = BuildCOF2D().build(topo, "sample", [node, edge], [])
+        paths = BuildCOF2D().build(
+            topo, "sample", node_smiles=[_TRIALDEHYDE, _TRIAMINE]
+        )
     else:
-        paths = BuildCOF2D().build(topo, "sample")
+        node = prepare(
+            "0_node/n.xyz",
+            smiles=_TETRALDEHYDE if topo == "dia" else _TRIALDEHYDE,
+            configuration="E",
+            expected_sites=4 if topo == "dia" else 3,
+        )
+        edge = prepare(
+            "0_linker/l.xyz",
+            smiles=_DIAMINE,
+            configuration="E",
+            expected_sites=2,
+        )
+        if topo == "dia":
+            paths = BuildCOF3D().build(
+                topo, "sample", {0: node}, {(0, 0): edge}
+            )
+        else:
+            paths = BuildCOF2D().build(topo, "sample")
     _check_crystal(Path(paths[0]), 3 if topo == "dia" else 2, expected, links)
 
 
@@ -278,3 +294,68 @@ def test_manual_hcb_matches_reference(tmp_path: Path) -> None:
         scale=False,
         primitive_cell=False,
     )
+
+
+@pytest.mark.integration
+@pytest.mark.usefixtures("prepare")
+def test_direct_smiles_rerun_and_conflicts(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    manual = Path("0_node/manual.xyz")
+    manual.parent.mkdir()
+    manual.write_text("untouched")
+    build = BuildCOF2D().build
+    args = {"node_smiles": _TRIALDEHYDE, "linker_smiles": _DIAMINE}
+    [cif] = build("hcb", "sample", **args)
+    generated = [
+        Path("0_node/sample/node_1.xyz"),
+        Path("0_linker/sample/linker.xyz"),
+    ]
+    assert list(manual.parent.glob("*.xyz")) == [manual]
+    stamps = [p.stat().st_mtime_ns for p in [*generated, Path(cif)]]
+    assert build("hcb", "sample", **args) == [cif]
+    assert stamps == [p.stat().st_mtime_ns for p in [*generated, Path(cif)]]
+    initial = Path(cif).read_bytes()
+    with pytest.raises(FileExistsError, match="differs"):
+        build(
+            "hcb",
+            "sample",
+            node_smiles=_TRIAMINE,
+            linker_smiles="O=Cc1ccc(C=O)cc1",
+        )
+    Path(cif).write_text("previous structure")
+    with pytest.raises(FileExistsError, match=r"sample_unopt\.cif differs"):
+        build("hcb", "sample", **args)
+    assert Path(cif).read_text() == "previous structure"
+    Path(cif).write_bytes(initial)
+    generated[1].write_text("edited geometry")
+    with pytest.raises(FileExistsError, match="differs"):
+        build("hcb", "sample", **args)
+    assert generated[1].read_text() == "edited geometry"
+    assert manual.read_text() == "untouched"
+    assert Path(cif).read_bytes() == initial
+
+
+@pytest.mark.usefixtures("prepare")
+def test_direct_smiles_validates_inputs(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    build = BuildCOF2D().build
+    with pytest.raises(ValueError, match="SMILES or prepared XYZ"):
+        build("sql", "bad", ["manual.xyz"], linker_smiles=_DIAMINE)
+    with pytest.raises(ValueError, match="2 node SMILES"):
+        build(
+            "sql_ab", "bad", node_smiles=_TRIALDEHYDE, linker_smiles=_DIAMINE
+        )
+    for node, linker, error in [
+        (_TRIALDEHYDE, _DIAMINE, "Found 3 aldehyde sites"),
+        ("O=Cc1ccc(N)cc1", _DIAMINE, "mixed precursor"),
+        ("CNC", _DIAMINE, "No supported"),
+        ("O=Cc1c(C=O)cc(C=O)c(C=O)c1", "O=Cc1ccc(C=O)cc1", "complementary"),
+    ]:
+        with pytest.raises(ValueError, match=error):
+            build("sql", "bad", node_smiles=node, linker_smiles=linker)
+    with pytest.raises(
+        ValueError, match="Unacceptable assembled E-imine geometry"
+    ):
+        build("sql", "bad", node_smiles=_TETRALDEHYDE, linker_smiles=_DIAMINE)
+    assert not list(tmp_path.rglob("*.xyz"))
+    assert not list(tmp_path.rglob("*.cif"))

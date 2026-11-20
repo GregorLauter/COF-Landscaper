@@ -428,3 +428,40 @@ def test_matrix_preflight_preserves_existing_runs(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Incompatible existing"):
         generate("b/2")
     assert before == {p: p.read_bytes() for p in output.rglob("*.cif")}
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("demo", [True, False], ids=["demo", "production"])
+def test_matrix_sampling_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, demo: bool
+) -> None:
+    from pymatgen.core import Lattice, Structure
+
+    monkeypatch.chdir(tmp_path)
+    layer = Path("sheet/1_sheet_single_layer")
+    layer.mkdir(parents=True)
+    Structure(Lattice.orthorhombic(5, 8, 15), ["C"], [[0, 0, 0.5]]).to(
+        filename=layer / "sheet_preopt.cif"
+    )
+    if demo:
+        cl.CreateMatrix.quick_start("sheet", "sql")
+        ild_tags, slip_tags = [34, 36], [0, 5, 10]
+    else:
+        cl.CreateMatrix().run("sheet", "sql")
+        ild_tags, slip_tags = list(range(30, 41)), [0, 10, 20, 25]
+
+    matrix = Path("sheet/2_sheet_matrix")
+    for mode in ("incl", "serr"):
+        assert {p.name for p in (matrix / mode).glob("*.cif")} == {
+            f"sheet_z{z}_L{slip:03d}_{mode}.cif"
+            for z in ild_tags
+            for slip in slip_tags
+        }
+    # Both grids contain a 1 Å displacement. Only the diagonal has a b component.
+    cell = Structure.from_file(
+        matrix / "incl" / f"sheet_z{ild_tags[0]}_L010_incl.cif"
+    ).lattice.matrix
+    b_projection = np.dot(cell[2], cell[1]) / np.linalg.norm(cell[1])
+    assert b_projection == pytest.approx(
+        8 / np.hypot(5, 8) if demo else 0, abs=2e-6
+    )

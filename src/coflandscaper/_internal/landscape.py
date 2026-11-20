@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .ild_ils_utils import get_mode_folders
+from .utilities import _in_notebook
 
 
 class Landscape:
@@ -74,6 +75,15 @@ class Landscape:
 
         return csv_dir, csv_path, folder_tag, cof_name
 
+    @staticmethod
+    def _calculator_label(data: pd.DataFrame) -> str:
+        """Use a calculator identity only when all plotted rows agree."""
+        if "calculator" in data:
+            labels = data["calculator"].drop_duplicates()
+            if len(labels) == 1 and isinstance(labels.iloc[0], str):
+                return labels.iloc[0].strip() or "ASE calculator"
+        return "ASE calculator"
+
     def _plot_single_mode(
         self,
         input_folder: str,
@@ -110,7 +120,8 @@ class Landscape:
             minima_mode: Minima marker mode: "global" (default) marks only the
                 single global minimum; "local" marks local minima as well.
                 Defaults to `"global"`.
-            method_label: Optional level of theory for ASE energy data.
+            method_label: Optional label overriding the calculator name recorded in
+                the ASE energy table. Missing or inconsistent names use "ASE calculator".
             show_header: If `True`, draw title and header text. Defaults to `True`.
             show_title_block: If True, draw title plus two header lines
                 (stacking mode and level of theory when available).
@@ -128,7 +139,6 @@ class Landscape:
         )
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
-        lot_label = "DFT" if dft else method_label
 
         use_mode_naming = (
             folder_tag in {"serr", "incl"} and cof_name is not None
@@ -161,6 +171,10 @@ class Landscape:
             raise ValueError(
                 "No entries with parsed z/L. Check naming like ..._z30_..._L020.cif"
             )
+
+        lot_label = (
+            "DFT" if dft else method_label or self._calculator_label(df2)
+        )
 
         abs_grid = df2.pivot_table(
             index="z", columns="L", values="energy_eV", aggfunc="last"
@@ -252,16 +266,15 @@ class Landscape:
                         va="bottom",
                         fontsize=10,
                     )
-                if lot_label:
-                    ax.text(
-                        0.5,
-                        1.02,
-                        f"Level of Theory: {lot_label}",
-                        transform=ax.transAxes,
-                        ha="center",
-                        va="bottom",
-                        fontsize=10,
-                    )
+                ax.text(
+                    0.5,
+                    1.02,
+                    f"Level of Theory: {lot_label}",
+                    transform=ax.transAxes,
+                    ha="center",
+                    va="bottom",
+                    fontsize=10,
+                )
 
         fig, ax = plt.subplots(figsize=(10, 6), constrained_layout=True)
         cf = ax.tricontourf(
@@ -336,7 +349,7 @@ class Landscape:
     def run(
         self,
         cof_name: str,
-        mode: str,
+        mode: str = "both",
         dft: bool = False,
         colorscheme: str = "viridis",
         rel_energy_max: float | None = None,
@@ -344,7 +357,7 @@ class Landscape:
         minima_mode: str = "global",
         show_header: bool = True,
         show_title_block: bool = False,
-        show: bool = False,
+        show: bool | None = None,
         input_folder: str | None = None,
         output_folder: str | None = None,
         method_label: str | None = None,
@@ -362,7 +375,7 @@ class Landscape:
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"`` (default).
             dft: If ``True``, read DFT single-point CSV files with the ``_dft`` suffix.
                 Defaults to ``False``.
             colorscheme: Matplotlib colormap used for the PES. Defaults to ``"viridis"``.
@@ -373,13 +386,14 @@ class Landscape:
             minima_mode: Minima mode used for plotting: ``"global"`` marks only the
                 global minimum, while ``"local"`` also marks local minima. Defaults to
                 ``"global"``.
-            method_label: Optional level of theory for ASE energy data.
+            method_label: Optional label overriding the calculator name recorded in
+                the ASE energy table. Missing or inconsistent names use "ASE calculator".
             show_header: Whether plot header information is enabled. Defaults to
                 ``True``.
             show_title_block: Whether to display the title, stacking mode, and level
                 of theory above the plot. Defaults to ``False``.
-            show: Whether to display generated figures interactively. Defaults to
-                ``False`` for batch/HPC-compatible execution.
+            show: Display figures interactively. By default, display in a notebook
+                kernel and save without displaying in a batch run.
             input_folder: Optional base folder containing the mode-specific energy CSV
                 files and ``serr``/``incl`` subfolders. Defaults to
                 ``{cof_name}/3_{cof_name}_landscape``.
@@ -392,6 +406,8 @@ class Landscape:
             FileNotFoundError: If the input folder or required energy CSV files are
                 missing.
         """
+        if show is None:
+            show = _in_notebook()
         mode_norm = (mode or "").strip().lower()
         mode_tags = (
             ["serr", "incl"]
@@ -694,7 +710,7 @@ class SelectCofs:
     def run(
         self,
         cof_name: str,
-        mode: str,
+        mode: str = "both",
         selections_serr: list[tuple[float, float]] | None = None,
         selections_incl: list[tuple[float, float]] | None = None,
         include_autoselect: bool = True,
@@ -727,7 +743,7 @@ class SelectCofs:
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"`` (default).
             selections_serr: Optional additional ``(ILD, ILS)`` pairs for serrated
                 stacking. Defaults to ``None``.
             selections_incl: Optional additional ``(ILD, ILS)`` pairs for inclined

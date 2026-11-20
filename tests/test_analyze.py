@@ -70,7 +70,7 @@ def test_run_writes_expected_csv_schema_for_both_modes(
     monkeypatch.setattr(analyzer, "_load_energy_map", fake_energy_map)
 
     out_dir = tmp_path / "analysis"
-    analyzer.run(
+    result = analyzer.run(
         cof_name="cof-a",
         mode="both",
         input_base=tmp_path / "in",
@@ -101,6 +101,11 @@ def test_run_writes_expected_csv_schema_for_both_modes(
         "energy_eV_per_layer",
         "energy_rel_eV_per_layer",
     ]
+    assert list(result.columns) == reader.fieldnames
+    assert result.set_index("Stacking")["ILD"].to_dict() == {
+        "serr": 1.234,
+        "incl": 3.456,
+    }
     assert len(rows) == 2
     assert {row["Stacking"] for row in rows} == {"serr", "incl"}
     assert {row["filename"] for row in rows} == {"mock-a.cif"}
@@ -173,13 +178,14 @@ def test_run_merges_with_existing_final_structures_csv(
         encoding="utf-8",
     )
 
-    analyzer.run(
+    result = analyzer.analyze(
         cof_name="cof-a",
         mode="serr",
         input_base=tmp_path / "in",
         output_base=out_dir,
         print_values=False,
     )
+    assert result["filename"].tolist() == ["serr_new.cif"]
 
     with output_csv.open(newline="") as handle:
         rows = list(csv.DictReader(handle))

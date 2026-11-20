@@ -52,7 +52,6 @@ def test_single_point_run_routes_both_modes(
     monkeypatch.setattr(SinglePoint, "_run_folder", fake_run_folder)
     SinglePoint(calculator=EMT()).run(
         cof_name="cof-a",
-        mode="both",
         output_csv_dir="results",
     )
 
@@ -99,6 +98,19 @@ def test_optimize_cof_respects_max_steps_and_warns_when_not_converged(
     assert _DummyLBFGS.last_steps == 500
     assert dummy_atoms.written_to == str(output_cif)
 
+    dummy_atoms.written_to = None
+    with pytest.raises(
+        RuntimeError, match="Saved an unconverged intermediate"
+    ):
+        opt.run_preopt(
+            "cof",
+            input_path=str(input_cif),
+            output_path=str(output_cif),
+            fix_z=False,
+            strict=True,
+        )
+    assert dummy_atoms.written_to == str(output_cif)
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
@@ -126,11 +138,17 @@ def test_default_factory_preserves_head_presets(
 
     def fake_mace_mp(**kwargs):
         captured.update(kwargs)
-        return EMT()
+        calc = EMT()
+        calc.head = kwargs["head"]
+        return calc
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("mace.calculators.mace_mp", fake_mace_mp)
-    cl.SinglePoint(calculator_kwargs=options)
+    calc = cl.SinglePoint(calculator_kwargs=options).calc
+    d3 = " + D3" if captured["dispersion"] else ""
+    assert (
+        vars(calc)["_coflandscaper_method_label"] == f"MACE-MH-1 ({head}){d3}"
+    )
     assert captured["model"] == "mh-1"
     assert captured["default_dtype"] == "float64"
     assert captured["device"] == "cpu"
@@ -366,10 +384,13 @@ def test_geometry_opt_run_routes_both_modes(
         input_folder: str, output_folder: str
     ) -> dict[str, bool]:
         calls.append((input_folder, output_folder))
-        return {}
+        return {"candidate": Path(input_folder).name == "incl"}
 
     monkeypatch.setattr(opt, "process_cifs", record_process)
-    opt.run(cof_name="cof-a", mode="both", save_opt_energies_csv=False)
+    assert opt.run(cof_name="cof-a", save_opt_energies_csv=False) == {
+        "serr/candidate": False,
+        "incl/candidate": True,
+    }
 
     assert calls == [
         (
@@ -855,7 +876,8 @@ def test_factory_and_instance_reused_for_both_modes(
         data = pd.read_csv(f"cu/3_cu_landscape/cu_sp_energies_{csv}.csv")
         assert data.energy_eV.iloc[0] == pytest.approx(energy)
         assert data.energy_rel_eV.iloc[0] == 0
-    assert GeometryOpt(calculator=sp.calc).calc is backend
+        assert data.calculator.iloc[0] == backend.name
+    assert GeometryOpt(calculator=sp.calc).single_point.calc is backend
     with pytest.raises(ValueError, match="existing calculator"):
         SinglePoint(calculator=backend, calculator_kwargs={"bad": 1})
 

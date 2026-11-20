@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast
 
 import numpy as np
+import pandas as pd
 from pymatgen.core import Structure
 from pymatgen.io.cif import CifWriter
 
@@ -28,7 +29,7 @@ from .ild_ils_utils import (
     parse_xyz_from_atom_line,
     pick_lower_left_pair_from_lines,
 )
-from .utilities import read_cif_atom_lines
+from .utilities import _in_notebook, read_cif_atom_lines
 
 
 class Supercell:
@@ -325,9 +326,9 @@ class AnalyzeStacking:
         input_base: str | Path | None = None,
         output_base: str | Path | None = None,
         dft: bool = False,
-        print_values: bool = True,
+        print_values: bool | None = None,
         source: str = "opt",
-    ) -> None:
+    ) -> pd.DataFrame:
         """Analyze ILD/ILS values for selected optimized COF structures.
 
         The method calculates mode-specific interlayer distance (ILD) and interlayer
@@ -358,9 +359,13 @@ class AnalyzeStacking:
             dft: If ``True``, analyze ``dft_{mode}`` subfolders and write
                 ``final_structures_dft.csv``. Defaults to ``False``.
             print_values: Whether to print calculated ILD/ILS values to standard
-                output with two decimal places. Defaults to ``True``.
+                output with two decimal places. By default, print in scripts and
+                let Jupyter display the returned table in notebooks.
             source: Structure stage to analyze: ``"opt"`` or ``"postopt"``.
                 Defaults to ``"opt"``.
+
+        Returns:
+            Geometry and per-layer energies for the structures analyzed in this call.
 
         Raises:
             ValueError: If ``mode`` or ``source`` is invalid.
@@ -391,6 +396,8 @@ class AnalyzeStacking:
         )
 
         rows: list[dict[str, float | str]] = []
+        if print_values is None:
+            print_values = not _in_notebook()
         for selected_mode in modes:
             folder = base / (f"dft_{selected_mode}" if dft else selected_mode)
             files = self._collect_cifs(folder)
@@ -442,6 +449,7 @@ class AnalyzeStacking:
             )
             writer.writeheader()
             writer.writerows(merged_rows)
+        return pd.DataFrame(rows, columns=self._FINAL_STRUCT_FIELDS)
 
     def run(
         self,
@@ -450,9 +458,9 @@ class AnalyzeStacking:
         input_base: str | Path | None = None,
         output_base: str | Path | None = None,
         dft: bool = False,
-        print_values: bool = True,
+        print_values: bool | None = None,
         source: str = "opt",
-    ) -> None:
+    ) -> pd.DataFrame:
         """Backward-compatible alias for :meth:`analyze`.
 
         Args:
@@ -462,8 +470,7 @@ class AnalyzeStacking:
             input_base: Optional input base-folder override.
             output_base: Optional analysis output-folder override.
             dft: If ``True``, analyze DFT-mode structures. Defaults to ``False``.
-            print_values: Whether to print calculated ILD/ILS values. Defaults to
-                ``True``.
+            print_values: Whether to print calculated ILD/ILS values. The default prints outside notebooks.
             source: Structure stage to analyze: ``"opt"`` or ``"postopt"``.
                 Defaults to ``"opt"``.
         """

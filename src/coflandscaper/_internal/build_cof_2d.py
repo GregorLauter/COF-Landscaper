@@ -30,6 +30,7 @@ from ._pormake import BuildingBlock, Framework, Topology, pm
 from .ild_ils_matrix import ChangeIld
 from .ild_ils_utils import _unwrap_fractional_z
 from .reactions import (
+    PrepareBuildingBlock,
     _assembly_configuration,
     _configuration,
     _finish_imines,
@@ -39,11 +40,11 @@ from .reactions import (
 
 DEFAULT_X_SCALE = 0.8
 TOPOLOGY_INPUT_COUNTS = {
-    "hcb": {"nodes": 1, "linkers": 1},
-    "sql": {"nodes": 1, "linkers": 1},
-    "sql_ab": {"nodes": 2, "linkers": 0},
-    "hcb_ab": {"nodes": 2, "linkers": 0},
-    "kgm": {"nodes": 1, "linkers": 1},
+    "hcb": {"nodes": 1, "linkers": 1, "node_sites": 3},
+    "sql": {"nodes": 1, "linkers": 1, "node_sites": 4},
+    "sql_ab": {"nodes": 2, "linkers": 0, "node_sites": 4},
+    "hcb_ab": {"nodes": 2, "linkers": 0, "node_sites": 3},
+    "kgm": {"nodes": 1, "linkers": 1, "node_sites": 4},
 }
 
 
@@ -805,6 +806,109 @@ def _build_cof(
     return output_filename
 
 
+def _check_generated_file(candidate: Path, target: Path) -> None:
+    """Allow publication only to a new path or alongside an identical regular file."""
+    if target.is_symlink() or (
+        target.exists()
+        and (
+            not target.is_file()
+            or target.read_bytes() != candidate.read_bytes()
+        )
+    ):
+        raise FileExistsError(
+            f"{target} differs from the generated file. Use a fresh working directory or COF name."
+        )
+
+
+def _build_from_smiles(
+    topo: str,
+    cof_name: str,
+    node_smiles: str | Sequence[str] | None,
+    linker_smiles: str | None,
+    output: Path,
+) -> str:
+    """Prepare a complementary pair, validate the assembly, then publish its inputs and CIF."""
+    if (
+        not cof_name
+        or Path(cof_name).name != cof_name
+        or cof_name in {".", ".."}
+    ):
+        raise ValueError(
+            "Use a COF name without directory components for SMILES construction."
+        )
+    nodes = (
+        [node_smiles]
+        if isinstance(node_smiles, str)
+        else list(node_smiles or ())
+    )
+    linkers = [] if linker_smiles is None else [linker_smiles]
+    required = TOPOLOGY_INPUT_COUNTS[topo]
+    if len(nodes) != required["nodes"] or len(linkers) != required["linkers"]:
+        raise ValueError(
+            f"Topology {topo!r} requires {required['nodes']} node SMILES "
+            f"and {required['linkers']} linker SMILES."
+        )
+    slots = [
+        (
+            smiles,
+            required["node_sites"],
+            Path("0_node") / cof_name / f"node_{i}.xyz",
+        )
+        for i, smiles in enumerate(nodes, start=1)
+    ]
+    if linker_smiles is not None:
+        slots.append(
+            (linker_smiles, 2, Path("0_linker") / cof_name / "linker.xyz")
+        )
+
+    with ExitStack() as stack:
+        prepared = []
+        roles = set()
+        for smiles, sites, target in slots:
+            if not isinstance(smiles, str) or not smiles.strip():
+                raise ValueError(
+                    f"Expected a nonempty SMILES string for {target.stem}."
+                )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # Keep the candidate on the destination filesystem for exclusive publication.
+            scratch = stack.enter_context(
+                tempfile.TemporaryDirectory(dir=target.parent)
+            )
+            candidate = Path(scratch) / target.name
+            roles.add(
+                PrepareBuildingBlock._write_imine(
+                    candidate,
+                    smiles=smiles,
+                    expected_sites=sites,
+                    configuration="E",
+                )
+            )
+            _check_generated_file(candidate, target)
+            prepared.append((candidate, target))
+        if roles != {"aldehyde", "amine"}:
+            raise ValueError(
+                "An imine requires complementary aldehyde and primary-amine precursors."
+            )
+
+        output.mkdir(parents=True, exist_ok=True)
+        trial = stack.enter_context(tempfile.TemporaryDirectory(dir=output))
+        paths = [str(candidate) for candidate, _ in prepared]
+        cif = Path(
+            _build_cof(
+                topo, paths[: len(nodes)], paths[len(nodes) :], trial, cof_name
+            )
+        )
+        destination = output / cif.name
+        _check_generated_file(cif, destination)
+        prepared.append((cif, destination))
+        for candidate, target in prepared:
+            try:
+                os.link(candidate, target)
+            except FileExistsError:
+                _check_generated_file(candidate, target)
+        return str(destination)
+
+
 class BuildCOF2D:
     """Construct a single-layer 2D COF from node and linker fragments.
 
@@ -814,7 +918,8 @@ class BuildCOF2D:
     converted into PORMAKE-compatible connection sites and connectivity information
     is generated automatically.
 
-    Alternatively pass imine XYZs from PrepareBuildingBlock for all slots.
+    Supply node_smiles and linker_smiles to prepare complementary E-imine precursors
+    directly. Alternatively pass imine XYZs from PrepareBuildingBlock for all slots.
     Their explicit bond orders are included in the unoptimised CIF.
 
     Supported topologies are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"kgm"``,
@@ -856,6 +961,9 @@ class BuildCOF2D:
         input_nodes: Sequence[str | os.PathLike[str]] | None = None,
         input_linkers: Sequence[str | os.PathLike[str]] | None = None,
         output_folder: str | None = None,
+        *,
+        node_smiles: str | Sequence[str] | None = None,
+        linker_smiles: str | None = None,
     ) -> list[str]:
         """Build one unoptimized single-layer COF structure.
 
@@ -865,7 +973,13 @@ class BuildCOF2D:
         workflow directory. Prepared assemblies must satisfy the requested imine
         stereochemistry and local bond and contact checks before export.
 
-        When explicit input paths are not provided, files are read from ``0_node/`` and
+        Direct SMILES inputs select E-imine preparation for two complementary
+        aldehyde/primary-amine precursors. Coordination follows the topology.
+        Generated inputs are stored in ``0_node/<cof_name>/`` and
+        ``0_linker/<cof_name>/``, preserving top-level manual XYZ discovery.
+        Matching inputs and CIFs are reused. Conflicting contents raise FileExistsError. The optional reactions extra is required.
+
+        When using the XYZ route without explicit input paths, files are read from ``0_node/`` and
         ``0_linker/``. Only the exact number of node and linker files required by the
         selected topology is accepted.
 
@@ -884,6 +998,11 @@ class BuildCOF2D:
             output_folder: Optional output-directory override. Defaults to
                 ``{cof_name}/1_{cof_name}_single_layer``.
 
+            node_smiles: One node SMILES, or an ordered pair for hcb_ab/sql_ab.
+                Supply SMILES separately from explicit XYZ inputs.
+            linker_smiles: One linker SMILES for hcb, kgm and sql.
+                Omit for the binary node-node topologies.
+
         Returns:
             List containing the path to the generated
             ``{cof_name}_unopt.cif`` structure.
@@ -893,11 +1012,31 @@ class BuildCOF2D:
                 linker files does not match the topology requirements, or a ``sql_ab``
                 node does not have four connection markers.
             FileNotFoundError: If explicitly supplied input XYZ files cannot be read.
+            FileExistsError: If direct SMILES input or output paths contain different data.
+            ImportError: If direct SMILES inputs require missing optional dependencies.
         """
         if topo not in TOPOLOGY_INPUT_COUNTS:
             raise ValueError(
                 "topo must be 'hcb', 'sql', 'sql_ab', 'hcb_ab', or 'kgm'"
             )
+
+        output_folder_used = output_folder or os.path.join(
+            cof_name, f"1_{cof_name}_single_layer"
+        )
+        if node_smiles is not None or linker_smiles is not None:
+            if input_nodes is not None or input_linkers is not None:
+                raise ValueError(
+                    "Choose direct SMILES or prepared XYZ inputs."
+                )
+            return [
+                _build_from_smiles(
+                    topo,
+                    cof_name,
+                    node_smiles,
+                    linker_smiles,
+                    Path(output_folder_used),
+                )
+            ]
 
         required_nodes = TOPOLOGY_INPUT_COUNTS[topo]["nodes"]
         required_linkers = TOPOLOGY_INPUT_COUNTS[topo]["linkers"]
@@ -962,10 +1101,6 @@ class BuildCOF2D:
 
             node_paths = [path for _, path in nodes]
             linker_paths = [path for _, path in linkers]
-
-            output_folder_used = output_folder or os.path.join(
-                cof_name, f"1_{cof_name}_single_layer"
-            )
 
             Path(output_folder_used).mkdir(parents=True, exist_ok=True)
             output = _build_cof(

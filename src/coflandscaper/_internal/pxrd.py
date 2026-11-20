@@ -174,7 +174,7 @@ class PXRD:
         """
         if exp_xy_file is not None:
             exp_path = Path(exp_xy_file)
-            if not exp_path.exists():
+            if not exp_path.is_file():
                 raise FileNotFoundError(
                     f"Experimental .xy file not found: {exp_path}"
                 )
@@ -185,7 +185,7 @@ class PXRD:
             raise FileNotFoundError(
                 f"Experimental folder not found: {exp_dir}"
             )
-        exp_files = sorted(exp_dir.glob("*.xy"))
+        exp_files = sorted(p for p in exp_dir.glob("*.xy") if p.is_file())
         if not exp_files:
             raise FileNotFoundError(
                 f"No experimental .xy files found in: {exp_dir}"
@@ -1851,7 +1851,7 @@ class PXRD:
     def plot_sim_vs_exp(
         self,
         cof_name: str,
-        mode: str,
+        mode: str = "both",
         dft: bool = False,
         exp_xy_file: str | Path | None = None,
         simulated_xy_folder: str | Path | None = None,
@@ -1879,7 +1879,7 @@ class PXRD:
 
         Args:
             cof_name: COF name used for default path construction.
-            mode: Stacking mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            mode: Stacking mode selector. Defaults to ``"both"``.
             dft: If ``True``, use DFT-specific simulated PXRD folders. Defaults to
                 ``False``.
             exp_xy_file: Optional experimental ``.xy`` file. If omitted, exactly one

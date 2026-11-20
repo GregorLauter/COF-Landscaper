@@ -199,6 +199,32 @@ class PrepareBuildingBlock:
         directly to BuildCOF2D or BuildCOF3D. This prepares an initial
         geometry and does not search for stereoisomers or low-energy torsions.
         """
+        path = Path(output_path)
+        self._write_imine(
+            path,
+            configuration=configuration,
+            smiles=smiles,
+            input_file=input_file,
+            reaction=reaction,
+            role=role,
+            expected_sites=expected_sites,
+            overwrite=overwrite,
+        )
+        return path
+
+    @staticmethod
+    def _write_imine(
+        path: Path,
+        *,
+        configuration: str,
+        smiles: str | None = None,
+        input_file: str | Path | None = None,
+        reaction: str = "imine",
+        role: str | None = None,
+        expected_sites: int | None = None,
+        overwrite: bool = False,
+    ) -> str:
+        """Prepare the bond-table XYZ and return the selected precursor role."""
         try:
             import stk
             from rdkit import Chem
@@ -207,7 +233,6 @@ class PrepareBuildingBlock:
                 'Install the optional chemistry tools with pip install "cof-landscaper[reactions]".'
             ) from exc
 
-        path = Path(output_path)
         if path.suffix.lower() != ".xyz" or (smiles is None) == (
             input_file is None
         ):
@@ -287,7 +312,7 @@ class PrepareBuildingBlock:
                 os.link(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)
-        return path
+        return role
 
 
 def _prepare_layer(atoms) -> None:

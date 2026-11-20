@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 import coflandscaper as cl
@@ -41,6 +42,7 @@ def test_landscape_run_uses_standard_csv_by_default(
         method_label: str | None = None,
     ) -> None:
         assert method_label == "EMT"
+        assert show
         del (
             cof_name,
             output_folder,
@@ -56,9 +58,11 @@ def test_landscape_run_uses_standard_csv_by_default(
 
     monkeypatch.setattr(cl.Landscape, "_plot_single_mode", fake_run)
 
+    monkeypatch.setattr(
+        "coflandscaper._internal.landscape._in_notebook", lambda: True
+    )
     cl.Landscape().run(
         cof_name="cof-1",
-        mode="both",
         method_label="EMT",
         input_folder=str(base),
     )
@@ -105,6 +109,7 @@ def test_landscape_run_uses_dft_csv_when_enabled(
         method_label: str | None = None,
     ) -> None:
         assert method_label is None
+        assert not show
         del (
             cof_name,
             output_folder,
@@ -125,9 +130,29 @@ def test_landscape_run_uses_dft_csv_when_enabled(
         mode="both",
         input_folder=str(base),
         dft=True,
+        show=False,
     )
 
     assert calls == [
         (str(base / "serr"), True),
         (str(base / "incl"), True),
     ]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("column", "expected"),
+    [
+        (["EMT"] * 3, "EMT"),
+        (None, "ASE calculator"),
+        (["EMT", None, "EMT"], "ASE calculator"),
+        (["EMT", "LJ", "LJ"], "ASE calculator"),
+    ],
+)
+def test_landscape_labels_from_energy_table(
+    column: list[str | None] | None, expected: str
+) -> None:
+    table = pd.DataFrame({"energy_eV": [0, 1, 2]})
+    if column is not None:
+        table["calculator"] = column
+    assert cl.Landscape._calculator_label(table) == expected

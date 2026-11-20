@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import TypedDict
+
+
+def _in_notebook() -> bool:
+    """Return whether the current IPython shell has a running notebook kernel."""
+    get_shell = getattr(sys.modules.get("IPython"), "get_ipython", None)
+    return (
+        get_shell is not None
+        and getattr(get_shell(), "kernel", None) is not None
+    )
 
 
 def load_params(params_file: str | Path) -> dict[str, object]:

@@ -496,11 +496,29 @@ class CreateMatrix:
         self._print_shift = print_shift
         self._slip_path = slip_path
 
+    @classmethod
+    def quick_start(cls, cof_name: str, topo: str, mode: str = "both") -> None:
+        """Generate a six-configuration demonstration grid for each stacking mode.
+
+        Sample ILDs of 3.4 and 3.6 Å and slips of 0, 0.5 and 1 Å. Square nets
+        follow the (a+b)/2 diagonal, and other nets follow their usual direction.
+        This coarse grid illustrates screening and requires wider, finer sampling
+        for scientific conclusions. Inputs and output folders follow ``run``.
+        """
+        cls(
+            ild_start=3.4,
+            ild_end=3.6,
+            ild_step=0.2,
+            ils_length_end=1.0,
+            ils_length_step=0.5,
+            slip_path="(a+b)/2" if topo in {"sql", "sql_ab"} else "a/2",
+        ).run(cof_name, topo, mode)
+
     def run(
         self,
         cof_name: str,
         topo: str,
-        mode: str,
+        mode: str = "both",
         input_cif: str | None = None,
         output_base_folder: str | None = None,
     ) -> None:
@@ -519,7 +537,7 @@ class CreateMatrix:
             cof_name: COF name used for default workflow folder and file naming.
             topo: Topology selector used to determine the default ILS shift.
                 Allowed values are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"hcb_ab"``, and ``"kgm"``.
-            mode: Stacking-mode selector: ``"incl"``, ``"serr"``, or ``"both"``.
+            mode: Stacking modes to generate. Defaults to ``"both"``.
             input_cif: Optional preoptimized input CIF path. Defaults to
                 ``{cof_name}/1_{cof_name}_single_layer/{cof_name}_preopt.cif``.
             output_base_folder: Optional matrix output-base override. Defaults to

@@ -209,7 +209,6 @@ def test_plot_sim_vs_exp_default_routing(
     pxrd = cl.PXRD()
     output = pxrd.plot_sim_vs_exp(
         cof_name="cof-c",
-        mode="both",
         show=False,
         save=False,
     )
@@ -218,6 +217,29 @@ def test_plot_sim_vs_exp_default_routing(
         "cof-c/5_cof-c_analysis/pxrd_plots/serr/sim_1.pdf",
         "cof-c/5_cof-c_analysis/pxrd_plots/incl/sim_2.pdf",
     ]
+
+
+@pytest.mark.unit
+def test_comparison_requires_one_experimental_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    compare = cl.PXRD().plot_sim_vs_exp
+    with pytest.raises(
+        FileNotFoundError, match="Experimental folder not found"
+    ):
+        compare("sample")
+    folder = Path("experimental_pxrd")
+    folder.mkdir()
+    (folder / "directory.xy").mkdir()
+    with pytest.raises(FileNotFoundError, match=r"No experimental \.xy files"):
+        compare("sample")
+    for name in ("scan-a.xy", "scan-b.xy"):
+        (folder / name).touch()
+    with pytest.raises(
+        ValueError, match=r"exactly one experimental \.xy file"
+    ):
+        compare("sample")
 
 
 class _FakePattern:

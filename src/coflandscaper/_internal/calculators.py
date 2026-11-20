@@ -296,6 +296,11 @@ class SinglePoint:
         df = pd.DataFrame(rows).sort_values("structure").reset_index(drop=True)
         min_e = float(df["energy_eV"].min())
         df["energy_rel_eV"] = df["energy_eV"] - min_e
+        label = getattr(self.calc, "_coflandscaper_method_label", None)
+        if label is None:
+            label = getattr(self.calc, "name", None)
+        if isinstance(label, str) and label.strip():
+            df["calculator"] = label
         if failed and energies_csv_path.exists():
             raise RuntimeError(
                 f"Incomplete single-point results; keeping existing {energies_csv_path}. First failure: {failed[0]}"
@@ -314,7 +319,7 @@ class SinglePoint:
     def run(
         self,
         cof_name: str,
-        mode: str,
+        mode: str = "both",
         input_folder: str | None = None,
         output_csv_dir: str | None = None,
     ) -> None:
@@ -323,7 +328,8 @@ class SinglePoint:
         By default, CIF structures are read from the mode-specific matrix folders
         under ``{cof_name}/2_{cof_name}_matrix``. The method supports ``"serr"``,
         ``"incl"``, and ``"both"`` and writes mode-specific single-point energy CSV
-        files for subsequent landscape analysis.
+        files for subsequent landscape analysis. Each table records the calculator
+        label when available. By default, both stacking modes are processed.
 
         When ``input_folder`` is provided, only that explicit folder is processed.
 
@@ -400,6 +406,11 @@ class GeometryOpt:
         self._fix_z = fix_z
         self._max_steps = max_steps
 
+    @property
+    def single_point(self) -> SinglePoint:
+        """A single-point workflow sharing this optimizer's calculator instance."""
+        return SinglePoint(calculator=self.calc)
+
     def _apply_constraints(self, atoms: Atoms) -> None:
         """Apply optional Cartesian z-axis constraints to all atoms.
 
@@ -417,6 +428,8 @@ class GeometryOpt:
         output_path: str,
         fixed_cell: bool = False,
         preopt_topo: str | None = None,
+        *,
+        strict: bool = False,
     ) -> bool:
         """Optimize one CIF structure and write the resulting structure.
 
@@ -430,6 +443,7 @@ class GeometryOpt:
             preopt_topo: Optional 2D topology. Sets its ideal angles and a 15
                 Angstrom height, then relaxes only atoms and the a/b lengths.
                 Cannot be combined with ``fixed_cell=True``.
+            strict: Raise after writing an unconverged intermediate CIF.
 
         Returns:
             ``True`` if the optimization converged within ``max_steps``; otherwise
@@ -472,17 +486,16 @@ class GeometryOpt:
             raise PropertyNotImplementedError(
                 f"{operation} requires {', '.join(required)} from {type(self.calc).__name__}: {exc}"
             ) from exc
-        if not converged:
-            warnings.warn(
-                (
-                    "Geometry optimization did not converge within "
-                    f"{self._max_steps} steps for {input_path}. "
-                    "Writing current structure and continuing."
-                ),
-                category=UserWarning,
-                stacklevel=2,
-            )
         atoms.write(output_path)
+        if not converged:
+            message = (
+                f"Geometry optimization did not converge within {self._max_steps} "
+                f"steps for {input_path}. Saved an unconverged intermediate "
+                f"structure to {output_path}."
+            )
+            if strict:
+                raise RuntimeError(message)
+            warnings.warn(message, category=UserWarning, stacklevel=2)
         return bool(converged)
 
     def optimize_cof(self, input_path: str, output_path: str) -> bool:
@@ -514,6 +527,7 @@ class GeometryOpt:
         fix_z: bool = True,
         *,
         topo: str | None = None,
+        strict: bool = False,
     ) -> bool:
         """Pre-optimize the assembled single-layer COF structure.
 
@@ -538,12 +552,16 @@ class GeometryOpt:
                 the legacy preoptimization with unrestricted cell angles and
                 height. This option affects only this call; subsequent full-cell
                 optimization is unchanged.
+            strict: Raise if convergence is missed so a sequential workflow stops
+                before stacking. The intermediate CIF is saved for inspection.
+                Defaults to a warning and a ``False`` return value.
 
         Returns:
             ``True`` if the optimization converged; otherwise ``False``.
 
         Raises:
             ValueError: If ``topo`` is unsupported or the input geometry is invalid.
+            RuntimeError: If the layer did not converge and ``strict=True``.
         """
         if topo is not None and topo not in _PREOPT_CELL_ANGLES:
             raise ValueError(
@@ -562,13 +580,16 @@ class GeometryOpt:
         prev_fix_z = self._fix_z
         self._fix_z = fix_z
         try:
-            if topo is None:
+            if topo is None and not strict:
                 converged = self.optimize_cof(
                     str(resolved_input), str(resolved_output)
                 )
             else:
                 converged = self._optimize_cof(
-                    str(resolved_input), str(resolved_output), preopt_topo=topo
+                    str(resolved_input),
+                    str(resolved_output),
+                    preopt_topo=topo,
+                    strict=strict,
                 )
             print("Converged" if converged else "Not converged")
             return converged
@@ -858,11 +879,11 @@ class GeometryOpt:
     def run(
         self,
         cof_name: str,
-        mode: str,
+        mode: str = "both",
         output_base: str | None = None,
         input_base: str | None = None,
         save_opt_energies_csv: bool = True,
-    ) -> None:
+    ) -> dict[str, bool]:
         """Run the normal full-cell optimization workflow for selected structure(s).
 
         The method processes the selected serrated and/or inclined structures,
@@ -885,6 +906,10 @@ class GeometryOpt:
                 ``{cof_name}/3_{cof_name}_landscape/selection``.
             save_opt_energies_csv: Whether to write the consolidated per-layer
                 optimized-energy CSV. Defaults to ``True``.
+
+        Returns:
+            Mapping from ``"mode/structure"`` to convergence status for this run.
+            A false value marks an intermediate geometry saved at the step limit.
         """
         from .ild_ils_utils import get_mode_folders
 
@@ -920,6 +945,11 @@ class GeometryOpt:
                 convergence_map=convergence_map,
             )
             print(f"Saved optimized energies: {csv_path}")
+
+        return {
+            f"{mode_tag}/{name}": converged
+            for (mode_tag, name), converged in convergence_map.items()
+        }
 
 
 class GeometryOpt3D(GeometryOpt):
