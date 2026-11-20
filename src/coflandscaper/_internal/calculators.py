@@ -441,11 +441,6 @@ class GeometryOpt:
         """
         if fixed_cell and preopt_topo is not None:
             raise ValueError("fixed_cell and preopt_topo cannot be combined")
-        warnings.filterwarnings(
-            "ignore",
-            category=UserWarning,
-            module="ase.io.cif",
-        )
         atoms = cast("Atoms", read(input_path))
         if preopt_topo is not None:
             _prepare_preopt_cell(atoms, preopt_topo)
@@ -492,6 +487,8 @@ class GeometryOpt:
 
     def optimize_cof(self, input_path: str, output_path: str) -> bool:
         """Optimize one CIF with full atomic and unit-cell relaxation.
+
+        ASE reports CIF parsing warnings according to the caller's warning settings.
 
         This is the low-level public interface for optimizing a single explicitly
         specified structure. Atomic coordinates and the complete unit cell are

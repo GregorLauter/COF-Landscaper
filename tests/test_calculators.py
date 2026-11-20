@@ -1,12 +1,14 @@
 import importlib
 import json
 import runpy
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 from ase import Atoms
+from ase.build import bulk
 from ase.calculators.emt import EMT
 from ase.cell import Cell
 from ase.constraints import FixCartesian
@@ -275,6 +277,20 @@ def test_run_preopt_can_disable_fix_z_for_single_run(
     assert converged is True
     assert seen["fix_z_during_call"] is False
     assert opt._fix_z is True
+
+
+@pytest.mark.unit
+def test_optimisation_preserves_cif_reader_warnings(tmp_path: Path) -> None:
+    """A CIF format warning remains visible during and after an optimisation."""
+    source = tmp_path / "copper.cif"
+    write(source, bulk("Cu", "fcc", a=3.6, cubic=True))
+    source.write_text("#\\#CIF_2.0\n" + source.read_text())
+    opt = GeometryOpt(calculator=EMT(), max_steps=1, fmax=0.1)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", UserWarning)
+        opt.optimize_cof(str(source), str(tmp_path / "optimised.cif"))
+        read(source)
+    assert sum("CIF v2.0 file format" in str(w.message) for w in caught) == 2
 
 
 @pytest.mark.unit
