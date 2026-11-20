@@ -29,6 +29,13 @@ from pymatgen.core import Structure
 from ._pormake import BuildingBlock, Framework, Topology, pm
 from .ild_ils_matrix import ChangeIld
 from .ild_ils_utils import _unwrap_fractional_z
+from .reactions import (
+    _assembly_configuration,
+    _configuration,
+    _finish_imines,
+    _prepare_layer,
+    _read_imine_block,
+)
 
 DEFAULT_X_SCALE = 0.8
 TOPOLOGY_INPUT_COUNTS = {
@@ -547,13 +554,15 @@ def _prepare_xyz_files(
     Path(output_folder).mkdir(parents=True, exist_ok=True)
 
     for path in xyz_files:
+        out_path = Path(output_folder) / f"{Path(path).stem}.xyz"
+        if _configuration(path) is not None:
+            shutil.copyfile(path, out_path)
+            continue
         atoms = cast("Atoms", ase.io.read(path))
         updated_atoms, x_indices = _replace_atoms(atoms, "He", "H")
         bonds = _infer_connectivity(updated_atoms)
 
-        base_filename = os.path.basename(os.path.splitext(path)[0] + ".xyz")
-        out_path = os.path.join(output_folder, base_filename)
-        _write_xyz_with_bonds(updated_atoms, x_indices, bonds, out_path)
+        _write_xyz_with_bonds(updated_atoms, x_indices, bonds, str(out_path))
 
     return xyz_files
 
@@ -702,13 +711,20 @@ def _build_cof(
     Returns:
         Path to the written CIF file.
     """
+    config = _assembly_configuration([*node_paths, *linker_paths])
     database = PackageDatabase()
     topology = database.get_topo(topo)
     _sanitize_edge_types_inplace(topology.edge_types)
     builder = CofLandscaperBuilder()
+
+    def load_block(path: str, coordination: int) -> BuildingBlock:
+        if config is not None:
+            return _read_imine_block(path, coordination)
+        return pm.BuildingBlock(path)
+
     if topo == "sql_ab":
         node_bbs = {
-            node_type: pm.BuildingBlock(path)
+            node_type: load_block(path, 4)
             for node_type, path in enumerate(node_paths)
         }
         node_indices = np.asarray(topology.node_indices, dtype=int)
@@ -728,8 +744,8 @@ def _build_cof(
                 )
         cof = builder.build_by_type(topology=topology, node_bbs=node_bbs)
     elif topo == "hcb_ab":
-        node_a = pm.BuildingBlock(node_paths[0])
-        node_b = pm.BuildingBlock(node_paths[1])
+        node_a = load_block(node_paths[0], 3)
+        node_b = load_block(node_paths[1], 3)
         bbs: list[BuildingBlock | None] = [None] * topology.n_slots
         bbs[0] = node_a
         bbs[1] = node_b
@@ -745,8 +761,10 @@ def _build_cof(
                 unique_pairs.add(key)
                 edgetype_filtered.append(key)
 
-        node = pm.BuildingBlock(node_paths[0])
-        linker = pm.BuildingBlock(linker_paths[0])
+        node = load_block(
+            node_paths[0], int(topology.cn[topology.node_indices[0]])
+        )
+        linker = load_block(linker_paths[0], 2)
         node_types = np.array(topology.node_types, dtype=int).ravel()
         unique_node_types = sorted({int(t) for t in node_types if t >= 0})
         node_bbs = dict.fromkeys(unique_node_types, node)
@@ -770,6 +788,14 @@ def _build_cof(
         filename = f"{node_name_a}_{node_name_b}.cif"
 
     output_filename = os.path.join(output_folder, filename)
+    if config is not None:
+        _prepare_layer(cof.atoms)
+        _finish_imines(cof, config)
+        with tempfile.TemporaryDirectory(dir=output_folder) as temp:
+            trial = Path(temp) / filename
+            cof.write_cif(str(trial))
+            trial.replace(output_filename)
+        return output_filename
     cof.write_cif(output_filename)
     if topo == "sql":
         centered = _center_structure_slab_z(
@@ -788,6 +814,9 @@ class BuildCOF2D:
     converted into PORMAKE-compatible connection sites and connectivity information
     is generated automatically.
 
+    Alternatively pass imine XYZs from PrepareBuildingBlock for all slots.
+    Their explicit bond orders are included in the unoptimised CIF.
+
     Supported topologies are ``"hcb"``, ``"sql"``, ``"sql_ab"``, ``"kgm"``,
     and ``"hcb_ab"``.
 
@@ -800,7 +829,7 @@ class BuildCOF2D:
     - ``hcb_ab``: two 3-connected node types and no separate linker.
 
     For ``sql_ab``, the first node input is A and the second is B; folder
-    inputs use alphabetical filename order. Each must have four He markers.
+    inputs use alphabetical filename order. Each must have four connection sites.
 
     Unless explicit paths are supplied, node and linker inputs are read from
     ``0_node/`` and ``0_linker/``. The assembled framework is written to
@@ -831,9 +860,10 @@ class BuildCOF2D:
         """Build one unoptimized single-layer COF structure.
 
         The method resolves topology-specific node and linker inputs, preprocesses
-        helium-marked XYZ fragments into PORMAKE-compatible building blocks, assembles
-        the framework, and writes the resulting CIF to the single-layer workflow
-        directory.
+        manual He-marked fragments or accepts explicit-bond imine blocks from
+        PrepareBuildingBlock. It writes the assembled CIF to the single-layer
+        workflow directory. Prepared assemblies must satisfy the requested imine
+        stereochemistry and local bond and contact checks before export.
 
         When explicit input paths are not provided, files are read from ``0_node/`` and
         ``0_linker/``. Only the exact number of node and linker files required by the
@@ -945,10 +975,11 @@ class BuildCOF2D:
                 output_folder_used,
                 cof_name=cof_name,
             )
-            ChangeIld()._change_interlayer_distance(
-                input_file=output,
-                output_file=output,
-                new_z=15.0,
-            )
+            if _configuration(node_paths[0]) is None:
+                ChangeIld()._change_interlayer_distance(
+                    input_file=output,
+                    output_file=output,
+                    new_z=15.0,
+                )
 
             return [output]

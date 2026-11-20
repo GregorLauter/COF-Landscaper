@@ -14,6 +14,12 @@ from pymatgen.core import Structure
 
 from . import build_cof_2d as preparation
 from ._pormake import BuildingBlock, Topology, pm
+from .reactions import (
+    _assembly_configuration,
+    _configuration,
+    _finish_imines,
+    _read_imine_block,
+)
 
 
 def _periodic_dimension(topology: Topology) -> int:
@@ -93,10 +99,12 @@ def _prepare_block(
     folder: Path,
     label: str,
 ) -> BuildingBlock:
-    """Validate a He-marked fragment and prepare it in its own directory."""
+    """Load a prepared imine block or convert a manual He-marked fragment."""
     source = Path(path)
     if not source.is_file() or source.suffix.lower() != ".xyz":
         raise FileNotFoundError(f"Input XYZ file not found: {source}")
+    if _configuration(source) is not None:
+        return _read_imine_block(source, connection_count)
     atoms = cast("Atoms", ase.io.read(source))
     if not np.all(np.isfinite(atoms.positions)):
         raise ValueError(f"{label} has nonfinite coordinates: {source}")
@@ -118,8 +126,9 @@ class BuildCOF3D:
     node-to-node connections, following PORMAKE's convention. Call
     :meth:`describe_topology` to inspect those types before choosing inputs.
 
-    Fragments use the existing COF-Landscaper He marker convention and its 0.8
-    marker-distance adjustment. Assembly uses plain ``pormake.Builder`` with
+    Manual fragments use the He marker convention and its 0.8 marker-distance
+    adjustment. Imine fragments keep their prepared connection sites and bonds.
+    Assembly uses plain ``pormake.Builder`` with
     full 3D cell scaling and molecular orientation. The CIF retains that cell.
 
     Example::
@@ -173,12 +182,14 @@ class BuildCOF3D:
         the topology's node types. Edge pairs are normalized into ascending
         order; assigning both orders of a pair is an error. Each node needs its
         topology's connection count, and each populated linker needs two markers.
-        Marker counts alone do not guarantee compatible molecular geometry.
+        Prepared imine assemblies are checked for the requested stereochemistry,
+        bond geometry and short periodic contacts before export.
 
         Args:
             topo: Name of a 3D topology in the installed PORMAKE database.
             cof_name: Nonempty framework name without directory components.
-            input_nodes: Mapping from node-type integers to He-marked XYZ paths.
+            input_nodes: Mapping from node types to manual He-marked XYZs or imine
+                XYZs from PrepareBuildingBlock. Use one route for all slots.
             input_linkers: Optional mapping from endpoint-type pairs to linker
                 XYZ paths. Missing entries and ``None`` mean direct connections.
             output_folder: Optional output directory. Defaults to
@@ -270,11 +281,19 @@ class BuildCOF3D:
                 else None
                 for pair, path in linker_paths.items()
             }
+            config = _assembly_configuration(
+                [
+                    *input_nodes.values(),
+                    *(p for p in linker_paths.values() if p is not None),
+                ]
+            )
             framework = pm.Builder().build_by_type(
                 topology=topology,
                 node_bbs=nodes,
                 edge_bbs=linkers,
             )
+            if config is not None:
+                _finish_imines(framework, config)
             folder = (
                 Path(output_folder)
                 if output_folder is not None
