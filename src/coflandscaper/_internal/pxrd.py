@@ -12,13 +12,17 @@ after PXRD-guided scaling and fixed-cell postoptimization.
 from __future__ import annotations
 
 import re
+from itertools import batched
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from ase.io import read, write
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
@@ -44,6 +48,9 @@ class PXRD:
 
     The ``source`` argument distinguishes between the normal optimized structure
     workflow (``"opt"``) and the postoptimization workflow (``"postopt"``).
+
+    Use ``screen_landscape`` separately to compare every matrix CIF with the
+    experimental pattern before selecting structures for optimization.
 
     Default optimized-structure workflow:
 
@@ -381,15 +388,161 @@ class PXRD:
 
         calculator = XRDCalculator(wavelength=self._wavelength)
         for cif_path in cifs:
-            structure = Structure.from_file(str(cif_path))
-            pattern = calculator.get_pattern(
-                structure,
-                two_theta_range=self._two_theta_range,
-            )
-            xy = np.column_stack((pattern.x, pattern.y))
-            np.savetxt(xy_dir / f"{cif_path.stem}.xy", xy, fmt="%.5f %.3f")
+            xy = self._simulate_xy(calculator, cif_path)
+            self._write_xy(xy_dir / f"{cif_path.stem}.xy", xy)
 
         return str(xy_dir)
+
+    def _simulate_xy(self, calculator: XRDCalculator, cif: Path) -> np.ndarray:
+        """Calculate the two-column reflection pattern for one CIF."""
+        pattern = calculator.get_pattern(
+            Structure.from_file(str(cif)),
+            two_theta_range=self._two_theta_range,
+        )
+        return np.column_stack((pattern.x, pattern.y))
+
+    @staticmethod
+    def _write_xy(path: Path, xy: np.ndarray) -> None:
+        """Write simulated reflections in the standard PXRD format."""
+        np.savetxt(path, xy, fmt="%.5f %.3f")
+
+    def _experimental_profile(
+        self, path: Path
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Load an experimental profile and shift its minimum to zero."""
+        x, y = self._read_xy(path)
+        return x, y - np.nanmin(y)
+
+    def _scale_simulated(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        xlim: tuple[float, float],
+        exp_max: float,
+        *,
+        keep_flat_peaks: bool = False,
+    ) -> np.ndarray:
+        """Scale baseline-shifted intensities, optionally retaining isolated or equal peaks."""
+        shifted = y - np.nanmin(y)
+        if keep_flat_peaks and np.all(shifted == 0):
+            shifted = y
+        return shifted / self._visible_y_max(x, shifted, xlim) * exp_max
+
+    def screen_landscape(
+        self,
+        cof_name: str,
+        mode: str = "both",
+        *,
+        exp_xy_file: str | Path | None = None,
+        export_xy: bool = False,
+    ) -> dict[str, str]:
+        """Compare all matrix CIFs with experiment in one paginated PDF per mode.
+
+        Read CIFs from ``{cof_name}/2_{cof_name}_matrix/{mode}``. Within each
+        report, panels run left to right in order of increasing ILS, then ILD.
+        The configured wavelength and two-theta range apply to all panels.
+        This optional screening step can run directly after matrix generation.
+
+        Args:
+            cof_name: COF name used for matrix and landscape paths.
+            mode: Inclined ("incl"), serrated ("serr"), or "both".
+            exp_xy_file: Experimental XY path. Defaults to the single XY file
+                in the working directory's ``experimental_pxrd/`` folder.
+            export_xy: Also save individual simulated reflections in the mode's
+                ``xy/`` folder, at their original simulated intensities.
+
+        Returns:
+            Mapping from mode to PDF path under
+            ``{cof_name}/3_{cof_name}_landscape/pxrd/{mode}/``.
+
+        Raises:
+            FileNotFoundError: If experimental data or a requested matrix is missing.
+            ValueError: If a CIF lacks ILD/ILS tags or experimental input is ambiguous.
+        """
+        modes = self._resolve_modes(mode)
+        x_exp, y_exp = self._experimental_profile(
+            self._resolve_exp_xy_file(exp_xy_file)
+        )
+        xlim = self._two_theta_range
+        exp_max = self._visible_y_max(x_exp, y_exp, xlim)
+        root = Path(cof_name)
+        calculator = XRDCalculator(wavelength=self._wavelength)
+        outputs = {}
+        for tag in modes:
+            matrix = root / f"2_{cof_name}_matrix" / tag
+            configs = []
+            for cif in matrix.glob("*.cif"):
+                tags = re.search(
+                    r"_z(\d+)_(?:inc_|ser_)?L(-?\d+)(?:_(?:incl|serr))?$",
+                    cif.stem,
+                )
+                if tags is None:
+                    raise ValueError(
+                        f"Missing ILD/ILS tags in matrix CIF: {cif}"
+                    )
+                ild, ils = (int(value) / 10 for value in tags.groups())
+                configs.append((ils, ild, cif))
+            if not configs:
+                raise FileNotFoundError(f"No matrix CIFs found in: {matrix}")
+
+            folder = root / f"3_{cof_name}_landscape" / "pxrd" / tag
+            folder.mkdir(parents=True, exist_ok=True)
+            report = folder / f"{cof_name}_{tag}.pdf"
+            with TemporaryDirectory(dir=folder) as temporary:
+                staging = Path(temporary)
+                with PdfPages(staging / report.name) as pdf:
+                    for page in batched(sorted(configs), 9):
+                        fig = Figure(figsize=(11.7, 8.3), layout="constrained")
+                        axes = fig.subplots(3, 3)
+                        for ax, (ils, ild, cif) in zip(
+                            axes.flat, page, strict=False
+                        ):
+                            xy = self._simulate_xy(calculator, cif)
+                            if export_xy:
+                                self._write_xy(staging / f"{cif.stem}.xy", xy)
+                            x, y = xy.T
+                            heights = self._scale_simulated(
+                                x, y, xlim, exp_max, keep_flat_peaks=True
+                            )
+                            ax.plot(
+                                x_exp,
+                                y_exp,
+                                color="red",
+                                lw=0.8,
+                                rasterized=True,
+                            )
+                            ax.vlines(x, 0, heights, color="black", lw=0.8)
+                            ax.set(
+                                xlim=xlim,
+                                ylim=(0, 1.12 * exp_max),
+                                yticks=[],
+                                title=f"ILS {ils:g} Å   ILD {ild:g} Å",
+                            )
+                        for ax in axes.flat[len(page) :]:
+                            ax.set_visible(False)
+                        fig.supxlabel(r"2$\theta$ (°)")
+                        fig.supylabel("Intensity (a.u.)")
+                        fig.legend(
+                            handles=[
+                                Line2D(
+                                    [], [], color="red", label="Experimental"
+                                ),
+                                Line2D(
+                                    [], [], color="black", label="Simulated"
+                                ),
+                            ],
+                            loc="outside upper center",
+                            ncols=2,
+                        )
+                        pdf.savefig(fig, dpi=160)
+                if export_xy:
+                    xy_dir = folder / "xy"
+                    xy_dir.mkdir(exist_ok=True)
+                    for path in staging.glob("*.xy"):
+                        path.replace(xy_dir / path.name)
+                (staging / report.name).replace(report)
+            outputs[tag] = str(report)
+        return outputs
 
     def plot_xy(
         self,
@@ -1586,10 +1739,7 @@ class PXRD:
     ) -> list[str]:
         """Compare explicit simulated files with a shared experimental profile."""
         stacking_by_file = {} if stacking_by_file is None else stacking_by_file
-        x_exp, y_exp = self._read_xy(exp_path)
-        x_exp = np.asarray(x_exp, dtype=float)
-        y_exp = np.asarray(y_exp, dtype=float)
-        exp_shifted = y_exp - np.nanmin(y_exp)
+        x_exp, exp_shifted = self._experimental_profile(exp_path)
         figure_width = 15.0
         figure_height = 5.0
         dpi = 500
@@ -1626,13 +1776,10 @@ class PXRD:
             x_sim = x_sim[order]
             y_sim = y_sim[order]
 
-            sim_shifted = y_sim - np.nanmin(y_sim)
-            sim_max = self._visible_y_max(x_sim, sim_shifted, plot_xlim)
-            if sim_max <= 0:
-                continue
-
             exp_max = self._visible_y_max(x_exp, exp_shifted, plot_xlim)
-            y_sim_scaled = (sim_shifted / sim_max) * exp_max
+            y_sim_scaled = self._scale_simulated(
+                x_sim, y_sim, plot_xlim, exp_max
+            )
             fig, ax = plt.subplots(figsize=(figure_width, figure_height))
 
             ax.plot(

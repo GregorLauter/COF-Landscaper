@@ -859,3 +859,93 @@ def test_pxrd3d_plots_without_stacking_annotations(
         Path(path).is_file() and Path(path).stat().st_size > 0
         for path in simulated + compared
     )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("mode", "export_xy"), [("both", False), ("incl", True), ("serr", True)]
+)
+def test_screen_landscape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, export_xy: bool
+) -> None:
+    """Render real PDF pages and inspect their order, intensities and XY exports."""
+    monkeypatch.chdir(tmp_path)
+    module = importlib.import_module(cl.PXRD.__module__)
+    exp = Path("experimental_pxrd")
+    exp.mkdir()
+    (exp / "exp.xy").write_text("5 9\n10 19\n15 4\n")
+    tags = ["serr", "incl"] if mode == "both" else [mode]
+    configurations = [
+        (slip, height)
+        for slip in (100, -20)
+        for height in (100, 35, 32, 38, 40)
+    ]
+    for tag in tags:
+        matrix = Path("cof/2_cof_matrix") / tag
+        matrix.mkdir(parents=True)
+        for slip, height in configurations:
+            (matrix / f"cof_z{height}_L{slip}_{tag}.cif").touch()
+
+    monkeypatch.setattr(module, "XRDCalculator", _FakeCalculator)
+    monkeypatch.setattr(module.Structure, "from_file", lambda _path: object())
+    pattern = _FakePattern()
+    if mode == "incl":
+        pattern.x = pattern.x[:1]
+        pattern.y = pattern.y[:1]
+        monkeypatch.setattr(
+            _FakeCalculator, "get_pattern", lambda *_args, **_kwargs: pattern
+        )
+
+    pages = []
+    save = module.PdfPages.savefig
+
+    def capture_page(pdf, fig, **kwargs):
+        assert len(fig.axes) == 9
+        panels = [ax for ax in fig.axes if ax.get_visible()]
+        pages.append([ax.get_title() for ax in panels])
+        for ax in panels:
+            np.testing.assert_allclose(ax.lines[0].get_ydata(), [5, 15, 0])
+            sticks = ax.collections[0].get_segments()
+            np.testing.assert_allclose(
+                [s[1, 1] for s in sticks],
+                [15] if mode == "incl" else [3.75, 15, 0],
+            )
+        save(pdf, fig, **kwargs)
+
+    monkeypatch.setattr(module.PdfPages, "savefig", capture_page)
+    results = cl.PXRD().screen_landscape("cof", mode, export_xy=export_xy)
+    labels = [
+        f"ILS {s / 10:g} Å   ILD {h / 10:g} Å"
+        for s, h in sorted(configurations)
+    ]
+    assert pages == [labels[:9], labels[9:]] * len(tags)
+    assert list(results) == tags
+    for tag, report in results.items():
+        folder = Path("cof/3_cof_landscape/pxrd") / tag
+        assert Path(report) == folder / f"cof_{tag}.pdf"
+        assert Path(report).read_bytes().startswith(b"%PDF")
+        files = sorted(folder.rglob("*.xy"))
+        if export_xy:
+            assert len(files) == len(configurations)
+            np.testing.assert_allclose(
+                np.loadtxt(files[0], ndmin=2)[:, 1], pattern.y
+            )
+        else:
+            assert not files
+
+
+@pytest.mark.unit
+def test_screen_landscape_requires_labelled_matrix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    exp = Path("measured.xy")
+    exp.write_text("3 1\n5 2\n")
+    pxrd = cl.PXRD()
+    with pytest.raises(FileNotFoundError, match="No matrix CIFs"):
+        pxrd.screen_landscape("sample", "incl", exp_xy_file=exp)
+    folder = Path("sample/2_sample_matrix/incl")
+    folder.mkdir(parents=True)
+    (folder / "unknown.cif").touch()
+    with pytest.raises(ValueError, match=r"unknown\.cif"):
+        pxrd.screen_landscape("sample", "incl", exp_xy_file=exp)
