@@ -1,3 +1,4 @@
+import csv
 import importlib
 from pathlib import Path
 from typing import cast
@@ -35,6 +36,7 @@ def test_run_default_routing_both_modes(
         _self: cl.PXRD,
         input_folder: str | Path,
         output_folder: str | Path | None = None,
+        **_options: object,
     ) -> str:
         assert output_folder is not None
         in_path = Path(input_folder)
@@ -74,6 +76,7 @@ def test_run_custom_parent_folder_routing(
         _self: cl.PXRD,
         input_folder: str | Path,
         output_folder: str | Path | None = None,
+        **_options: object,
     ) -> str:
         assert output_folder is not None
         in_path = Path(input_folder)
@@ -113,6 +116,7 @@ def test_run_single_mode_uses_mode_output_subfolder(
         _self: cl.PXRD,
         input_folder: str | Path,
         output_folder: str | Path | None = None,
+        **_options: object,
     ) -> str:
         assert output_folder is not None
         in_path = Path(input_folder)
@@ -255,9 +259,67 @@ def test_produce_xy_writes_xy_for_each_cif(
     assert output == str(output_dir)
     assert (output_dir / "a.xy").exists()
     assert (output_dir / "b.xy").exists()
+    assert not list(output_dir.glob("*.csv"))
     xy = np.loadtxt(output_dir / "a.xy")
     np.testing.assert_array_equal(xy[[0, -1]], [[1.5, 0.0], [30.0, 0.0]])
     np.testing.assert_array_equal(xy[xy[:, 1] > 0, 0], _FakePattern().x)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("is_3d", [False, True])
+def test_optional_hkl_csv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, is_3d: bool
+) -> None:
+    """Select by intensity before sorting by angle, retaining each indexed family."""
+    from pymatgen.analysis.diffraction.core import DiffractionPattern
+
+    angles = np.arange(3.0, 15.0) + 0.012345678901234
+    intensities = np.array([1, 40, 14, 5, 80, 22, 90, 6, 88, 22, 100, 5])
+    families = [[{"hkl": (i, 1, 0), "multiplicity": 1}] for i in range(12)]
+    families[8].append({"hkl": (-1, 2, -1, 0), "multiplicity": 3})
+    pattern = DiffractionPattern(angles, intensities, families, np.ones(12))
+    calls = []
+
+    def calculate(_self, _structure, two_theta_range):
+        calls.append(two_theta_range)
+        return pattern
+
+    module = importlib.import_module(cl.PXRD.__module__)
+    monkeypatch.setattr(module.XRDCalculator, "get_pattern", calculate)
+    monkeypatch.setattr(module.Structure, "from_file", lambda _path: object())
+    (tmp_path / "sample.cif").touch()
+    output = tmp_path / "xy"
+    if is_3d:
+        folder = Path(
+            cl.PXRD3D().run(
+                "cof", tmp_path, output, export_hkl=True, max_reflections=3
+            )
+        )
+        expected = [6, 8, 10]
+    else:
+        folder = Path(
+            cl.PXRD().run(
+                "cof",
+                "incl",
+                input_folder=tmp_path,
+                output_folder=output,
+                export_hkl=True,
+            )["incl"]
+        )
+        expected = list(range(1, 11))
+    assert calls == [(1.5, 30.0)]
+    with (folder / "sample_hkl.csv").open(
+        encoding="utf-8", newline=""
+    ) as stream:
+        positions, indices = csv.reader(stream)
+    np.testing.assert_array_equal(
+        np.asarray(positions, dtype=float), angles[expected]
+    )
+    assert indices == [
+        "(8 1 0) | (-1 2 -1 0)" if i == 8 else f"({i} 1 0)" for i in expected
+    ]
+    xy = np.loadtxt(folder / "sample.xy")
+    np.testing.assert_array_equal(xy[xy[:, 1] > 0, 0], angles)
 
 
 @pytest.mark.unit
@@ -537,6 +599,7 @@ def test_postopt_run_routing_and_source_validation(
         _self: cl.PXRD,
         input_folder: str | Path,
         output_folder: str | Path | None,
+        **_options: object,
     ) -> str:
         assert output_folder is not None
         calls.append((Path(input_folder), Path(output_folder)))
@@ -837,7 +900,9 @@ def test_pxrd3d_flat_default_and_custom_routing(
     """3D diffraction keeps a single input/output route without mode folders."""
     calls: list[tuple[Path, Path]] = []
 
-    def fake_produce_xy(_self, input_folder, output_folder=None) -> str:
+    def fake_produce_xy(
+        _self, input_folder, output_folder=None, **_options
+    ) -> str:
         assert output_folder is not None
         calls.append((Path(input_folder), Path(output_folder)))
         return str(output_folder)
@@ -985,6 +1050,7 @@ def test_screen_landscape(
         folder = Path("cof/3_cof_landscape/pxrd") / tag
         assert Path(report) == folder / f"cof_{tag}.pdf"
         assert Path(report).read_bytes().startswith(b"%PDF")
+        assert not list(folder.rglob("*.csv"))
         files = sorted(folder.rglob("*.xy"))
         if export_xy:
             assert len(files) == len(configurations)

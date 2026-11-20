@@ -11,8 +11,10 @@ after PXRD-guided scaling and fixed-cell postoptimization.
 
 from __future__ import annotations
 
+import csv
 import re
 from itertools import batched
+from numbers import Integral
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, cast
@@ -30,6 +32,7 @@ from scipy.optimize import curve_fit
 
 if TYPE_CHECKING:
     from ase.atoms import Atoms
+    from pymatgen.analysis.diffraction.core import DiffractionPattern
 
 
 class PXRD:
@@ -278,6 +281,9 @@ class PXRD:
         source: str = "opt",
         input_folder: str | Path | None = None,
         output_folder: str | Path | None = None,
+        *,
+        export_hkl: bool = False,
+        max_reflections: int = 10,
     ) -> dict[str, str]:
         """Simulate PXRD patterns for selected stacking mode(s).
 
@@ -307,6 +313,9 @@ class PXRD:
             output_folder: Optional output root for generated XY files. A mode-specific
                 ``serr`` or ``incl`` subfolder is always appended. Defaults to the
                 source-specific analysis folder.
+            export_hkl: Write a two-row ``<stem>_hkl.csv`` beside each XY file.
+            max_reflections: Positive number of strongest reflections to include
+                when exporting Miller indices. Defaults to ten.
 
         Returns:
             Mapping from stacking mode to generated XY-folder path.
@@ -347,6 +356,8 @@ class PXRD:
             outputs[selected_mode] = self.produce_xy(
                 input_folder=cif_dir,
                 output_folder=target_output,
+                export_hkl=export_hkl,
+                max_reflections=max_reflections,
             )
 
         return outputs
@@ -355,6 +366,9 @@ class PXRD:
         self,
         input_folder: str | Path,
         output_folder: str | Path | None = None,
+        *,
+        export_hkl: bool = False,
+        max_reflections: int = 10,
     ) -> str:
         """Simulate PXRD patterns for all CIF structures in one folder.
 
@@ -363,17 +377,33 @@ class PXRD:
         in 0.01° steps. Zeros at ±0.008° from each reflection replace grid points
         inside that interval, including both flanks for reflections at a range limit.
 
+        The optional headerless CSV has one column per selected reflection, sorted
+        by increasing 2θ in degrees. The second row lists the signed Miller indices
+        as supplied by pymatgen, with multiple families separated by `` | ``.
+        Equal intensities at the selection cutoff favour the lower angle.
+
         Args:
             input_folder: Folder containing CIF files.
             output_folder: Optional folder for generated ``.xy`` files. Defaults to
                 ``simulated_xy`` inside ``input_folder``.
+            export_hkl: Write a two-row ``<stem>_hkl.csv`` beside each XY file.
+            max_reflections: Positive number of strongest reflections to include
+                when exporting Miller indices. Defaults to ten.
 
         Returns:
             Path to the folder containing the generated ``.xy`` files.
 
         Raises:
             FileNotFoundError: If the input folder is missing or contains no CIF files.
+            ValueError: If Miller index export is enabled with an invalid reflection count.
         """
+        if export_hkl and (
+            isinstance(max_reflections, bool)
+            or not isinstance(max_reflections, Integral)
+            or max_reflections < 1
+        ):
+            raise ValueError("max_reflections must be a positive integer")
+
         cif_dir = Path(input_folder)
         if not cif_dir.exists() or not cif_dir.is_dir():
             raise FileNotFoundError(f"CIF folder not found: {cif_dir}")
@@ -389,18 +419,46 @@ class PXRD:
 
         calculator = XRDCalculator(wavelength=self._wavelength)
         for cif_path in cifs:
-            xy = self._simulate_xy(calculator, cif_path)
-            self._write_xy(xy_dir / f"{cif_path.stem}.xy", xy)
+            pattern = self._simulate_pattern(calculator, cif_path)
+            self._write_xy(
+                xy_dir / f"{cif_path.stem}.xy",
+                np.column_stack((pattern.x, pattern.y)),
+            )
+            if export_hkl:
+                self._write_hkl_csv(
+                    xy_dir / f"{cif_path.stem}_hkl.csv",
+                    pattern,
+                    max_reflections,
+                )
 
         return str(xy_dir)
 
-    def _simulate_xy(self, calculator: XRDCalculator, cif: Path) -> np.ndarray:
-        """Calculate the two-column reflection pattern for one CIF."""
-        pattern = calculator.get_pattern(
+    def _simulate_pattern(
+        self, calculator: XRDCalculator, cif: Path
+    ) -> DiffractionPattern:
+        """Calculate the indexed reflection pattern for one CIF."""
+        return calculator.get_pattern(
             Structure.from_file(str(cif)),
             two_theta_range=self._two_theta_range,
         )
-        return np.column_stack((pattern.x, pattern.y))
+
+    @staticmethod
+    def _write_hkl_csv(
+        path: Path, pattern: DiffractionPattern, max_reflections: int
+    ) -> None:
+        """Write 2θ positions and all contributing hkl families for the strongest peaks."""
+        strongest = np.lexsort((pattern.x, -pattern.y))[:max_reflections]
+        ordered = sorted(strongest, key=lambda index: pattern.x[index])
+        with path.open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.writer(stream)
+            writer.writerow(float(pattern.x[i]) for i in ordered)
+            writer.writerow(
+                " | ".join(
+                    f"({' '.join(map(str, family['hkl']))})"
+                    for family in pattern.hkls[i]
+                )
+                for i in ordered
+            )
 
     def _write_xy(self, path: Path, xy: np.ndarray) -> None:
         """Write exact reflections and zero-intensity points for continuous plotting."""
@@ -524,10 +582,13 @@ class PXRD:
                         for ax, (ils, ild, cif) in zip(
                             axes.flat, page, strict=False
                         ):
-                            xy = self._simulate_xy(calculator, cif)
+                            pattern = self._simulate_pattern(calculator, cif)
+                            x, y = pattern.x, pattern.y
                             if export_xy:
-                                self._write_xy(staging / f"{cif.stem}.xy", xy)
-                            x, y = xy.T
+                                self._write_xy(
+                                    staging / f"{cif.stem}.xy",
+                                    np.column_stack((x, y)),
+                                )
                             heights = self._scale_simulated(
                                 x, y, xlim, exp_max, keep_flat_peaks=True
                             )
@@ -1965,6 +2026,9 @@ class PXRD3D:
         cof_name: str,
         input_folder: str | Path | None = None,
         output_folder: str | Path | None = None,
+        *,
+        export_hkl: bool = False,
+        max_reflections: int = 10,
     ) -> str:
         """Export continuous two-column PXRD patterns for optimized 3D frameworks.
 
@@ -1977,6 +2041,9 @@ class PXRD3D:
                 to ``{cof_name}/2_{cof_name}_optimization``.
             output_folder: Optional folder for simulated XY patterns. Defaults
                 to ``{cof_name}/3_{cof_name}_analysis/pxrd_xy``.
+            export_hkl: Write a two-row ``<stem>_hkl.csv`` beside each XY file.
+            max_reflections: Positive number of strongest reflections to include
+                when exporting Miller indices. Defaults to ten.
 
         Returns:
             Path to the folder containing the generated ``.xy`` files.
@@ -1994,7 +2061,12 @@ class PXRD3D:
             if output_folder is not None
             else self._analysis_root(cof_name) / "pxrd_xy"
         )
-        return self._pxrd.produce_xy(cif_dir, xy_dir)
+        return self._pxrd.produce_xy(
+            cif_dir,
+            xy_dir,
+            export_hkl=export_hkl,
+            max_reflections=max_reflections,
+        )
 
     def extract_peaks(
         self,
