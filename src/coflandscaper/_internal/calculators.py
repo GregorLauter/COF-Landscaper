@@ -374,8 +374,9 @@ class GeometryOpt:
     Normal optimization relaxes atomic coordinates and the unit cell using
     ``FrechetCellFilter``. Fixed-cell optimization relaxes atomic coordinates
     while preserving the complete unit cell.
-    Single-layer preoptimization with an explicit topology fixes its ideal
-    angles and 15 Angstrom height while relaxing a and b independently.
+    Single-layer preoptimization relaxes the full cell by default. Supplying
+    a topology fixes its ideal angles and the height at 15 Å while allowing
+    the a and b lengths to relax independently.
 
     Returns:
         None.
@@ -540,6 +541,7 @@ class GeometryOpt:
         By default, atomic motion along the Cartesian z direction is constrained
         during this step. This preserves the approximately planar single-layer
         geometry before generation of the stacked structure matrix.
+        By default, the full cell can relax, including its angles and height.
         When ``topo`` is supplied, its ideal cell angles are set before relaxation
         and held fixed with a 15 Angstrom out-of-plane spacing. The a and b
         lengths relax independently. The input CIF is left unchanged.
@@ -554,10 +556,9 @@ class GeometryOpt:
                 during this preoptimization. Defaults to ``True``.
             topo: Optional 2D topology: ``hcb``, ``hcb_ab``, and ``kgm`` use
                 90/90/120 degree angles; ``sql`` and ``sql_ab`` use 90/90/90.
-                Pass the same topology used for construction. ``None`` retains
-                the legacy preoptimization with unrestricted cell angles and
-                height. This option affects only this call; subsequent full-cell
-                optimization is unchanged.
+                Omit (or pass ``None``) to relax the full cell. Supply the
+                construction topology to use fixed angles and a 15 Å height
+                for this call. Atomic motion is controlled separately by ``fix_z``.
             fmax: Force threshold in eV/Å for this preoptimisation only.
                 Defaults to 0.03 unless a threshold was set on GeometryOpt.
 

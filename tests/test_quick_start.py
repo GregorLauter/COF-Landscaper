@@ -7,15 +7,15 @@ from pathlib import Path
 
 import coflandscaper as cl
 
-_QUICK_START = (
+_DEFAULT_EXAMPLE = (
     Path(__file__).resolve().parents[1]
-    / "examples/main_workflow/local/quick_start"
+    / "examples/main_workflow/local/default"
 )
 
 
 def test_quick_start_public_api() -> None:
     """Each cell needs only the setup names and calls the installed public API."""
-    notebook = json.loads((_QUICK_START / "quick_start.ipynb").read_text())
+    notebook = json.loads((_DEFAULT_EXAMPLE / "default.ipynb").read_text())
     for cell in notebook["cells"]:
         if cell["cell_type"] != "code":
             continue
@@ -39,6 +39,9 @@ def test_quick_start_public_api() -> None:
                 owner = getattr(cl, receiver.func.attr)
             signature = inspect.signature(getattr(owner, call.func.attr))
             args = [None] if "self" in signature.parameters else []
+            if call.func.attr == "run_preopt":
+                assert len(call.args) == 1
+                assert not call.keywords
             signature.bind(
                 *args,
                 *call.args,
@@ -48,10 +51,10 @@ def test_quick_start_public_api() -> None:
 
 def test_quick_start_manual_inputs() -> None:
     for folder, sites in (("node", 4), ("linker", 2)):
-        input_dir = _QUICK_START / f"0_{folder}"
+        input_dir = _DEFAULT_EXAMPLE / f"0_{folder}"
         xyz = input_dir / f"ILCOF-1_{folder}.xyz"
         assert list(input_dir.glob("*.xyz")) == [xyz]
         count, _, *atoms = xyz.read_text().splitlines()
         assert len(atoms) == int(count)
         assert sum(atom.split()[0] == "He" for atom in atoms) == sites
-    assert (_QUICK_START / "experimental_pxrd/ILCOF-1.xy").is_file()
+    assert (_DEFAULT_EXAMPLE / "experimental_pxrd/ILCOF-1.xy").is_file()

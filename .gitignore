@@ -1,14 +1,48 @@
-__pycache__
-*.egg-info
-/.coverage
-/dist
-/build
+# macOS metadata
+.DS_Store
+._*
+.AppleDouble/
+__MACOSX/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Testing and development caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Local virtual environments
+.venv/
+venv/
+
+# Python package builds
+/build/
+/dist/
+*.egg-info/
+.eggs/
+
+# Test coverage reports
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Generated documentation
+/docs/_build/
 docs/build
 docs/source/_autosummary
-.DS_Store
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-htmlcov/
+
+# Local configuration
+.env
+.pypirc
+
 /cof-*/
 *.pickle

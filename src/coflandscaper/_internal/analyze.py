@@ -365,7 +365,9 @@ class AnalyzeStacking:
                 Defaults to ``"opt"``.
 
         Returns:
-            Geometry and per-layer energies for the structures analyzed in this call.
+            Display table with stacking mode, filename, and ILD and ILS formatted
+            as strings to two decimal places (Å). The CSV retains full precision
+            and the per-layer energy columns.
 
         Raises:
             ValueError: If ``mode`` or ``source`` is invalid.
@@ -449,7 +451,12 @@ class AnalyzeStacking:
             )
             writer.writeheader()
             writer.writerows(merged_rows)
-        return pd.DataFrame(rows, columns=self._FINAL_STRUCT_FIELDS)
+        table = pd.DataFrame(
+            rows, columns=["Stacking", "filename", "ILD", "ILS"]
+        )
+        for column in ("ILD", "ILS"):
+            table[column] = table[column].map("{:.2f}".format)
+        return table
 
     def run(
         self,

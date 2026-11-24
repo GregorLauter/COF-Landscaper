@@ -57,7 +57,7 @@ def test_run_writes_expected_csv_schema_for_both_modes(
     def fake_metrics(
         _input_file: str, selected_mode: str
     ) -> tuple[float, float]:
-        return (1.234, 2.345) if selected_mode == "serr" else (3.456, 4.567)
+        return (1.234, 0.0) if selected_mode == "serr" else (3.456, 4.567)
 
     def fake_energy_map(**_kwargs):
         return {
@@ -80,7 +80,7 @@ def test_run_writes_expected_csv_schema_for_both_modes(
     assert capsys.readouterr().out == (
         "Serrated:\n"
         " ILD (Å)  ILS (Å)  Erel (eV)\n"
-        "   1.23     2.35        0.0\n"
+        "   1.23     0.00        0.0\n"
         "Inclined:\n"
         " ILD (Å)  ILS (Å)  Erel (eV)\n"
         "   3.46     4.57        1.0\n"
@@ -101,16 +101,23 @@ def test_run_writes_expected_csv_schema_for_both_modes(
         "energy_eV_per_layer",
         "energy_rel_eV_per_layer",
     ]
-    assert list(result.columns) == reader.fieldnames
-    assert result.set_index("Stacking")["ILD"].to_dict() == {
-        "serr": 1.234,
-        "incl": 3.456,
-    }
+    assert list(result.columns) == ["Stacking", "filename", "ILD", "ILS"]
+    assert list(result.itertuples(index=False, name=None)) == [
+        ("serr", "mock-a.cif", "1.23", "0.00"),
+        ("incl", "mock-a.cif", "3.46", "4.57"),
+    ]
+    assert {
+        row["Stacking"]: (
+            row["energy_eV_per_layer"],
+            row["energy_rel_eV_per_layer"],
+        )
+        for row in rows
+    } == {"serr": ("-10.0", "0.0"), "incl": ("-9.0", "1.0")}
     assert len(rows) == 2
     assert {row["Stacking"] for row in rows} == {"serr", "incl"}
     assert {row["filename"] for row in rows} == {"mock-a.cif"}
     assert {(row["ILD"], row["ILS"]) for row in rows} == {
-        ("1.234", "2.345"),
+        ("1.234", "0.0"),
         ("3.456", "4.567"),
     }
 

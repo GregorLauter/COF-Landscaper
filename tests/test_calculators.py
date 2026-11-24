@@ -608,6 +608,38 @@ def test_fixed_angle_filter_forces_match_finite_differences(
 
 
 @pytest.mark.unit
+def test_default_preopt_relaxes_angles_and_height(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, preopt_atoms: Atoms
+) -> None:
+    """The cell remains free to shear and change height with fix_z on."""
+    original = preopt_atoms.cell.copy()
+    monkeypatch.setattr(calc_mod, "read", lambda _path: preopt_atoms)
+
+    def apply_strain(optimizer, fmax: float, steps: int) -> bool:
+        assert (fmax, steps) == (0.03, 2000)
+        target = optimizer.atoms
+        assert isinstance(target, calc_mod.FrechetCellFilter)
+        assert np.allclose(target.atoms.cell, original)
+        (constraint,) = target.atoms.constraints
+        assert isinstance(constraint, FixCartesian)
+        assert constraint.mask.tolist() == [False, False, True]
+        positions = target.get_positions()
+        positions[-3:] += target.exp_cell_factor * np.array(
+            [[0, 0.05, 0], [0.05, 0, 0], [0, 0, 0.1]]
+        )
+        target.set_positions(positions)
+        return True
+
+    monkeypatch.setattr(calc_mod.LBFGS, "run", apply_strain)
+    monkeypatch.chdir(tmp_path)
+    assert GeometryOpt(calculator=EMT()).run_preopt("cof")
+    assert preopt_atoms.cell.angles()[2] != pytest.approx(original.angles()[2])
+    assert preopt_atoms.cell.lengths()[2] != pytest.approx(
+        original.lengths()[2]
+    )
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize(("topo", "gamma"), [("sql", 90), ("hcb", 120)])
 @pytest.mark.parametrize("fix_z", [False, True])
 def test_topology_preopt_does_not_constrain_later_full_cell_optimization(
