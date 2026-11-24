@@ -162,8 +162,8 @@ def test_default_shift_from_cif_sql_hcb_kgm(
     hcb_length, hcb_angle = cl.default_shift_from_cif("dummy.cif", "hcb")
     kgm_length, kgm_angle = cl.default_shift_from_cif("dummy.cif", "kgm")
 
-    assert sql_length == pytest.approx(1.0)
-    assert sql_angle == pytest.approx(0.0)
+    assert sql_length == pytest.approx(np.sqrt(2.0))
+    assert sql_angle == pytest.approx(45.0)
     hcb_vec_xy = hcb_length * np.array(
         [np.cos(np.radians(hcb_angle)), np.sin(np.radians(hcb_angle))]
     )
@@ -461,6 +461,7 @@ def test_matrix_slip_endpoint_spacing(
         ild_end=3.5,
         ils_length_step=12.0,
         ils_length_end=explicit_end,
+        slip_path="a/2",
     ).run(
         "sheet", "sql", input_cif=str(source), output_base_folder=str(output)
     )
@@ -500,12 +501,17 @@ def test_matrix_sampling_defaults(
         assert {p.name for p in (matrix / mode).glob("*.cif")} == {
             f"sheet_z{z}_L{slip:03d}_{mode}.cif"
             for z in range(30, 41)
-            for slip in (0, 10, 20, 25)
+            for slip in (0, 10, 20, 30, 40, 47)
         }
-    # The final 0.5 Å increment reaches a/2 exactly for this 5 Å cell.
+    # The filename rounds the length, but the CIF retains the full half-diagonal.
     a, b, c = Structure.from_file(
-        matrix / "incl" / "sheet_z40_L025_incl.cif"
+        matrix / "incl" / "sheet_z40_L047_incl.cif"
     ).lattice.matrix
     assert np.dot(c, a) / np.linalg.norm(a) == pytest.approx(2.5, abs=2e-6)
-    assert np.dot(c, b) / np.linalg.norm(b) == pytest.approx(0.0, abs=2e-6)
-    assert np.linalg.norm(c - a / 2) == pytest.approx(4.0, abs=2e-6)
+    assert np.dot(c, b) / np.linalg.norm(b) == pytest.approx(4.0, abs=2e-6)
+    assert np.linalg.norm(c - (a + b) / 2) == pytest.approx(4.0, abs=2e-6)
+    bilayer = Structure.from_file(matrix / "serr" / "sheet_z40_L047_serr.cif")
+    lower, upper = sorted(bilayer, key=lambda site: site.frac_coords[2])
+    assert upper.frac_coords - lower.frac_coords == pytest.approx(
+        [0.5, 0.5, 0.5], abs=2e-6
+    )
