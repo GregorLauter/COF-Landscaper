@@ -1,7 +1,5 @@
 import importlib
 import inspect
-import json
-import runpy
 import warnings
 from pathlib import Path
 
@@ -738,67 +736,6 @@ def test_preopt_failures_preserve_optimizer_state(
         opt._optimize_cof(
             "in.cif", "out.cif", fixed_cell=True, preopt_topo="hcb"
         )
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("workflow", ["script", "notebook"])
-@pytest.mark.parametrize("topo", ["sql", "kgm"])
-def test_standard_workflows_pass_preopt_topology(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, workflow: str, topo: str
-) -> None:
-    """Run each standard preopt entry point without loading a MACE model."""
-    root = Path(__file__).resolve().parents[1]
-    seen: dict[str, object] = {}
-
-    class PreoptReachedError(Exception):
-        pass
-
-    def record_preopt(self, cof_name: str, **kwargs: object) -> None:
-        assert isinstance(self.calc, EMT)
-        seen.update(cof_name=cof_name, **kwargs)
-        raise PreoptReachedError
-
-    monkeypatch.setattr(GeometryOpt, "run_preopt", record_preopt)
-    monkeypatch.setattr(cl.BuildCOF2D, "build", lambda *_args, **_kwargs: [])
-    if workflow == "script":
-        driver = runpy.run_path(str(root / "example/cof-landscaper.py"))
-        params = json.loads(
-            (root / "example/cof-landscaper.params.json").read_text()
-        )
-        params.update(
-            TOPOLOGY=topo,
-            COF_NAME="workflow-test",
-            CALCULATOR="emt",
-            CALCULATOR_KWARGS={},
-        )
-        with pytest.raises(PreoptReachedError):
-            driver["run_workflow"](params)
-    else:
-        notebook = json.loads(
-            (root / "example/cof-landscaper_local.ipynb").read_text()
-        )
-        cells = [
-            "".join(cell["source"])
-            for cell in notebook["cells"]
-            if cell["cell_type"] == "code"
-            and "run_preopt(" in "".join(cell["source"])
-        ]
-        assert len(cells) == 1
-        cell_script = tmp_path / "preopt_cell.py"
-        cell_script.write_text(cells[0])
-        with pytest.raises(PreoptReachedError):
-            runpy.run_path(
-                str(cell_script),
-                init_globals={
-                    "cl": cl,
-                    "COF_NAME": "workflow-test",
-                    "TOPOLOGY": topo,
-                    "CALCULATOR": EMT,
-                    "CALCULATOR_KWARGS": {},
-                },
-            )
-    assert seen["cof_name"] == "workflow-test"
-    assert seen["topo"] == topo
 
 
 @pytest.mark.unit

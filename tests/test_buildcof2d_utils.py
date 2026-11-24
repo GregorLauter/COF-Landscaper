@@ -435,10 +435,10 @@ def test_import_preserves_working_directory(tmp_path: Path) -> None:
 def test_manual_hcb_matches_reference(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The original He-marked LZU-1 inputs still reproduce the published example cell."""
+    """The original He-marked LZU-1 inputs still reproduce the archived reference cell."""
     from pymatgen.core import Structure
 
-    example = Path(__file__).resolve().parents[1] / "example"
+    fixtures = Path(__file__).resolve().parent / "fixtures/cof-lzu-1"
     monkeypatch.chdir(tmp_path)
     monkeypatch.setitem(sys.modules, "stk", None)
     monkeypatch.setitem(sys.modules, "rdkit", None)
@@ -448,14 +448,12 @@ def test_manual_hcb_matches_reference(
     ):
         target = Path(folder) / filename
         target.parent.mkdir()
-        shutil.copyfile(example / target, target)
+        shutil.copyfile(fixtures / target, target)
         nested = target.parent / "old" / "ignored.xyz"
         nested.parent.mkdir()
         nested.write_text("old run")
     [output] = cl.BuildCOF2D().build("hcb", "manual")
-    reference = Structure.from_file(
-        example / "COF-LZU-1/1_COF-LZU-1_single_layer/COF-LZU-1_unopt.cif"
-    )
+    reference = Structure.from_file(fixtures / "COF-LZU-1_unopt.cif")
     assert reference.matches(
         Structure.from_file(output),
         ltol=0.001,
