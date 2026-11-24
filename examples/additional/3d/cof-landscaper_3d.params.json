@@ -1,11 +1,12 @@
 {
-  "COF_NAME": "N5-A6-pts",
-  "TOPOLOGY": "pts",
+  "COF_NAME": "BP-COF-1",
+  "TOPOLOGY": "bcu",
   "NODES": {
-    "0": "0_node/N5_2d_up.xyz",
-    "1": "0_node/A6_3d.xyz"
+    "0": "0_node/BP-COF-1_node_3d.xyz"
   },
-  "LINKERS": {},
+  "LINKERS": {
+    "0,0": "0_linker/BP-COF-1_linker_3d.xyz"
+  },
 
   "CALCULATOR": null,
   "CALCULATOR_KWARGS": {
@@ -17,8 +18,8 @@
   "OPT_FMAX": 0.01,
   "MAX_STEPS": 2000,
 
-  "PXRD_WAVELENGTH": "CuKa",
+  "PXRD_WAVELENGTH": "CuKa1",
   "PXRD_TWO_THETA_RANGE": [1.5, 30.0],
-  "EXPORT_HKL": false,
+  "EXPORT_HKL": true,
   "MAX_REFLECTIONS": 10
 }
