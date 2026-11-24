@@ -1,0 +1,3 @@
+structure,stacking_mode,energy_eV_per_layer,energy_rel_eV_per_layer,stopped_due_to_max_steps
+ILCOF-1_z35_L010_incl,incl,-64633.70380657848,0.01053976577532012,False
+ILCOF-1_z35_L000_serr,serr,-64633.714346344255,0.0,False
