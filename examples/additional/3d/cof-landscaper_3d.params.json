@@ -1,0 +1,24 @@
+{
+  "COF_NAME": "N5-A6-pts",
+  "TOPOLOGY": "pts",
+  "NODES": {
+    "0": "0_node/N5_2d_up.xyz",
+    "1": "0_node/A6_3d.xyz"
+  },
+  "LINKERS": {},
+
+  "CALCULATOR": null,
+  "CALCULATOR_KWARGS": {
+    "model": "mh-1",
+    "head": "spice_wB97M",
+    "device": "cpu",
+    "default_dtype": "float64"
+  },
+  "OPT_FMAX": 0.01,
+  "MAX_STEPS": 2000,
+
+  "PXRD_WAVELENGTH": "CuKa",
+  "PXRD_TWO_THETA_RANGE": [1.5, 30.0],
+  "EXPORT_HKL": false,
+  "MAX_REFLECTIONS": 10
+}

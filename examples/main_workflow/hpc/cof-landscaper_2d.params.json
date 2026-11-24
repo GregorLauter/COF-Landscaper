@@ -1,0 +1,43 @@
+{
+  "COF_NAME": "ILCOF-1",
+  "TOPOLOGY": "sql",
+  "MODE": "both",
+  "NODES": null,
+  "LINKERS": null,
+
+  "CALCULATOR": null,
+  "CALCULATOR_KWARGS": {
+    "model": "mh-1",
+    "head": "spice_wB97M",
+    "device": "cpu",
+    "default_dtype": "float64"
+  },
+  "PREOPT_FMAX": 0.03,
+  "OPT_FMAX": 0.01,
+  "MAX_STEPS": 2000,
+  "FIX_Z": true,
+  "FIX_CELL_ANGLES": false,
+
+  "ILD_START": 3.0,
+  "ILD_END": 4.0,
+  "ILD_STEP": 0.1,
+  "ILS_LENGTH_START": 0.0,
+  "ILS_LENGTH_END": null,
+  "ILS_LENGTH_STEP": 1.0,
+  "ILS_ANGLE": null,
+  "SLIP_PATH": null,
+
+  "MINIMA_MODE": "global",
+  "INCLUDE_AUTOSELECT": true,
+  "EXTRA_SERR": [],
+  "EXTRA_INCL": [],
+  "SHOW_MINIMA_MARKERS": true,
+  "SHOW_TITLE_BLOCK": false,
+  "METHOD_LABEL": null,
+
+  "PXRD_WAVELENGTH": "CuKa1",
+  "PXRD_TWO_THETA_RANGE": [1.5, 30.0],
+  "PXRD_XLIM": [1.5, 30.0],
+  "EXPORT_HKL": true,
+  "MAX_REFLECTIONS": 10
+}
