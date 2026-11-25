@@ -1,0 +1,11 @@
+# A dependency-only workspace can install the COF-Landscaper distribution.
+[tool.uv.workspace]
+members = []
+
+[dependency-groups]
+cof-landscaper = ["cof-landscaper[notebook,porosity]==@VERSION@"]
+
+[tool.uv]
+default-groups = ["cof-landscaper"]
+environments = ["python_version == '3.12'"]
+python-preference = "only-managed"
