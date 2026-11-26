@@ -38,18 +38,17 @@ analysis, and structure visualization.
    coflandscaper.Supercell
 
 
-MACE Calculations and Optimization
-----------------------------------
+Energy Calculations and Optimization
+------------------------------------
 
-Classes for MACE-based single-point energy calculations and geometry
-optimization.
+Classes for single-point energy calculations and geometry
+optimization using ASE-compatible calculators.
 
 .. autosummary::
    :toctree: _autosummary
 
-   coflandscaper.Mace
-   coflandscaper.MaceSP
-   coflandscaper.MaceOpt
+   coflandscaper.SinglePoint
+   coflandscaper.GeometryOpt
 
 
 PXRD Analysis and Refinement
