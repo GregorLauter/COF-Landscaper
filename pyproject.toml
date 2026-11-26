@@ -52,10 +52,7 @@ documentation = "https://github.com/GregorLauter/COF-Landscaper"
 [tool.setuptools_scm]
 
 [tool.setuptools.package-data]
-coflandscaper = [
-  "database/topologies/*.cgd",
-  "database/topologies/*.pickle",
-]
+coflandscaper = ["database/topologies/*.cgd"]
 
 [tool.ruff]
 line-length = 79
