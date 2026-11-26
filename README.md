@@ -1,237 +1,95 @@
 <p align="center">
-  <img src="docs/readme/symbol.png" alt="COF-Landscaper symbol" width="220">
+  <img src="docs/readme/symbol.png" alt="COF-Landscaper logo" width="150">
 </p>
 
 <h1 align="center">COF-Landscaper</h1>
 
+<p align="center"><strong>Build covalent organic frameworks and explore how their layers stack.</strong></p>
+
+COF-Landscaper gives experimental chemists a notebook workflow for turning molecular fragments into periodic framework models. For a 2D COF, it constructs a layer, varies the spacing and lateral displacement between layers, and ranks the sampled arrangements by energy. Relax the most promising candidates and compare their simulated powder X-ray diffraction (PXRD) patterns with your measurement. Several arrangements can give similar patterns, so use the comparison alongside other structural evidence.
+
+**[Installation guide](examples/installation/README.md)** · **[Choose an example](#examples)** · **[Prepare building blocks](#prepare-the-building-blocks)** · **[Documentation and data sources](#documentation-and-data-sources)**
+
 <p align="center">
-  Automated structure generation, stacking-landscape screening, structure optimization, and PXRD-guided refinement for two-dimensional covalent organic frameworks.
+  <img src="docs/readme/workflow.png" alt="Workflow from single-layer construction through inclined and serrated stacking scans to energy minima, full-cell optimisation and comparison with experimental PXRD" width="720">
 </p>
-
----
-
-COF-Landscaper is a Python package for building and analysing 2D covalent organic frameworks (COFs). It provides workflows for generating COF structures from molecular building blocks, exploring stacking configurations, optimizing candidate structures, simulating and comparing PXRD patterns with experimental data, and performing PXRD-guided in-plane lattice refinement.
-
-Researchers interested in applying COF-Landscaper to their own systems are welcome to contact me at [gjl342@student.bham.ac.uk](mailto:gjl342@student.bham.ac.uk). Depending on availability and project scope, I may be able to provide support, discuss collaboration, or offer a short one- to two-day online introduction for users with limited software or terminal experience. This can cover installation, setup, input preparation, and running the workflow on example or user-provided systems.
 
 ## Installation
 
-COF-Landscaper requires Python 3.12.
+[Standard installation](examples/installation/README.md#standard-installation) · [Advanced installation](examples/installation/README.md#advanced-installation)
 
-### Standard Conda installation
+## Examples
 
-The recommended setup is to use a dedicated Conda environment. If you do not already have Conda installed, a lightweight option is [Miniforge](https://conda-forge.org/download/).
+| Workflow | System | What you can do |
+| --- | --- | --- |
+| [Default notebook](examples/main_workflow/local/default/default.ipynb) | ILCOF-1 | Build a layer, screen its stacking arrangements, relax the selected structures and compare PXRD with experiment. Start here. |
+| [Configurable notebook](examples/main_workflow/local/configurable/configurable.ipynb) | ILCOF-1 | Choose the energy model, slip direction and sampling grid. The example screens 28 serrated arrangements. |
+| [2D HPC driver and inputs](examples/main_workflow/hpc/) | ILCOF-1 | Run the calculation on a cluster, then inspect the downloaded landscape, structures and diffraction patterns in the [analysis notebook](examples/main_workflow/hpc/pxrd_analysis.ipynb). |
+| [3D driver and inputs](examples/additional/3d/) | BP-COF-1 | Assemble the eight-connected `bcu` framework, relax the full cell and simulate PXRD. |
+| [Optional scaling notebook](examples/additional/scaling/scaling.ipynb) | COF-LZU-1 | Inspect peak offsets and explore an optional in-plane lattice adjustment using selected reflections. |
 
-Create and activate a new environment:
+## Prepare the building blocks
 
-```bash
-conda create -n coflandscaper python=3.12
-```
+Start from the framework you want to model. Choose a topology, then divide the bonded framework into molecular fragments with the required number and arrangement of connections. Choose the cuts to preserve the chemistry that matters. Cutting a single bond next to an imine, for example, keeps the C=N bond and its intended E or Z geometry within one fragment.
 
-```bash
-conda activate coflandscaper
-```
+<p align="center">
+  <img src="docs/readme/fragmentation-concept.png" alt="Cuts through a square net give a four-connected node and a two-connected linker, each marked at the cut sites" width="385">
+  <img src="docs/readme/fragmentation-imine.png" alt="Cutting through C=N splits the imine across two fragments. Cutting the adjacent single bond keeps the imine geometry together." width="405">
+</p>
 
-Upgrade `pip`:
+Place one helium atom (`He`) on each side of a cut to mark where the opposite fragment should connect. These markers guide assembly and are removed when the fragments are joined. In ILCOF-1, the four-connected pyrene node joins a two-connected linker that retains both imines. [Node XYZ](examples/main_workflow/local/default/0_node/ILCOF-1_node.xyz) · [Linker XYZ](examples/main_workflow/local/default/0_linker/ILCOF-1_linker.xyz)
 
-```bash
-python -m pip install --upgrade pip
-```
+<p align="center">
+  <img src="docs/readme/ilcof1-building-fragments.png" alt="ILCOF-1 framework with the pyrene node and imine-containing linker highlighted beside their He-marked molecular fragments" width="720">
+</p>
 
-Install COF-Landscaper from PyPI:
+### Prepare the XYZ files in Avogadro 2
 
-```bash
-python -m pip install cof-landscaper
-```
+1. Draw or import each fragment with the intended bond orders and stereochemistry. [Drawing molecules](https://avogadro.cc/docs/getting-started/drawing-molecules.html)
+2. If the coordinates need preoptimisation, select UFF and run **Extensions → Optimize Geometry**. [Force-field settings](https://avogadro.cc/docs/menus/extensions-menu.html#configure)
+3. Once the geometry is ready, add one He per connection along the intended bond direction, replacing any capping hydrogen at that site.
+4. Export each fragment as XYZ via **File → Export → Molecule…**. Put nodes in `0_node/` and any linkers in `0_linker/`. [Exporting molecules](https://avogadro.cc/docs/getting-started/saving-files.html#exporting-to-other-formats)
 
-Check that the installation works:
+Inspect the bond geometry at the joins and check for clashes in the assembled layer before scanning its stacking arrangements.
 
-```bash
-python -c "import coflandscaper as cl; print(cl.__version__)"
-```
+### Supported 2D topologies
 
-### Alternative virtual environment installation
+<p align="center">
+  <img src="docs/readme/topology-overview.png" alt="Honeycomb, square and Kagome nets have linkers between nodes. The two binary nets connect node A (circles) directly to node B (diamonds)." width="760">
+</p>
 
-If Python 3.12 is already available on your system, you can also use a standard virtual environment.
+Each entry gives the number of distinct XYZ files × He markers per file. The two binary topologies join the two node types directly.
 
-Check whether Python 3.12 is available:
+| Topology | Keyword | Nodes | Linkers |
+| --- | --- | --- | --- |
+| Honeycomb | `hcb` | 1 × 3 | 1 × 2 |
+| Square lattice | `sql` | 1 × 4 | 1 × 2 |
+| Kagome | `kgm` | 1 × 4 | 1 × 2 |
+| Binary honeycomb | `hcb_ab` | 2 × 3 | None |
+| Binary square lattice | `sql_ab` | 2 × 4 | None |
 
-```bash
-python3.12 --version
-```
+For a 3D example, BP-COF-1 uses an eight-connected node and a two-connected linker on the `bcu` net. [3D configuration](examples/additional/3d/cof-landscaper_3d.params.json)
 
-If this command returns a Python 3.12 version, continue with the virtual environment setup (otherwise Python 3.12 can be installed from the [official Python downloads page](https://www.python.org/downloads/) or through a platform-specific package manager).
+## Documentation and data sources
 
-Create a virtual environment.
+Use this README and the example notebooks for practical instructions and guidance on interpreting results. The API reference on Read the Docs is under development. [Example workflows](#examples) · [Read the Docs](https://cof-landscaper.readthedocs.io/)
 
-```bash
-python3.12 -m venv coflandscaper
-```
+The example data record lists the framework publications, experimental PXRD sources and wavelengths, and the origin of the computational results. [Example data sources](examples/DATA_SOURCES.md)
 
-Activate the virtual environment on macOS or Linux:
+## Citation and contact
 
-```bash
-source coflandscaper/bin/activate
-```
+When reporting results, cite **Gregor Lauter, COF-Landscaper (software)** with the version you used and the repository URL. Also cite the experimental data and energy model used in your study. [Software repository](https://github.com/GregorLauter/COF-Landscaper) · [Version tags](https://github.com/GregorLauter/COF-Landscaper/tags)
 
-On Windows PowerShell, use:
+Report software problems on [GitHub Issues](https://github.com/GregorLauter/COF-Landscaper/issues). For help preparing fragments, using the workflow or discussing a collaboration, contact [Gregor Lauter](mailto:gjl342@student.bham.ac.uk).
 
-```powershell
-.\coflandscaper\Scripts\Activate.ps1
-```
+## Development
 
-Then install COF-Landscaper:
-
-```bash
-python -m pip install --upgrade pip
-```
-
-```bash
-python -m pip install cof-landscaper
-```
-
-## Example Files
-
-A complete example workflow is included directly in the repository under:
-
-```text
-example/
-```
-
-The example uses a single COF system and provides two complementary ways of running the COF-Landscaper workflow:
-
-- `cof-landscaper_local.ipynb`: complete interactive workflow for running COF-Landscaper locally in a Jupyter notebook, including the individual workflow steps, visualization, analysis, and PXRD-guided refinement.
-
-- `cof-landscaper_hybrid.ipynb`: companion notebook for the hybrid/HPC workflow. The main computational workflow is first executed using the Python script, typically on an HPC system, while the notebook is used afterwards to inspect the generated results, visualize the potential energy landscapes, compare simulated and experimental PXRD data, and perform PXRD-guided refinement.
-
-The hybrid workflow is controlled by:
-
-- `cof-landscaper.py`: executable Python workflow containing the main computational pipeline.
-- `cof-landscaper.params.json`: configuration file containing the system and workflow parameters used by the Python script.
-
-The Python workflow script is intended to remain unchanged; calculations are configured through `cof-landscaper.params.json`, where workflow parameters can be adjusted and optional settings added or removed as required. The `example/` directory also contains the required example building-block files and experimental PXRD data. Both workflows use the same example system and input data.
-
-Users can copy the `example/` directory from the repository and modify the input structures, parameters, and workflow settings for their own systems.
-
-## Running the Notebooks
-
-Install Jupyter support if you want to run the notebooks.
-
-```bash
-pip install jupyter ipykernel
-```
-
-Register the environment as a Jupyter kernel.
-
-```bash
-python -m ipykernel install --user --name coflandscaper --display-name "Python (coflandscaper)"
-```
-
-In VS Code or Jupyter, select the kernel:
-
-```text
-Python (coflandscaper)
-```
-
-Run a test cell:
-
-```python
-import coflandscaper as cl
-```
-
-## Developer Setup
-
-For development, install [`just`](https://github.com/casey/just) and [`uv`](https://docs.astral.sh/uv/getting-started/installation/).
-
-Clone the repository and enter the source directory.
-
-```bash
-git clone https://github.com/GregorLauter/COF-Landscaper.git
-```
-
-```bash
-cd COF-Landscaper
-```
-
-Set up the development environment.
+From a source checkout with uv and just installed, set up the developer environment and run the repository checks. The package is distributed under the [MIT licence](LICENSE).
 
 ```bash
 just setup
 ```
 
-Run code checks.
-
 ```bash
 just check
 ```
-
-## Workflow Notes
-
-- The workflow can be executed on a local machine using a CPU, although GPU access can provide a substantial speedup.
-- For large systems, long screening workflows, or cases where local hardware is limiting, running the workflow on an external cluster (GPU or CPU) is recommended.
-- If you are interested in applying COF-Landscaper but do not have access to suitable computational resources, feel free to contact me.
-
-Workflow diagram:
-
-<p align="center">
-  <img src="docs/readme/workflow.png" alt="COF-Landscaper workflow" width="850">
-</p>
-
-<p>
-  <em>
-    <strong>Figure:</strong> COF-Landscaper workflow. Node and linker fragments are placed on a selected topological net to construct a single-layer COF structure. From this layer, COF-Landscaper generates a matrix of stacked COF structures that differ in their interlayer distance (ILD) and interlayer slipping (ILS) values. A machine-learned interatomic potential (MLIP) single-point energy calculation is performed for each stacking configuration, yielding a simplified potential-energy landscape. Low-energy minima on this landscape are used as starting guesses for structure optimization. The optimized COF structures can then be visualized, analysed, and used to simulate PXRD patterns for comparison with experimental PXRD data.
-  </em>
-</p>
-
-## Required Input Files
-
-The workflow requires building-block fragments provided as `.xyz` files.
-
-In this context, the terms **node** and **linker** refer to the structural fragments used by the builder to assemble the framework. They do **not** correspond directly to the synthetic precursors. Instead, they describe the molecular fragments that are placed on the selected topological net during structure generation.
-
-<p align="center">
-  <img src="docs/readme/cutting.png" alt="COF-1 layer and extracted node/linker fragments" width="800">
-</p>
-
-<p>
-  <em>
-    <strong>Figure:</strong> Schematic representation of fragment definition for COF-1. The full COF layer is shown on the left, with an enlarged local region indicating the conceptual bond cut used to define the input fragments. The resulting 3-connected node fragment and 2-connected linker fragment are shown on the right.
-  </em>
-</p>
-
-Supported topologies:
-
-| Topology | Keyword | Description | Node amount | Node connectivity | Linker amount | Linker connectivity |
-|---|---|---|---:|---|---:|---|
-| Honeycomb | `hcb` | Standard honeycomb lattice. | 1 | 3 | 1 | 2 |
-| Square lattice | `sql` | Square lattice. | 1 | 4 | 1 | 2 |
-| Binary honeycomb | `hcb_ab` | Honeycomb lattice constructed from two different node types without a separate linker. | 2 | 3 each | 0 | — |
-| Kagome | `kgm` | Kagome lattice. | 1 | 4 | 1 | 2 |
-
-### Connection Points
-
-Connection points must be marked with helium atoms (`He`) in the input `.xyz` files.
-
-During preprocessing, COF-Landscaper converts these `He` atoms into PORMAKE-compatible connection points. The number and geometry of the `He` atoms must match the selected topology and the intended connectivity shown in the table above.
-
-Input requirements:
-
-- `hcb`, `sql`, and `kgm` require one node `.xyz` file and one linker `.xyz` file.
-- `hcb_ab` requires two node `.xyz` files and no linker file.
-- By default, node files are read from `0_node/`.
-- By default, linker files are read from `0_linker/` when required by the topology.
-- Explicit paths can be provided with `input_nodes=[...]` and `input_linkers=[...]`.
-
-Input fragments should ideally be pre-optimized with a generic force field, such as UFF, to remove severe steric clashes and obtain reasonable approximate bond lengths.
-
-The subsequent pre-optimization step handles the assembled framework. Therefore, the main requirement at this stage is that the individual fragments are chemically sensible and can be connected cleanly by the builder.
-
-The `.xyz` files can be prepared using any suitable molecular editor or visualizer, for example Avogadro, Mercury, or DrawMol.
-
-## Documentation
-
-The full documentation is available on Read the Docs:
-
-[COF-Landscaper documentation](https://cof-landscaper.readthedocs.io/)
-
-Additional stepwise explanations of the computational workflow are provided in the Markdown cells of the example notebooks.
