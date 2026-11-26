@@ -1,8 +1,10 @@
 # Install COF-Landscaper
 
-[Standard installation](#standard-installation) · [Your research projects](#your-research-projects) · [Advanced installation](#advanced-installation)
+[Beginner's Guide](#beginners-guide) · [Your research projects](#your-research-projects) · [Further Installation Options](#further-installation-options)
 
-## Standard installation
+<a name="standard-installation"></a>
+
+## Beginner's Guide
 
 ### 1. Install VS Code
 
@@ -10,7 +12,7 @@ Download and install Visual Studio Code for your operating system. [Download VS 
 
 ### 2. Download COF-Landscaper
 
-Download **COF-Landscaper.zip**. [GitHub Releases](https://github.com/GregorLauter/COF-Landscaper/releases)
+Download [COF-Landscaper.zip](https://github.com/GregorLauter/COF-Landscaper/releases/download/v2026.11.26.0/COF-Landscaper.zip).
 
 ### 3. Extract the folder
 
@@ -107,21 +109,13 @@ COF-Landscaper/
 
 Use the same **COF-Landscaper** kernel for these notebooks. Keep the workspace in its installed location and retain `.venv/`, `.vscode/`, `.python-version`, `pyproject.toml` and `uv.lock` at its root.
 
-## Advanced installation
+<a name="advanced-installation"></a>
 
-Use **Python 3.12** in your chosen environment to install COF-Landscaper from [PyPI](https://pypi.org/project/cof-landscaper/).
+## Further Installation Options
 
-```bash
-python -m pip install cof-landscaper
-```
+### Editable installation
 
-For Jupyter, install the notebook extra instead.
-
-```bash
-python -m pip install "cof-landscaper[notebook]"
-```
-
-For an editable installation from the repository, use the same Python environment.
+Use Python 3.12 to install an editable copy of the repository.
 
 ```bash
 git clone https://github.com/GregorLauter/COF-Landscaper.git

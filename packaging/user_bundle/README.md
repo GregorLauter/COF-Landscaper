@@ -2,7 +2,7 @@
 
 ## Installation
 
-Place the extracted `COF-Landscaper` folder in a permanent location and open it in VS Code. [Start the installation guide](examples/installation/README.md#standard-installation)
+Place the extracted `COF-Landscaper` folder in a permanent location and open it in VS Code. [Beginner's Guide](examples/installation/README.md#beginners-guide)
 
 ## Running the notebooks
 
@@ -10,4 +10,4 @@ Begin with the [default ILCOF-1 notebook](examples/main_workflow/local/default/d
 
 The bundle also includes the [configurable ILCOF-1 notebook](examples/main_workflow/local/configurable/configurable.ipynb), [2D HPC workflow](examples/main_workflow/hpc/), [3D BP-COF-1 workflow](examples/additional/3d/) and [optional COF-LZU-1 scaling notebook](examples/additional/scaling/scaling.ipynb).
 
-[Your research projects](examples/installation/README.md#your-research-projects) · [Example data sources](examples/DATA_SOURCES.md) · [Advanced installation and HPC](examples/installation/README.md#advanced-installation) · [API documentation](https://cof-landscaper.readthedocs.io/)
+[Your research projects](examples/installation/README.md#your-research-projects) · [Example data sources](examples/DATA_SOURCES.md) · [Further Installation Options](examples/installation/README.md#further-installation-options) · [API documentation](https://cof-landscaper.readthedocs.io/)

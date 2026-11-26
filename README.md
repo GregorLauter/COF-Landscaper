@@ -8,7 +8,7 @@
 
 COF-Landscaper gives experimental chemists a notebook workflow for turning molecular fragments into periodic framework models. For a 2D COF, it constructs a layer, varies the spacing and lateral displacement between layers, and ranks the sampled arrangements by energy. Relax the most promising candidates and compare their simulated powder X-ray diffraction (PXRD) patterns with your measurement. Several arrangements can give similar patterns, so use the comparison alongside other structural evidence.
 
-**[Installation guide](examples/installation/README.md)** · **[Choose an example](#examples)** · **[Prepare building blocks](#prepare-the-building-blocks)** · **[Documentation and data sources](#documentation-and-data-sources)**
+**[Installation](#installation)** · **[Choose an example](#examples)** · **[Prepare building blocks](#prepare-the-building-blocks)** · **[Documentation and data sources](#documentation-and-data-sources)**
 
 <p align="center">
   <img src="docs/readme/workflow.png" alt="Workflow from single-layer construction through inclined and serrated stacking scans to energy minima, full-cell optimisation and comparison with experimental PXRD" width="720">
@@ -16,7 +16,23 @@ COF-Landscaper gives experimental chemists a notebook workflow for turning molec
 
 ## Installation
 
-[Standard installation](examples/installation/README.md#standard-installation) · [Advanced installation](examples/installation/README.md#advanced-installation)
+COF-Landscaper requires **Python 3.12**.
+
+```bash
+pip install cof-landscaper
+```
+
+For Jupyter notebooks, install the notebook extra instead.
+
+```bash
+pip install "cof-landscaper[notebook]"
+```
+
+**[Beginner's Guide](examples/installation/README.md#beginners-guide)** · **[Download COF-Landscaper.zip](https://github.com/GregorLauter/COF-Landscaper/releases/download/v2026.11.26.0/COF-Landscaper.zip)**
+
+For researchers without prior programming experience, the guide offers one recommended way to install COF-Landscaper and run the example notebooks, with a consistent VS Code setup across macOS and Windows.
+
+[Further installation options: editable installation and GPU/HPC usage](examples/installation/README.md#further-installation-options)
 
 ## Examples
 
