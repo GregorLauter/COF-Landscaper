@@ -12,7 +12,7 @@ Download and install Visual Studio Code for your operating system. [Download VS 
 
 ### 2. Download COF-Landscaper
 
-Download [COF-Landscaper.zip](https://github.com/GregorLauter/COF-Landscaper/releases/download/v2026.11.26.0/COF-Landscaper.zip).
+Download [COF-Landscaper.zip](https://github.com/GregorLauter/COF-Landscaper/releases/download/v2026.11.27.0/COF-Landscaper.zip).
 
 ### 3. Extract the folder
 
