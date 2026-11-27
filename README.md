@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/symbol.png" alt="COF-Landscaper logo" width="150">
+  <img src="docs/readme/Logofinal.svg" alt="COF-Landscaper logo" width="175">
 </p>
 
 <h1 align="center">COF-Landscaper</h1>
@@ -16,7 +16,11 @@ COF-Landscaper gives experimental chemists a notebook workflow for turning molec
 
 ## Installation
 
-COF-Landscaper requires **Python 3.12**.
+**[Beginner's Guide](examples/installation/README.md#beginners-guide)** · **[Download COF-Landscaper.zip](https://github.com/GregorLauter/COF-Landscaper/releases/download/v2026.11.26.0/COF-Landscaper.zip)**
+
+For researchers without prior programming experience, the guide offers one recommended way to install COF-Landscaper and run the example notebooks, with a consistent VS Code setup across macOS and Windows.
+
+COF-Landscaper requires **Python 3.12**. You can run either of these PyPI installation commands from any directory.
 
 ```bash
 pip install cof-landscaper
@@ -28,9 +32,13 @@ For Jupyter notebooks, install the notebook extra instead.
 pip install "cof-landscaper[notebook]"
 ```
 
-**[Beginner's Guide](examples/installation/README.md#beginners-guide)** · **[Download COF-Landscaper.zip](https://github.com/GregorLauter/COF-Landscaper/releases/download/v2026.11.26.0/COF-Landscaper.zip)**
+For a project-based installation, open the folder containing its `pyproject.toml`. For example, if you placed COF-Landscaper in Documents, use this command.
 
-For researchers without prior programming experience, the guide offers one recommended way to install COF-Landscaper and run the example notebooks, with a consistent VS Code setup across macOS and Windows.
+```bash
+cd ~/Documents/COF-Landscaper
+```
+
+In the extracted **Beginner's Guide ZIP**, run `uv sync` from this folder. For an **editable installation** from a Git clone, run `python -m pip install -e ".[notebook]"` from the clone’s root.
 
 [Further installation options: editable installation and GPU/HPC usage](examples/installation/README.md#further-installation-options)
 
@@ -100,7 +108,7 @@ Report software problems on [GitHub Issues](https://github.com/GregorLauter/COF-
 
 ## Development
 
-From a source checkout with uv and just installed, set up the developer environment and run the repository checks. The package is distributed under the [MIT licence](LICENSE).
+From the source directory containing `pyproject.toml`, with uv and just installed, set up the developer environment and run the repository checks. The package is distributed under the [MIT licence](LICENSE).
 
 ```bash
 just setup

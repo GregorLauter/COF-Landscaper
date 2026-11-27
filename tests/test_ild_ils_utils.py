@@ -423,11 +423,37 @@ def test_matrix_preflight_preserves_existing_runs(tmp_path: Path) -> None:
             generate(ild_step=ild, ils_step=ils)
         assert not output.exists()
     generate()
+    # A bundled LF matrix and a CIF written on Windows can describe the
+    # same run. Retain the original files, including their serialisation.
+    incl = output / "incl/sheet_z34_L000_incl.cif"
+    serr = output / "serr/sheet_z34_L000_serr.cif"
+    newline = "\n" if b"\r\n" in incl.read_bytes() else "\r\n"
+    text = incl.read_text(encoding="utf-8")
+    incl.write_bytes(text.replace("\n", newline).encode("utf-8"))
+    original = serr.read_text(encoding="utf-8")
+    assert "_cell_length_a   5.00000000" in original
+    serr.write_text(
+        original.replace(
+            "_cell_length_a   5.00000000", "_cell_length_a   5.00000001"
+        ),
+        encoding="utf-8",
+    )
     before = {p: p.read_bytes() for p in output.rglob("*.cif")}
     generate()
     with pytest.raises(ValueError, match="Incompatible existing"):
         generate("b/2")
     assert before == {p: p.read_bytes() for p in output.rglob("*.cif")}
+
+    # A changed atom in the second mode must abort before a missing file
+    # in the first mode is restored.
+    incl.unlink()
+    assert "0.25000000" in original
+    serr.write_text(
+        original.replace("0.25000000", "0.25100000"), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match=serr.name):
+        generate()
+    assert not incl.exists()
 
 
 @pytest.mark.integration

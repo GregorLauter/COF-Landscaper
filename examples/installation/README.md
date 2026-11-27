@@ -66,7 +66,7 @@ winget install --id=astral-sh.uv -e
 
 ### 9. Install the notebook environment
 
-Close and reopen the terminal, then run the following command and wait for it to finish.
+Close and reopen the terminal. Run the following command from the extracted **COF-Landscaper** folder containing `pyproject.toml` (the folder opened in step 4) and wait for it to finish.
 
 ```bash
 uv sync

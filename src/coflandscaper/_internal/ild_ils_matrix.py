@@ -13,7 +13,6 @@ landscape.
 
 from __future__ import annotations
 
-import filecmp
 import math
 import os
 import re
@@ -24,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 from pymatgen.core import Lattice, Structure
-from pymatgen.io.cif import CifWriter
+from pymatgen.io.cif import CifFile, CifWriter
 
 from .ild_ils_utils import (
     _calculate_ild,
@@ -36,6 +35,55 @@ from .ild_ils_utils import (
     default_shift_from_cif,
     list_cifs,
 )
+
+
+def _same_matrix_cif(existing: Path, generated: Path) -> bool:
+    """Compare generated CIFs without treating writer round-off as a new run."""
+    try:
+        old = existing.read_text(encoding="utf-8")
+        new = generated.read_text(encoding="utf-8")
+        if old == new:  # Text mode already normalises Windows line endings.
+            return True
+
+        # Compare the writer's P1 data directly. Structure matching can
+        # reorder/merge sites or transform the basis used to define the slip.
+        (previous,) = CifFile.from_str(old).data.values()
+        (current,) = CifFile.from_str(new).data.values()
+        if (
+            previous.loops != current.loops
+            or previous.data.keys() != current.data.keys()
+        ):
+            return False
+        for key, expected in current.data.items():
+            actual = previous.data[key]
+            if actual == expected:
+                continue
+            if (
+                not key.startswith(
+                    ("_cell_length_", "_cell_angle_", "_atom_site_fract_")
+                )
+                and key != "_cell_volume"
+            ):
+                return False
+            left, right = (
+                np.asarray(actual, dtype=float),
+                np.asarray(expected, dtype=float),
+            )
+            if left.shape != right.shape:
+                return False
+            # One unit in the writer's eighth decimal place, allowing for
+            # float conversion. Volume is derived from the checked lengths/angles.
+            if not np.allclose(
+                left,
+                right,
+                atol=1.01e-8,
+                rtol=1e-8 if key == "_cell_volume" else 0,
+            ):
+                return False
+    except (ValueError, IndexError, ZeroDivisionError):
+        # An unreadable or malformed existing CIF is not reusable.
+        return False
+    return True
 
 
 def _slip_lengths(
@@ -551,8 +599,9 @@ class CreateMatrix:
             output_base_folder: Optional matrix output-base override. Defaults to
                 ``{cof_name}/2_{cof_name}_matrix``.
 
-        Existing CIFs must match the requested matrix. Use separate workflow roots
-        for distinct slip directions, grids or calculator settings.
+        Existing CIFs are retained if their cell and ordered sites agree within
+        CIF writing precision. Use separate workflow roots for distinct layer
+        geometries, slip directions, grids or calculator settings.
 
         Raises:
             ValueError: If a filename collides, existing CIFs conflict, or a selector is invalid.
@@ -629,11 +678,10 @@ class CreateMatrix:
                 pending = Path(tmp_ild) / tag
                 for old in (output_base_path / tag).glob("*.cif"):
                     new = pending / old.name
-                    if not new.is_file() or not filecmp.cmp(
-                        old, new, shallow=False
-                    ):
+                    if not new.is_file() or not _same_matrix_cif(old, new):
                         raise ValueError(
-                            f"Incompatible existing matrix CIF {old}. Use a separate workflow root for different grids, slip directions or calculators."
+                            f"Incompatible existing matrix CIF {old}. Use a separate workflow root for different layer geometries, grids, slip directions or calculators. "
+                            "To rerun a bundled example, copy the notebook and its input folders into a fresh directory."
                         )
             for tag in modes:
                 target = output_base_path / tag
