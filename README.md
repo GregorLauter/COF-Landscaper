@@ -16,9 +16,9 @@ COF-Landscaper gives experimental chemists a notebook workflow for turning molec
 
 ## Installation
 
-**[Beginner's Guide](examples/installation/README.md#beginners-guide)** · **[Download COF-Landscaper.zip](https://github.com/GregorLauter/COF-Landscaper/releases/download/v2026.11.26.0/COF-Landscaper.zip)**
+For researchers without prior programming experience, we provide a step-by-step guide covering installation and running the first workflow.
 
-For researchers without prior programming experience, the guide offers one recommended way to install COF-Landscaper and run the example notebooks, with a consistent VS Code setup across macOS and Windows.
+[Beginner's Guide](examples/installation/README.md#beginners-guide)
 
 COF-Landscaper requires **Python 3.12**. You can run either of these PyPI installation commands from any directory.
 
@@ -32,15 +32,7 @@ For Jupyter notebooks, install the notebook extra instead.
 pip install "cof-landscaper[notebook]"
 ```
 
-For a project-based installation, open the folder containing its `pyproject.toml`. For example, if you placed COF-Landscaper in Documents, use this command.
-
-```bash
-cd ~/Documents/COF-Landscaper
-```
-
-In the extracted **Beginner's Guide ZIP**, run `uv sync` from this folder. For an **editable installation** from a Git clone, run `python -m pip install -e ".[notebook]"` from the clone’s root.
-
-[Further installation options: editable installation and GPU/HPC usage](examples/installation/README.md#further-installation-options)
+[Further installation options (source installation, GPU and HPC setup)](examples/installation/README.md#further-installation-options)
 
 ## Examples
 
